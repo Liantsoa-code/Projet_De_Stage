@@ -1,0 +1,42 @@
+# Dépendances
+/3_Application/vendor/
+/3_Application/node_modules/
+
+# Variables d'environnement
+/3_Application/.env
+/3_Application/.env.backup
+/3_Application/.env.production
+
+# Cache et fichiers générés
+/3_Application/bootstrap/cache/*.php
+/3_Application/storage/app/public/*
+/3_Application/storage/framework/cache/
+/3_Application/storage/framework/sessions/
+/3_Application/storage/framework/testing/
+/3_Application/storage/framework/views/
+/3_Application/storage/logs/
+
+# Build front-end
+/3_Application/public/build/
+/3_Application/public/hot
+/3_Application/public/storage
+
+# Tests
+/3_Application/.phpunit.result.cache
+/3_Application/coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Archives
+*.rar
+*.zip
+
+# Python
+__pycache__/
+*.pyc

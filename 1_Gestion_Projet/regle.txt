@@ -1,0 +1,79 @@
+CONTEXTE DU PROJET
+
+Je développe une plateforme web de gestion des demandes d'autorisation 
+(filmage, recherche scientifique, usage de drones) pour Fanamby, une 
+association malgache de conservation qui gère des aires protégées 
+marines et terrestres.
+
+PROBLÈME À RÉSOUDRE
+
+Aujourd'hui, les demandes d'accès aux sites protégés sont traitées par 
+email : pas de suivi structuré, pas de vérification automatique des 
+conflits avec les périodes sensibles (nidification, reproduction), pas 
+de traçabilité des décisions, pas de contrôle d'accès aux données.
+
+STACK TECHNIQUE
+
+- Backend : Laravel (PHP)
+- Base de données : MySQL
+- Frontend : 
+- Style : 
+- Génération PDF : DomPDF ou équivalent Laravel
+- Gestion des rôles : Spatie Laravel-Permission (ou équivalent)
+
+RÔLES ET PERMISSIONS (RBAC)
+
+1. Demandeur — soumet des demandes, ne voit que ses propres demandes
+2. Validateur — rattaché à un ou plusieurs sites (relation many-to-many), 
+   ne voit et ne traite que les demandes des sites qui lui sont attribués
+3. Admin — voit tout, gère les utilisateurs et les statistiques globales
+
+MODÈLE DE DONNÉES (déjà conçu)
+
+- UTILISATEUR (id, nom, email, mot_de_passe, role)
+- SITE (id, nom, description)
+- SITE_VALIDATEUR (id_utilisateur, id_site) — table de liaison many-to-many
+- TYPE_DEMANDE (id, libelle, documents_requis, regles_specifiques)
+- DEMANDE (id, date_debut, date_fin, description, statut, date_soumission, 
+  id_utilisateur, id_site, id_type)
+- DOCUMENT (id, nom_fichier, chemin, type_document, id_demande)
+- HISTORIQUE_STATUT (id, ancien_statut, nouveau_statut, commentaire, 
+  date_changement, id_demande, id_utilisateur)
+- PERIODE_SENSIBLE (id, date_debut, date_fin, description, id_site)
+- NOTIFICATION (id, contenu, date_envoi, id_demande)
+
+FONCTIONNALITÉS À DÉVELOPPER (par ordre de priorité)
+
+Base :
+- Authentification et gestion des rôles
+- CRUD des demandes, sites, utilisateurs
+- Formulaire de soumission de demande (multi-étapes selon le type)
+- Suivi de statut côté demandeur (timeline intelligente et interactive)
+- Back-office de validation (liste, filtres, fiche détail, validation/refus)
+- Notifications email à chaque changement de statut
+- Export Excel/CSV
+
+Valeur ajoutée  :
+- Moteur de règles métier central : Analyse automatique de la demande (site, dates, type, équipe) évaluant la compatibilité (🟢 Compatible, 🟠 Sous conditions, 🔴 Conflit). Il explique les contraintes détectées (ex: période sensible, drone réglementé), propose des recommandations et assiste la décision humaine. Configurable par les responsables Fanamby.
+- Visualisation géographique (Carte interactive) : Carte réactive. Lors de la sélection d'une zone, les restrictions s'affichent et la demande est analysée visuellement (si les données le permettent).
+- Workflow visuel (Timeline intelligente) : Suivi de processus transformant l'historique de statuts (machine à états) en une timeline visuelle interactive et cliquable.
+- Génération automatique de PDF : Autorisation finale + cahier des charges générés automatiquement à partir des recommandations du moteur de règles (adapté au type de demande, au site et à la période).
+- Tableau de bord statistique : Nombre de demandes par type/site/mois, taux de refus, délai moyen de traitement.
+
+Stockage des fichiers :
+- Stockage local Laravel (storage/app/, PAS dans public/)
+- Accès aux documents uniquement via une route protégée qui vérifie les 
+  droits de l'utilisateur avant de servir le fichier
+
+HORS PÉRIMÈTRE (ne pas développer, sauf demande explicite)
+
+- Rapport post-activité
+
+CONTRAINTES
+
+- Code doit rester maintenable par une petite structure associative
+- Prioriser la simplicité et la robustesse sur la sophistication
+
+CE QUE J'ATTENDS DE TOI
+
+[Précise ici ta première tâche concrète, par exemple :]
