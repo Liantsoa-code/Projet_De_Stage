@@ -23,7 +23,7 @@ class DemandeController extends Controller
         $user = Auth::user();
 
         $demandes = $this->filteredQuery($request)
-            ->with(['site', 'typeDemande', 'statut', 'user'])
+            ->with(['site:id,nom', 'typeDemande:id,libelle', 'statut:id,code,libelle', 'user:id,name'])
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString();
@@ -130,7 +130,7 @@ class DemandeController extends Controller
     {
         $this->assertCanAccessDemande(Auth::user(), $demande);
 
-        $demande->load(['site', 'typeDemande', 'statut', 'user', 'documents', 'historiqueStatuts.user', 'historiqueStatuts.nouveauStatut']);
+        $demande->load(['site:id,nom', 'typeDemande', 'statut', 'user:id,name,email', 'documents', 'historiqueStatuts.user:id,name,role', 'historiqueStatuts.nouveauStatut']);
         $allStatuts = Statut::all();
 
         $user = Auth::user();
@@ -222,9 +222,7 @@ class DemandeController extends Controller
             return;
         }
 
-        $siteIds = $user->sites()->pluck('sites.id')->toArray();
-
-        if (! in_array($demande->site_id, $siteIds, true)) {
+        if (! $user->sites()->whereKey($demande->site_id)->exists()) {
             abort(403, 'Accès non autorisé à cette demande.');
         }
     }

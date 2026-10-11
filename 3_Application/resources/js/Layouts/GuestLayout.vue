@@ -1,128 +1,123 @@
 <script setup>
-// GuestLayout — formulaire à gauche, visuel plein cadre à droite
+import { Link } from '@inertiajs/vue3';
+
+defineProps({
+    // 'connexion' ou 'inscription' affiche le sélecteur entre les deux pages
+    onglet: { type: String, default: null },
+});
 </script>
 
 <template>
-    <div class="split-layout">
-        <div class="split-form-side">
-            <div class="split-form-inner">
-                <!-- Logo -->
-                <div class="guest-logo">
-                    <img src="/assets/logo-fanamby-vertical-transparent.png" alt="Logo Fanamby">
-                </div>
+    <div class="guest">
+        <div class="guest__side">
+            <header class="guest__top">
+                <Link href="/" class="guest__brand">
+                    <img src="/assets/logo-fanamby-192.png" alt="" class="guest__logo" width="44" height="44">
+                    <span>
+                        <strong>FANAMBY</strong>
+                        <small>Accès aux aires protégées</small>
+                    </span>
+                </Link>
+                <Link href="/" class="guest__home">Retour à l'accueil</Link>
+            </header>
 
-                <div class="guest-form-container">
-                    <slot />
-                </div>
-            </div>
+            <main class="guest__main">
+                <nav v-if="onglet" class="guest__tabs" aria-label="Accès au compte">
+                    <Link :href="route('login')" class="guest__tab" :aria-current="onglet === 'connexion' ? 'page' : undefined">Se connecter</Link>
+                    <Link :href="route('register')" class="guest__tab" :aria-current="onglet === 'inscription' ? 'page' : undefined">Créer un compte</Link>
+                </nav>
+                <slot />
+            </main>
+
+            <footer class="guest__foot">Fondation FANAMBY · Antananarivo, Madagascar</footer>
         </div>
 
-        <!-- Image de fond sur la moitié droite -->
-        <div class="split-image-side" style="background-image: url('/assets/bg-login.jpg');"></div>
+        <figure class="guest__visual">
+            <img
+                src="/assets/bg-login-1200.jpg"
+                srcset="/assets/bg-login-1200.jpg 1200w, /assets/bg-login-2000.jpg 2000w"
+                sizes="(max-width: 900px) 100vw, 55vw"
+                alt="Un indri, grand lémurien noir, agrippé à une branche en forêt humide"
+                class="guest__photo"
+            >
+            <figcaption class="guest__caption">
+                <slot name="caption">
+                    <span class="eyebrow">Demandes d'accès</span>
+                    <p>Recherche scientifique et tournage dans les aires protégées gérées par la Fondation, avec vérification du calendrier de chaque site.</p>
+                </slot>
+                <span class="guest__credit">Indri (Indri indri)</span>
+            </figcaption>
+        </figure>
     </div>
 </template>
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-body {
-    font-family: 'Inter', sans-serif;
-    margin: 0;
-    background: #f5f7f6;
-    color: #111827;
-    -webkit-font-smoothing: antialiased;
-}
-</style>
-
 <style scoped>
-.split-layout {
-    display: flex;
+.guest {
+    display: grid;
+    grid-template-columns: minmax(440px, 0.9fr) minmax(0, 1.1fr);
     min-height: 100vh;
-    background: #f5f7f6;
+    background: var(--paper);
 }
 
-.split-form-side {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 40px 24px;
-    background:
-        radial-gradient(700px 420px at 0% 0%, rgba(16, 185, 129, 0.10), transparent 60%),
-        radial-gradient(600px 400px at 100% 100%, rgba(52, 211, 153, 0.08), transparent 60%),
-        #f7faf8;
-    position: relative;
-}
+.guest__side { display: flex; flex-direction: column; padding: 28px clamp(20px, 5vw, 64px); }
+.guest__top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.guest__brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
+.guest__logo { width: 44px; height: 44px; object-fit: contain; }
+.guest__brand span { display: grid; gap: 3px; }
+.guest__brand strong { font: 800 17px/1 var(--f-display); letter-spacing: 0.02em; color: var(--forest); }
+.guest__brand small { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
+.guest__home { font-size: 13px; font-weight: 600; color: var(--ink-2); text-decoration: none; }
+.guest__home:hover { color: var(--ink); text-decoration: underline; }
 
-.split-form-inner {
-    width: 100%;
-    max-width: 420px;
-    padding: 36px 32px;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid #e7eae9;
-    border-radius: 24px;
-    box-shadow: 0 2px 6px rgba(16, 24, 40, 0.04), 0 24px 56px -20px rgba(16, 24, 40, 0.18);
-    animation: guest-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+.guest__main { width: 100%; max-width: 400px; margin: auto; padding: 48px 0; }
+.guest__tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 32px;
+    padding: 4px;
+    background: var(--sunk);
+    border-radius: var(--r);
 }
-
-.guest-logo {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 28px;
+.guest__tab {
+    padding: 9px 12px;
+    border-radius: var(--r-sm);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: background-color 0.15s, color 0.15s;
 }
+.guest__tab:hover { color: var(--ink); }
+.guest__tab[aria-current='page'] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--rule); }
 
-.guest-logo img {
-    height: 100px;
-    width: auto;
-    object-fit: contain;
-    background-color: white;
-    padding: 6px;
-    border-radius: 18px;
-    box-shadow: 0 0 0 1px #eef1f0, 0 8px 20px -10px rgba(16, 24, 40, 0.25);
-}
+.guest__foot { font-size: 12.5px; color: var(--ink-3); }
 
-.guest-form-container {
-    width: 100%;
-}
-
-.split-image-side {
-    flex: 1.2;
-    background-size: cover;
-    background-position: center;
-    display: none;
-    margin: 16px 16px 16px 0;
-    border-radius: 28px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 24px 56px -24px rgba(6, 78, 59, 0.55);
-}
-
-.split-image-side::after {
-    content: '';
+.guest__visual { position: relative; margin: 0; overflow: hidden; background: var(--ink); }
+.guest__photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 46% 38%; }
+.guest__caption {
     position: absolute;
-    inset: 0;
-    background:
-        linear-gradient(180deg, rgba(6, 78, 59, 0) 45%, rgba(6, 78, 59, 0.55) 100%),
-        linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, transparent 50%);
+    left: 28px;
+    right: 28px;
+    bottom: 28px;
+    display: grid;
+    gap: 8px;
+    max-width: 420px;
+    padding: 18px 20px;
+    background: var(--surface);
+    border-radius: var(--r);
+    font-size: 14px;
+    color: var(--ink-2);
 }
+.guest__caption :deep(p) { margin: 0; line-height: 1.55; }
+.guest__credit { font-size: 12px; font-style: italic; color: var(--ink-3); }
 
-@media (min-width: 900px) {
-    .split-image-side {
-        display: block;
-    }
-}
-
-@media (max-width: 480px) {
-    .split-form-inner { padding: 28px 20px; border-radius: 20px; }
-}
-
-@keyframes guest-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .split-form-inner { animation: none; }
+@media (max-width: 900px) {
+    .guest { grid-template-columns: minmax(0, 1fr); }
+    .guest__visual { order: -1; height: 180px; }
+    .guest__caption { display: none; }
+    .guest__side { padding-top: 20px; }
+    .guest__main { padding: 28px 0 36px; }
 }
 </style>

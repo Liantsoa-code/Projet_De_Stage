@@ -1,4 +1,5 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
@@ -52,12 +53,12 @@ const handleFileUpload = (event) => {
 </script>
 
 <template>
-    <Head title="Modifier le Site" />
+    <Head title="Modifier le site" />
     <AuthenticatedLayout>
         <template #header>
             <div style="display:flex;align-items:center;gap:12px">
                 <Link :href="route('admin.sites.index')" class="back-link">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+                    <Icon name="arrow-left" />
                     Retour
                 </Link>
                 <span class="ph-title">Modifier : {{ site.nom }}</span>
@@ -80,9 +81,7 @@ const handleFileUpload = (event) => {
                         <div style="display:flex; justify-content: space-between; align-items:flex-end; margin-bottom: 8px;">
                             <label class="gf-label" style="margin-bottom:0;">Délimitation géographique</label>
                             <label class="btn-ghost" style="cursor:pointer; padding: 4px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                                </svg>
+                                <Icon name="upload-simple" style="width:16px;height:16px;" />
                                 Importer GeoJSON
                                 <input type="file" accept=".geojson,.json" @change="handleFileUpload" style="display:none;" />
                             </label>
@@ -105,6 +104,6 @@ const handleFileUpload = (event) => {
 </template>
 
 <style scoped>
-.map-box { border: 1px solid var(--c-line); border-radius: var(--radius-md); overflow: hidden; min-height: 280px; box-shadow: var(--shadow-xs); }
-.gf-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid var(--c-line-soft); }
+.map-box { border: 1px solid var(--c-line); border-radius: var(--radius-md); overflow: hidden; min-height: 280px; box-shadow: none; }
+.gf-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 </style>

@@ -16,41 +16,33 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Profile" />
+    <Head title="Mon profil" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800"
-            >
-                Profile
-            </h2>
+            <div>
+                <div class="page-title">Mon profil</div>
+                <div class="page-sub">Informations du compte, mot de passe et suppression.</div>
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div
-                    class="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-[0_1px_3px_rgba(16,24,40,0.04),0_12px_32px_-12px_rgba(16,24,40,0.10)] sm:p-8"
-                >
-                    <UpdateProfileInformationForm
-                        :must-verify-email="mustVerifyEmail"
-                        :status="status"
-                        class="max-w-xl"
-                    />
-                </div>
-
-                <div
-                    class="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-[0_1px_3px_rgba(16,24,40,0.04),0_12px_32px_-12px_rgba(16,24,40,0.10)] sm:p-8"
-                >
-                    <UpdatePasswordForm class="max-w-xl" />
-                </div>
-
-                <div
-                    class="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-[0_1px_3px_rgba(16,24,40,0.04),0_12px_32px_-12px_rgba(16,24,40,0.10)] sm:p-8"
-                >
-                    <DeleteUserForm class="max-w-xl" />
-                </div>
-            </div>
+        <div class="profile">
+            <section class="profile__card">
+                <UpdateProfileInformationForm :must-verify-email="mustVerifyEmail" :status="status" />
+            </section>
+            <section class="profile__card">
+                <UpdatePasswordForm />
+            </section>
+            <section class="profile__card profile__card--danger">
+                <DeleteUserForm />
+            </section>
         </div>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+.profile { display: grid; gap: 16px; max-width: 720px; }
+.profile__card { padding: 22px 24px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); }
+.profile__card--danger { border-color: var(--signal-line); }
+.profile__card :deep(form) { max-width: 520px; }
+</style>

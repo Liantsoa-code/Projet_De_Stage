@@ -22,8 +22,11 @@ export async function openAuthenticatedPdf(url, filename = 'document.pdf') {
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
 
-    const opened = window.open(blobUrl, '_blank', 'noopener,noreferrer');
-    if (!opened) {
+    // Avec « noopener », window.open renvoie toujours null : le repli téléchargerait le PDF en double.
+    const opened = window.open(blobUrl, '_blank');
+    if (opened) {
+        opened.opener = null;
+    } else {
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = filename;

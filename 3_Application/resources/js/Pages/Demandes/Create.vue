@@ -1,10 +1,12 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
-import MapComponent from '@/Components/MapComponent.vue';
+import DashboardMap from '@/Components/DashboardMap.vue';
 import { computed, ref } from 'vue';
-import { formatDate } from '@/utils/statut.js';
+import { formatDate, refDemande } from '@/utils/statut.js';
+import { surfaceKm2, formatSurface } from '@/utils/carte.js';
 
 const props = defineProps({
     sites: Array,
@@ -32,7 +34,9 @@ const form = useForm({
 });
 
 const typeSelectionne = computed(() => props.types.find(t => t.id === form.type_demande_id));
+const carte = ref(null);
 const siteSelectionne = computed(() => props.sites.find(s => s.id === form.site_id));
+const surfaceSite = computed(() => formatSurface(surfaceKm2(siteSelectionne.value?.polygone_coordonnees)));
 
 // Pièces déjà envoyées (modification), indexées par nom de document requis
 const docsExistants = computed(() => Object.fromEntries((props.demande?.documents ?? []).map(d => [d.type_document, d])));
@@ -45,12 +49,17 @@ const today = (() => {
 
 // ── Périodes sensibles : alerte en direct avant l'envoi ──
 const periodesSite = computed(() => props.periodes.filter(p => p.site_id === form.site_id));
-const chevauchements = computed(() => {
-    if (!form.date_debut) return [];
-    const debut = form.date_debut;
-    const fin = form.date_fin || form.date_debut;
-    // Comparaison de chaînes AAAA-MM-JJ : deux intervalles se chevauchent si chacun commence avant la fin de l'autre
-    return periodesSite.value.filter(p => p.date_debut <= fin && p.date_fin >= debut);
+// Comparaison de chaînes AAAA-MM-JJ : deux intervalles se chevauchent si chacun commence avant la fin de l'autre
+const surLesDates = (p) => p.date_debut <= (form.date_fin || form.date_debut) && p.date_fin >= form.date_debut;
+const chevauchements = computed(() => (form.date_debut ? periodesSite.value.filter(surLesDates) : []));
+// État de chaque site sur les dates choisies, pour colorer la carte (null tant qu'il n'y a pas de dates)
+const etatsSites = computed(() => {
+    if (!form.date_debut) return null;
+    const etats = {};
+    props.periodes.filter(surLesDates).forEach((p) => {
+        etats[p.site_id] = p.niveau_restriction === 'bloquant' ? 'bloquant' : (etats[p.site_id] ?? 'avertissement');
+    });
+    return etats;
 });
 const bloquant = computed(() => chevauchements.value.some(p => p.niveau_restriction === 'bloquant'));
 const chevauche = (p) => chevauchements.value.some(c => c.id === p.id);
@@ -94,357 +103,292 @@ function envoyer(action) {
 }
 
 const titre = computed(() => {
-    if (aCompleter.value) return `Compléter la demande #${props.demande.id}`;
-    if (enEdition.value) return `Brouillon #${props.demande.id}`;
-    return 'Soumettre une Demande';
+    if (aCompleter.value) return `Compléter la demande ${refDemande(props.demande)}`;
+    if (enEdition.value) return `Brouillon ${refDemande(props.demande)}`;
+    return 'Nouvelle demande d\'accès';
 });
+
+const fourni = (i, doc) => uploadedFiles.value['doc_' + i] || docsExistants.value[doc];
 </script>
 
 <template>
     <Head :title="titre" />
     <AuthenticatedLayout>
         <template #header>
-            <div style="display:flex;align-items:center;gap:12px;">
+            <div class="head">
                 <Link :href="enEdition ? route('demandes.show', demande.id) : route('demandes.index')" class="back-link">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
-                    Retour
+                    <Icon name="arrow-left" />
+                    {{ enEdition ? 'Retour au dossier' : 'Mes demandes' }}
                 </Link>
-                <span class="ph-title">{{ titre }}</span>
+                <div class="page-title">{{ titre }}</div>
             </div>
         </template>
 
-        <div v-if="aCompleter" class="complement-box">
-            <p class="complement-box__title">Le validateur demande des compléments</p>
-            <p v-if="complement" class="complement-box__quote">« {{ complement }} »</p>
-            <p class="complement-box__text">Corrigez les informations ou remplacez les pièces concernées, puis renvoyez le dossier.</p>
-        </div>
+        <section v-if="aCompleter" class="complement-box">
+            <Icon name="pencil-simple-line" class="complement-box__icon" />
+            <div>
+                <p class="complement-box__tag">Complément demandé par le validateur</p>
+                <q v-if="complement" class="complement-box__quote">{{ complement }}</q>
+                <p class="complement-box__text">Corrigez les informations ou remplacez les pièces concernées, puis renvoyez le dossier.</p>
+            </div>
+        </section>
 
-        <div class="create-layout">
-            <!-- Formulaire -->
-            <div class="glass-form-wrap">
-                <div class="gf-section-head">
-                    <span class="gf-step">1</span>
-                    <span>Détails de la demande</span>
-                    <span v-if="!aCompleter" class="gf-section-hint">Vous pouvez enregistrer un brouillon à tout moment</span>
+        <form class="create-layout" novalidate @submit.prevent="envoyer('soumettre')">
+            <div class="create-main">
+                <div v-if="form.errors.date_debut" class="gf-error-banner" role="alert">
+                    <Icon name="prohibit" />
+                    {{ form.errors.date_debut }}
                 </div>
-                <form @submit.prevent="envoyer('soumettre')" class="gf-body">
-                    <div v-if="form.errors.date_debut" class="gf-error-banner">
-                        <strong>Erreur :</strong> {{ form.errors.date_debut }}
-                    </div>
 
+                <section class="fs">
+                    <header class="fs__head"><span class="fs__n">1</span><h2>Activité et site</h2></header>
                     <div class="gf-row gf-row-2">
                         <div>
-                            <label class="gf-label">Site protégé</label>
-                            <select v-model="form.site_id" class="gf-select" required>
-                                <option disabled value="">Sélectionnez un site</option>
-                                <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
-                            </select>
-                            <InputError class="gf-error" :message="form.errors.site_id" />
-                        </div>
-                        <div>
-                            <label class="gf-label">Type d'activité</label>
-                            <select v-model="form.type_demande_id" class="gf-select" required @change="onTypeChange">
-                                <option disabled value="">Sélectionnez un type</option>
+                            <label class="gf-label" for="type_demande_id">Type d'activité</label>
+                            <select id="type_demande_id" v-model="form.type_demande_id" class="gf-select" required @change="onTypeChange">
+                                <option disabled value="">Choisissez un type</option>
                                 <option v-for="t in types" :key="t.id" :value="t.id">{{ t.libelle }}</option>
                             </select>
                             <InputError class="gf-error" :message="form.errors.type_demande_id" />
                         </div>
-                    </div>
-
-                    <!-- Documents requis -->
-                    <div v-if="typeSelectionne?.documents_requis?.length > 0" class="docs-box">
-                        <div class="docs-box__head">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:15px;height:15px"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>
-                            Documents requis pour cette activité
-                        </div>
-                        <div v-for="(doc, i) in typeSelectionne.documents_requis" :key="i" class="docs-box__field">
-                            <label class="gf-label">{{ doc }} *</label>
-                            <div v-if="docsExistants[doc]" class="doc-existant">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                                <span>Déjà fourni : <a :href="route('documents.show', docsExistants[doc].id)">{{ docsExistants[doc].nom_fichier }}</a></span>
-                                <span class="doc-existant__hint">Choisissez un fichier ci-dessous pour le remplacer.</span>
-                            </div>
-                            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.odt" @change="handleFileChange(i, $event)" class="file-inp" />
-                            <p class="gf-hint">PDF, JPG, PNG, Word ou OpenDocument — 20 Mo max.</p>
-                            <InputError class="gf-error" :message="form.errors['doc_' + i]" />
+                        <div>
+                            <label class="gf-label" for="site_id">Aire protégée</label>
+                            <select id="site_id" v-model="form.site_id" class="gf-select" required>
+                                <option disabled value="">Choisissez un site</option>
+                                <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
+                            </select>
+                            <InputError class="gf-error" :message="form.errors.site_id" />
                         </div>
                     </div>
+                </section>
 
+                <section class="fs">
+                    <header class="fs__head"><span class="fs__n">2</span><h2>Dates et équipe</h2></header>
                     <div class="gf-row gf-row-3">
                         <div>
-                            <label class="gf-label">Date de début</label>
-                            <input type="date" class="gf-input" v-model="form.date_debut" :min="today" required />
+                            <label class="gf-label" for="date_debut">Arrivée</label>
+                            <input id="date_debut" v-model="form.date_debut" type="date" class="gf-input" :min="today" required />
                         </div>
                         <div>
-                            <label class="gf-label">Date de fin</label>
-                            <input type="date" class="gf-input" v-model="form.date_fin" :min="form.date_debut || today" required />
+                            <label class="gf-label" for="date_fin">Départ</label>
+                            <input id="date_fin" v-model="form.date_fin" type="date" class="gf-input" :min="form.date_debut || today" required />
                             <InputError class="gf-error" :message="form.errors.date_fin" />
                         </div>
                         <div>
-                            <label class="gf-label">Taille équipe</label>
-                            <input type="number" min="1" class="gf-input" v-model="form.equipe_nombre" required />
+                            <label class="gf-label" for="equipe_nombre">Personnes sur le terrain</label>
+                            <input id="equipe_nombre" v-model="form.equipe_nombre" type="number" min="1" class="gf-input" required />
                             <InputError class="gf-error" :message="form.errors.equipe_nombre" />
                         </div>
                     </div>
+                </section>
 
-                    <!-- Alerte en direct : chevauchement avec une période sensible -->
-                    <div v-if="chevauchements.length" class="periode-alert" :class="bloquant ? 'periode-alert--block' : 'periode-alert--warn'" role="alert">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
-                        <div>
-                            <p class="periode-alert__title">
-                                {{ bloquant ? 'Dates interdites sur ce site' : 'Période sensible sur ces dates' }}
-                            </p>
-                            <p class="periode-alert__text">
-                                {{ bloquant
-                                    ? 'Une période bloquante empêche toute demande sur ces dates. Choisissez d\'autres dates.'
-                                    : 'Votre demande reste possible mais sera signalée au validateur.' }}
-                            </p>
-                            <ul>
-                                <li v-for="p in chevauchements" :key="p.id">
-                                    <strong>{{ p.description }}</strong> — du {{ formatDate(p.date_debut) }} au {{ formatDate(p.date_fin) }}
-                                    ({{ p.niveau_restriction }})
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-
+                <section class="fs">
+                    <header class="fs__head"><span class="fs__n">3</span><h2>Objet de la mission</h2></header>
                     <div>
-                        <label class="gf-label">Description du projet</label>
-                        <textarea v-model="form.description" class="gf-textarea" rows="4" required placeholder="Expliquez brièvement le but de votre demande..."></textarea>
+                        <label class="gf-label" for="description">Description du projet</label>
+                        <textarea id="description" v-model="form.description" class="gf-textarea" rows="5" required placeholder="Objectif, protocole, zones visitées, matériel utilisé"></textarea>
                         <InputError class="gf-error" :message="form.errors.description" />
                     </div>
-
                     <div v-if="aCompleter">
-                        <label class="gf-label">Message au validateur (facultatif)</label>
-                        <textarea v-model="form.message_complement" class="gf-textarea" rows="3" placeholder="Précisez ce que vous avez modifié ou ajouté..."></textarea>
+                        <label class="gf-label" for="message_complement">Message au validateur (facultatif)</label>
+                        <textarea id="message_complement" v-model="form.message_complement" class="gf-textarea" rows="3" placeholder="Précisez ce que vous avez modifié ou ajouté"></textarea>
                         <InputError class="gf-error" :message="form.errors.message_complement" />
                     </div>
+                </section>
 
-                    <div class="gf-footer">
-                        <button
-                            v-if="!aCompleter"
-                            type="button"
-                            class="btn-ghost"
-                            :disabled="form.processing"
-                            @click="envoyer('brouillon')"
-                        >Enregistrer le brouillon</button>
-                        <button type="submit" :disabled="form.processing || bloquant" class="btn-accent">
-                            <svg v-if="form.processing" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8" fill="currentColor" opacity=".75"/></svg>
-                            {{ form.processing ? 'Envoi...' : aCompleter ? 'Renvoyer le dossier complété' : 'Soumettre le dossier' }}
-                        </button>
+                <section class="fs">
+                    <header class="fs__head"><span class="fs__n">4</span><h2>Pièces à joindre</h2></header>
+                    <p v-if="!typeSelectionne" class="fs__hint">Choisissez d'abord un type d'activité : la liste des pièces obligatoires en dépend.</p>
+                    <p v-else-if="!typeSelectionne.documents_requis?.length" class="fs__hint">Aucune pièce n'est exigée pour ce type d'activité.</p>
+                    <div v-else class="docs">
+                        <div v-for="(doc, i) in typeSelectionne.documents_requis" :key="i" class="doc" :class="{ 'doc--ok': fourni(i, doc) }">
+                            <Icon :name="fourni(i, doc) ? 'file-pdf' : 'file-dashed'" class="doc__icon" />
+                            <div class="doc__body">
+                                <strong>{{ doc }}</strong>
+                                <small v-if="uploadedFiles['doc_' + i]">{{ uploadedFiles['doc_' + i].name }}</small>
+                                <small v-else-if="docsExistants[doc]">Déjà fourni : <a :href="route('documents.show', docsExistants[doc].id)">{{ docsExistants[doc].nom_fichier }}</a></small>
+                                <small v-else>PDF, JPG, PNG, Word ou OpenDocument, 20 Mo au maximum</small>
+                                <InputError class="gf-error" :message="form.errors['doc_' + i]" />
+                            </div>
+                            <label class="btn-ghost btn--sm doc__btn">
+                                <Icon :name="fourni(i, doc) ? 'arrows-clockwise' : 'upload-simple'" />
+                                {{ fourni(i, doc) ? 'Remplacer' : 'Choisir' }}
+                                <input :id="`doc_${i}`" type="file" class="sr-only" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.odt" @change="handleFileChange(i, $event)" />
+                            </label>
+                        </div>
                     </div>
-                </form>
+                </section>
             </div>
 
-            <!-- Carte + périodes sensibles du site -->
-            <div class="map-card">
-                <div class="map-card__head">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;color:#10b981"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
-                    Aperçu du site
-                </div>
-                <div v-if="siteSelectionne" class="map-body">
-                    <MapComponent :modelValue="siteSelectionne.polygone_coordonnees || []" :editable="false" :key="siteSelectionne.id" />
-                    <p class="map-desc">{{ siteSelectionne.description }}</p>
-
-                    <div class="periodes">
-                        <p class="periodes__title">Périodes sensibles à venir</p>
-                        <ul v-if="periodesSite.length" class="periodes__list">
-                            <li
-                                v-for="p in periodesSite"
-                                :key="p.id"
-                                class="periodes__item"
-                                :class="{ 'periodes__item--hit': chevauche(p), 'periodes__item--block': p.niveau_restriction === 'bloquant' }"
-                            >
-                                <span class="periodes__dates">{{ formatDate(p.date_debut) }} → {{ formatDate(p.date_fin) }}</span>
-                                <span class="periodes__desc">{{ p.description }}</span>
-                                <span class="periodes__lvl">{{ p.niveau_restriction === 'bloquant' ? 'Bloquant' : 'Avertissement' }}</span>
-                            </li>
+            <aside class="create-side">
+                <div class="check">
+                    <header class="check__head"><h2>Vérification du calendrier</h2></header>
+                    <div class="check__body">
+                        <div class="check__map">
+                            <DashboardMap
+                                ref="carte"
+                                :sites="sites"
+                                :etats="etatsSites"
+                                :selected-id="form.site_id || null"
+                                selectable
+                                @select="(id) => (form.site_id = id)"
+                            />
+                        </div>
+                        <ul v-if="etatsSites" class="legende" aria-label="Légende de la carte">
+                            <li><span class="legende__ok"></span>Ouvert</li>
+                            <li><span class="hatch"></span>Période sensible</li>
+                            <li><span class="hatch hatch--block"></span>Bloquant</li>
                         </ul>
-                        <p v-else class="periodes__empty">Aucune restriction prévue sur ce site.</p>
+
+                        <p v-if="!siteSelectionne" class="fs__hint">Cliquez sur une aire protégée de la carte ou choisissez-la dans la liste.</p>
+                        <template v-else>
+                            <div class="fiche">
+                                <span class="site-label">{{ siteSelectionne.nom }}</span>
+                                <span v-if="surfaceSite" class="fiche__surface mono">≈ {{ surfaceSite }}</span>
+                                <p v-if="siteSelectionne.description" class="fiche__desc">{{ siteSelectionne.description }}</p>
+                                <button v-if="surfaceSite" type="button" class="btn-sm-edit fiche__3d" @click="carte?.voir3d(siteSelectionne.id)">
+                                    <Icon name="mountains" />
+                                    Voir le terrain en 3D
+                                </button>
+                            </div>
+
+                            <div v-if="!form.date_debut" class="res res--none">
+                                <Icon name="calendar-blank" />
+                                <div><strong>Dates à compléter</strong>Choisissez l'arrivée et le départ pour vérifier le calendrier du site.</div>
+                            </div>
+                            <div v-else-if="bloquant" class="res res--block" role="alert">
+                                <Icon name="prohibit" />
+                                <div><strong>Envoi impossible sur ces dates</strong>Une période bloquante couvre tout ou partie du séjour. Choisissez d'autres dates.</div>
+                            </div>
+                            <div v-else-if="chevauchements.length" class="res res--warn" role="alert">
+                                <Icon name="warning" />
+                                <div><strong>Période sensible sur ces dates</strong>La demande reste possible. Elle sera signalée au validateur et les précautions figureront au cahier des charges.</div>
+                            </div>
+                            <div v-else class="res res--ok">
+                                <Icon name="check-circle" />
+                                <div><strong>Aucune période sensible</strong>Le site est ouvert sur ces dates.</div>
+                            </div>
+
+                            <div class="periodes">
+                                <p class="eyebrow">Périodes sensibles du site</p>
+                                <ul v-if="periodesSite.length" class="periodes__list">
+                                    <li v-for="p in periodesSite" :key="p.id" class="periodes__item" :class="{ 'periodes__item--hit': chevauche(p) }">
+                                        <span class="hatch" :class="{ 'hatch--block': p.niveau_restriction === 'bloquant' }"></span>
+                                        <span class="periodes__text">
+                                            <span class="mono periodes__dates">{{ formatDate(p.date_debut) }} → {{ formatDate(p.date_fin) }}</span>
+                                            <span>{{ p.description }}</span>
+                                        </span>
+                                        <span class="periodes__lvl" :class="{ 'periodes__lvl--block': p.niveau_restriction === 'bloquant' }">{{ p.niveau_restriction === 'bloquant' ? 'Bloquant' : 'Avertissement' }}</span>
+                                    </li>
+                                </ul>
+                                <p v-else class="fs__hint">Aucune restriction prévue sur ce site.</p>
+                            </div>
+                        </template>
                     </div>
                 </div>
-                <div v-else class="map-empty">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>
-                    <span>Sélectionnez un site pour voir la carte et ses périodes sensibles</span>
-                </div>
+            </aside>
+
+            <div class="create-actions">
+                <span class="create-actions__msg">{{ bloquant ? 'Ces dates tombent pendant une période bloquante.' : '' }}</span>
+                <button v-if="!aCompleter" type="button" class="btn-ghost" :disabled="form.processing" @click="envoyer('brouillon')">Enregistrer le brouillon</button>
+                <button type="submit" :disabled="form.processing || bloquant" class="btn-accent">
+                    <Icon v-if="form.processing" name="circle-notch" class="spin" />
+                    <Icon v-else name="arrow-right" />
+                    {{ form.processing ? 'Envoi…' : aCompleter ? 'Renvoyer le dossier complété' : 'Envoyer la demande' }}
+                </button>
             </div>
-        </div>
+        </form>
     </AuthenticatedLayout>
 </template>
 
 <style scoped>
-.create-layout {
-    display: grid;
-    grid-template-columns: 1fr 360px;
-    gap: 20px;
-    align-items: start;
+.head { display: grid; gap: 6px; }
+.create-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+@media (max-width: 960px) { .create-layout { grid-template-columns: minmax(0, 1fr); } }
+.create-main { display: grid; gap: 16px; min-width: 0; }
+
+.fs { display: grid; gap: 16px; padding: 24px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); }
+.fs__head { display: flex; align-items: center; gap: 12px; }
+.fs__head h2 { font-size: 17px; font-weight: 700; }
+.fs__n { display: grid; place-items: center; width: 26px; height: 26px; border: 1.5px solid var(--forest); border-radius: 50%; color: var(--forest); font: 600 12.5px var(--f-mono); }
+.fs__hint { font-size: 13.5px; color: var(--ink-3); }
+
+.gf-error-banner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--signal-soft); border: 1px solid var(--signal-line); border-radius: var(--r); font-size: 13.5px; color: var(--ink); }
+.gf-error-banner svg { width: 20px; height: 20px; color: var(--signal); flex-shrink: 0; }
+
+.docs { display: grid; gap: 8px; }
+.doc { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px dashed var(--rule); border-radius: var(--r-sm); }
+.doc--ok { border-style: solid; }
+.doc__icon { width: 26px; height: 26px; color: var(--ink-3); }
+.doc--ok .doc__icon { color: var(--forest); }
+.doc__body { display: grid; gap: 2px; min-width: 0; }
+.doc__body strong { font-weight: 600; font-size: 14px; }
+.doc__body small { font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
+.doc__body a { color: var(--water); font-weight: 600; }
+.doc__btn { cursor: pointer; }
+.doc__btn:focus-within { outline: 2px solid var(--water); outline-offset: 2px; }
+.btn--sm { padding: 7px 10px; font-size: 13px; }
+
+.create-side { min-width: 0; }
+.check { position: sticky; top: 84px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; }
+.check__head { padding: 14px 24px 4px; }
+.check__head h2 { font-size: 15.5px; font-weight: 700; }
+.check__body { display: grid; gap: 12px; padding: 14px; }
+.check__map { height: 300px; }
+.check__map :deep(.map-wrapper),
+.check__map :deep(.map-inner) { min-height: 0; border-radius: var(--r-sm); }
+
+.legende { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--ink-2); }
+.legende li { display: inline-flex; align-items: center; gap: 6px; }
+.legende__ok { width: 14px; height: 14px; background: var(--forest-soft); border: 1px solid var(--forest); }
+
+.fiche { display: grid; gap: 4px; }
+.fiche__surface { font-size: 12px; color: var(--ink-3); }
+.fiche__3d { justify-self: start; margin-top: 4px; }
+.fiche__3d svg { width: 15px; height: 15px; }
+.fiche__desc { font-size: 13px; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+.res { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-sm); font-size: 13.5px; color: var(--ink-2); }
+.res strong { display: block; color: var(--ink); }
+.res svg { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
+.res--ok { background: var(--forest-soft); }
+.res--ok svg { color: var(--forest); }
+.res--warn { background: var(--ochre-soft); }
+.res--warn svg { color: var(--ochre); }
+.res--block { background: var(--signal-soft); }
+.res--block svg { color: var(--signal); }
+.res--none { background: var(--sunk); }
+.res--none svg { color: var(--ink-3); }
+
+.periodes { display: grid; gap: 8px; padding-top: 4px; }
+.periodes__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.periodes__item { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--rule-soft); border-radius: var(--r-sm); font-size: 12.5px; color: var(--ink-2); }
+.periodes__item .hatch { margin-top: 2px; }
+.periodes__item--hit { border-color: var(--ink-3); background: var(--paper); }
+.periodes__text { display: grid; gap: 2px; min-width: 0; }
+.periodes__dates { font-size: 12px; color: var(--ink); }
+.periodes__lvl { font: 600 10.5px/1.3 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
+.periodes__lvl--block { color: var(--signal); }
+
+.create-actions {
+    grid-column: 1 / -1;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
 }
+.create-actions__msg { margin-right: auto; font-size: 13px; font-weight: 600; color: var(--signal); }
 
-@media (max-width: 900px) { .create-layout { grid-template-columns: 1fr; } }
-
-.gf-section-head {
-    display: flex; align-items: center; gap: 10px;
-    padding: 16px 24px; border-bottom: 1px solid var(--c-line-soft);
-    background: linear-gradient(180deg, #ffffff 0%, var(--c-surface-2) 100%);
-    font-size: 13px; font-weight: 700; color: var(--c-ink);
-}
-
-.gf-step {
-    width: 24px; height: 24px; border-radius: 8px;
-    background: linear-gradient(135deg, #34d399 0%, #059669 100%); color: #ffffff;
-    font-size: 11px; font-weight: 800;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 10px -2px rgba(5, 150, 105, 0.45);
-}
-
-.gf-error-banner {
-    padding: 12px 14px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-left: 4px solid #ef4444;
-    border-radius: var(--radius-md); font-size: 13px; color: #b91c1c;
-}
-
-.docs-box {
-    border: 1px solid #d1fae5;
-    border-radius: var(--radius-md); overflow: hidden;
-    background: #f6fdf9;
-}
-
-.docs-box__head {
-    display: flex; align-items: center; gap: 7px;
-    padding: 11px 14px; border-bottom: 1px solid #d1fae5;
-    font-size: 12px; font-weight: 700; color: #065f46;
-    background: #ecfdf5;
-}
-
-.docs-box__field {
-    padding: 12px 14px; border-bottom: 1px solid #e3f5ec;
-    display: flex; flex-direction: column; gap: 4px;
-}
-.docs-box__field:last-child { border-bottom: none; }
-
-.file-inp {
-    font-size: 12.5px;
-    color: var(--c-text);
-    cursor: pointer;
-    width: 100%;
-    padding: 6px;
-    background: var(--c-surface);
-    border: 1px dashed #b9d9c9;
-    border-radius: var(--radius-sm);
-    transition: border-color 0.2s, background 0.2s;
-}
-.file-inp:hover { border-color: var(--c-brand); background: #fbfefc; }
-.file-inp::file-selector-button {
-    margin-right: 10px;
-    padding: 6px 12px;
-    border: 1px solid #d9dedc;
-    border-radius: 8px;
-    background: var(--c-surface-2);
-    color: var(--c-text);
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
-}
-.file-inp::file-selector-button:hover { background: var(--c-brand-soft); border-color: #a7f3d0; }
-
-.gf-footer {
-    display: flex; justify-content: flex-end;
-    padding-top: 16px; border-top: 1px solid var(--c-line-soft);
-}
-
-/* Map card */
-.map-card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-line);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-    position: sticky; top: 96px;
-}
-
-.map-card__head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 14px 18px; border-bottom: 1px solid var(--c-line-soft);
-    background: linear-gradient(180deg, #ffffff 0%, var(--c-surface-2) 100%);
-    font-size: 13px; font-weight: 600; color: var(--c-ink);
-}
-
-.map-body { padding: 12px; }
-.map-body :deep(.map-container) { border-radius: var(--radius-md); }
-
-.map-desc { font-size: 12px; color: var(--c-muted); margin: 10px 2px 2px; line-height: 1.5; }
-
-.map-empty {
-    margin: 14px;
-    padding: 44px 24px;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    color: var(--c-subtle); text-align: center;
-    border: 1px dashed #d9dedc;
-    border-radius: var(--radius-md);
-    background:
-        radial-gradient(circle at 50% 35%, rgba(16, 185, 129, 0.06), transparent 60%),
-        var(--c-surface-2);
-}
-.map-empty svg { width: 40px; height: 40px; color: #a7c4b8; }
-.map-empty span { font-size: 12.5px; }
-
-.gf-section-hint { margin-left: auto; font-size: 11.5px; font-weight: 500; color: var(--c-subtle); }
-.gf-footer { gap: 10px; flex-wrap: wrap; }
-
-/* Compléments demandés */
-.complement-box {
-    padding: 14px 18px; margin-bottom: 16px;
-    background: linear-gradient(90deg, #fff7ed, #fffbf5);
-    border: 1px solid #fed7aa; border-left: 4px solid #f97316;
-    border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-}
-.complement-box__title { font-size: 14px; font-weight: 700; color: var(--c-ink); }
-.complement-box__quote { margin-top: 4px; font-size: 13px; font-style: italic; color: #9a3412; }
-.complement-box__text { margin-top: 2px; font-size: 13px; color: var(--c-muted); }
-
-/* Pièce déjà fournie */
-.doc-existant {
-    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    font-size: 12.5px; color: #065f46;
-    padding: 6px 10px; margin-bottom: 4px;
-    background: #ffffff; border: 1px solid #a7f3d0; border-radius: 8px;
-}
-.doc-existant svg { width: 14px; height: 14px; color: var(--c-brand); }
-.doc-existant a { color: var(--c-brand-700); font-weight: 600; }
-.doc-existant__hint { width: 100%; font-size: 11.5px; color: var(--c-muted); }
-
-/* Alerte période sensible */
-.periode-alert {
-    display: flex; gap: 12px; align-items: flex-start;
-    padding: 12px 14px; border-radius: var(--radius-md);
-    font-size: 13px; line-height: 1.5;
-    animation: fade-up 0.3s var(--ease-out) backwards;
-}
-.periode-alert svg { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
-.periode-alert--warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; box-shadow: inset 3px 0 0 #f59e0b; }
-.periode-alert--warn svg { color: #d97706; }
-.periode-alert--block { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; box-shadow: inset 3px 0 0 #ef4444; }
-.periode-alert--block svg { color: #ef4444; }
-.periode-alert__title { font-weight: 700; }
-.periode-alert ul { margin-top: 6px; padding-left: 16px; }
-
-/* Périodes sensibles du site (panneau carte) */
-.periodes { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--c-line-soft); }
-.periodes__title { font-size: 12px; font-weight: 700; color: var(--c-text); margin-bottom: 8px; }
-.periodes__list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-.periodes__item {
-    display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
-    padding: 8px 10px; border-radius: 10px;
-    background: var(--c-surface-2); border: 1px solid var(--c-line-soft);
-    box-shadow: inset 3px 0 0 #f59e0b;
-}
-.periodes__item--block { box-shadow: inset 3px 0 0 #ef4444; }
-.periodes__item--hit { background: #fffbeb; border-color: #fde68a; }
-.periodes__item--block.periodes__item--hit { background: #fef2f2; border-color: #fecaca; }
-.periodes__dates { font-size: 12px; font-weight: 600; color: var(--c-ink); }
-.periodes__lvl { font-size: 10.5px; font-weight: 700; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.periodes__item--block .periodes__lvl { color: #b91c1c; }
-.periodes__desc { grid-column: 1 / -1; font-size: 11.5px; color: var(--c-muted); }
-.periodes__empty { font-size: 12px; color: var(--c-subtle); font-style: italic; }
+.complement-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; margin-bottom: 24px; padding: 16px 24px; background: var(--ochre-soft); border: 1px solid var(--ochre-line); border-radius: var(--r); }
+.complement-box__icon { width: 24px; height: 24px; color: var(--ochre); }
+.complement-box__tag { font: 700 11px/1.3 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
+.complement-box__quote { display: block; margin-top: 6px; font-style: italic; quotes: "« " " »"; }
+.complement-box__text { margin-top: 4px; font-size: 13.5px; color: var(--ink-2); }
 </style>

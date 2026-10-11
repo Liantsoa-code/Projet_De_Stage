@@ -1,9 +1,10 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
+import StatutSteps from '@/Components/StatutSteps.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import InputLabel from '@/Components/InputLabel.vue';
 import { openAuthenticatedPdf } from '@/utils/openPdf.js';
-import { statutBadgeClass } from '@/utils/statut.js';
+import { statutBadgeClass, formatDate, refDemande, joursDepuis } from '@/utils/statut.js';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -14,10 +15,14 @@ const props = defineProps({
     statutLocked: { type: Boolean, default: false },
 });
 
-const actorRoleLabel = (role) => {
-    if (role === 'admin') return 'Administrateur';
-    if (role === 'validateur') return 'Validateur';
-    return 'Demandeur';
+const ROLES = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' };
+
+const CHOIX = {
+    en_analyse: { label: 'Prendre en charge', sub: 'Passe le dossier en analyse et prévient le demandeur', icon: 'stamp' },
+    a_completer: { label: 'Demander un complément', sub: 'Le dossier retourne au demandeur avec votre commentaire', icon: 'pencil-simple-line' },
+    validee: { label: 'Valider la demande', sub: 'Génère l\'autorisation et le cahier des charges en PDF', icon: 'seal-check' },
+    rejetee: { label: 'Rejeter la demande', sub: 'Décision définitive, le dossier est clos', icon: 'prohibit' },
+    soumise: { label: 'Remettre en file', sub: 'Le dossier repasse au statut soumis', icon: 'arrow-left' },
 };
 
 const form = useForm({
@@ -39,323 +44,267 @@ const openPdf = async (url, filename) => {
     }
 };
 
-const sc = statutBadgeClass;
+const reference = computed(() => refDemande(props.demande));
+const code = computed(() => props.demande.statut?.code);
+const options = computed(() => props.statuts.filter((s) => s.id !== props.demande.statut_id));
+const statutChoisi = computed(() => props.statuts.find((s) => s.id === form.statut_id)?.code);
+const aChoisi = computed(() => form.statut_id !== props.demande.statut_id);
 
-// Code du statut choisi dans le formulaire, pour adapter les explications
-const statutChoisi = computed(() => props.statuts.find(s => s.id === form.statut_id)?.code);
+const docsRequis = computed(() => props.demande.type_demande?.documents_requis ?? []);
+const docsManquants = computed(() => docsRequis.value.filter((n) => !(props.demande.documents ?? []).some((d) => d.type_document === n)));
+const attente = computed(() => (['soumise', 'en_analyse'].includes(code.value) ? joursDepuis(props.demande.date_soumission) : null));
+
+const boutonLabel = computed(() => {
+    if (form.processing) return 'Enregistrement…';
+    return {
+        validee: 'Valider et générer l\'autorisation',
+        a_completer: 'Envoyer la demande de complément',
+        rejetee: 'Rejeter la demande',
+        en_analyse: 'Prendre en charge',
+        soumise: 'Remettre en file',
+    }[statutChoisi.value] ?? 'Choisissez une décision';
+});
+const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-danger' }[statutChoisi.value] ?? 'btn-accent'));
 </script>
 
 <template>
-    <Head title="Analyse du Dossier" />
+    <Head :title="`Dossier ${reference}`" />
     <AuthenticatedLayout>
         <template #header>
-            <div style="display:flex;align-items:center;gap:12px;">
+            <div class="head">
                 <Link :href="route('validateur.demandes.index')" class="back-link">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
-                    Retour
+                    <Icon name="arrow-left" />
+                    {{ viewAllDemandes ? 'Toutes les demandes' : 'Dossiers à valider' }}
                 </Link>
-                <span class="ph-title">Dossier #{{ demande.id }}</span>
-                <span v-if="demande.statut" :class="sc(demande.statut.code)">{{ demande.statut.libelle }}</span>
+                <div class="head__ref">
+                    <span class="mono">{{ reference }}</span>
+                    <span v-if="demande.statut" :class="statutBadgeClass(code)">{{ demande.statut.libelle }}</span>
+                    <span v-if="attente !== null && attente > 7" class="late"><Icon name="clock" />{{ attente }} jours sans décision</span>
+                </div>
             </div>
         </template>
 
+        <div class="intro">
+            <h1 class="intro__title">{{ demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
+            <StatutSteps :code="code" large />
+        </div>
+
         <div class="show-layout">
-            <!-- Colonne principale -->
-            <div class="show-main">
+            <div class="stack">
+                <dl class="meta">
+                    <div><dt>Demandeur</dt><dd>{{ demande.user.name }}<small>{{ demande.user.email }}</small></dd></div>
+                    <div><dt>Site</dt><dd>{{ demande.site.nom }}</dd></div>
+                    <div><dt>Séjour</dt><dd class="mono">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }}</dd></div>
+                    <div><dt>Équipe</dt><dd>{{ demande.equipe_nombre }} personne{{ demande.equipe_nombre > 1 ? 's' : '' }}</dd></div>
+                    <div><dt>Déposée le</dt><dd class="mono">{{ formatDate(demande.date_soumission) }}</dd></div>
+                </dl>
 
-                <!-- Infos générales -->
-                <div class="glass-form-wrap">
-                    <div class="section-head">Informations Générales</div>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-lbl">Demandeur</span>
-                            <span class="info-val">{{ demande.user.name }}</span>
-                            <span class="info-sub">{{ demande.user.email }}</span>
+                <template v-if="demande.resultats_analyse?.length">
+                    <div v-for="(a, i) in demande.resultats_analyse" :key="i" class="conflict">
+                        <div class="conflict__band"></div>
+                        <div class="conflict__body">
+                            <span class="conflict__tag"><Icon name="warning" />Période sensible</span>
+                            <p>{{ a.message }}</p>
                         </div>
-                        <div class="info-item">
-                            <span class="info-lbl">Site</span>
-                            <span class="info-val">{{ demande.site.nom }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-lbl">Période</span>
-                            <span class="info-val">
-                                {{ new Date(demande.date_debut).toLocaleDateString('fr-FR') }}
-                                → {{ new Date(demande.date_fin).toLocaleDateString('fr-FR') }}
+                    </div>
+                </template>
+                <div v-else class="res-ok">
+                    <Icon name="check-circle" />
+                    <span>Aucune période sensible ne chevauche ces dates.</span>
+                </div>
+
+                <section class="panel">
+                    <header class="panel__head"><h2>Description du projet</h2></header>
+                    <p class="panel__text">{{ demande.description }}</p>
+                </section>
+
+                <section class="panel">
+                    <header class="panel__head">
+                        <h2>Pièces du dossier</h2>
+                        <small v-if="docsRequis.length">{{ docsRequis.length - docsManquants.length }} sur {{ docsRequis.length }} fournies</small>
+                    </header>
+                    <ul v-if="demande.documents?.length || docsManquants.length" class="docs">
+                        <li v-for="doc in demande.documents" :key="doc.id">
+                            <Icon name="file-pdf" class="docs__icon" />
+                            <span class="docs__body">
+                                <strong>{{ doc.type_document }}</strong>
+                                <small>{{ doc.nom_fichier }}</small>
                             </span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-lbl">Activité</span>
-                            <span class="info-val">{{ demande.type_demande.libelle }}</span>
-                            <span class="info-sub">{{ demande.equipe_nombre }} personne(s)</span>
-                        </div>
-                        <div class="info-item info-item--full">
-                            <span class="info-lbl">Description du projet</span>
-                            <div class="info-desc">{{ demande.description }}</div>
-                        </div>
-                    </div>
-                </div>
+                            <a :href="route('documents.show', doc.id)" class="link">Télécharger</a>
+                        </li>
+                        <li v-for="n in docsManquants" :key="`m-${n}`" class="docs__missing">
+                            <Icon name="file-dashed" class="docs__icon" />
+                            <span class="docs__body">
+                                <strong>{{ n }}</strong>
+                                <small>Pièce obligatoire non fournie</small>
+                            </span>
+                            <span></span>
+                        </li>
+                    </ul>
+                    <p v-else class="panel__text muted">Aucune pièce jointe enregistrée pour cette demande.</p>
+                </section>
 
-                <!-- Pièces jointes soumises -->
-                <div class="glass-form-wrap">
-                    <div class="section-head">Pièces jointes du dossier</div>
-                    <div style="padding:16px">
-                        <ul v-if="demande.documents?.length" class="pj-list">
-                            <li v-for="doc in demande.documents" :key="doc.id" class="pj-item">
-                                <span class="pj-type">{{ doc.type_document }}</span>
-                                <span class="pj-name">{{ doc.nom_fichier }}</span>
-                                <a :href="route('documents.show', doc.id)" class="btn-ghost" style="font-size:12px;padding:5px 12px;margin-left:auto">Télécharger</a>
-                            </li>
-                        </ul>
-                        <p v-else style="font-size:13px;color:#9ca3af;font-style:italic">Aucune pièce jointe enregistrée pour cette demande.</p>
-                    </div>
-                </div>
-
-                <!-- Analyse automatique -->
-                <div class="glass-form-wrap">
-                    <div class="section-head">Analyse Automatique</div>
-                    <div style="padding:16px">
-                        <div v-if="demande.resultats_analyse?.length > 0" class="alert-list">
-                            <div v-for="(a,i) in demande.resultats_analyse" :key="i" class="alert-item alert-warn">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
-                                <p>{{ a.message }}</p>
+                <section class="panel">
+                    <header class="panel__head"><h2>Historique</h2></header>
+                    <ol v-if="demande.historique_statuts?.length" class="hist">
+                        <li v-for="(h, i) in demande.historique_statuts" :key="h.id" :class="{ 'hist--now': i === demande.historique_statuts.length - 1 }">
+                            <span class="hist__dot"></span>
+                            <div>
+                                <strong>{{ h.nouveau_statut.libelle }}</strong>
+                                <small>
+                                    <span class="mono">{{ new Date(h.date_changement).toLocaleDateString('fr-FR') }}</span>
+                                    · {{ h.user.name }}<template v-if="h.user.role"> ({{ ROLES[h.user.role] }})</template>
+                                </small>
+                                <q v-if="h.commentaire">{{ h.commentaire }}</q>
                             </div>
-                        </div>
-                        <div v-else class="alert-item alert-ok">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <p>Aucun conflit détecté — aucune période sensible ne chevauche ces dates.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Historique -->
-                <div class="glass-form-wrap">
-                    <div class="section-head">Historique des Décisions</div>
-                    <div style="padding:16px">
-                        <div class="timeline" v-if="demande.historique_statuts?.length > 0">
-                            <div class="tl-item" v-for="h in demande.historique_statuts" :key="h.id">
-                                <div class="tl-dot"></div>
-                                <div class="tl-content">
-                                    <div class="tl-meta">
-                                        <span class="tl-actor">{{ h.user.name }}</span>
-                                        <span
-                                            v-if="h.user.role"
-                                            class="tl-role"
-                                            :class="{ 'tl-role--admin': h.user.role === 'admin' }"
-                                        >{{ actorRoleLabel(h.user.role) }}</span>
-                                        <span class="tl-sep">→</span>
-                                        <span :class="sc(h.nouveau_statut.code)" style="font-size:10px">{{ h.nouveau_statut.libelle }}</span>
-                                        <span class="tl-date">{{ new Date(h.date_changement).toLocaleString('fr-FR') }}</span>
-                                    </div>
-                                    <p v-if="h.commentaire" class="tl-comment">"{{ h.commentaire }}"</p>
-                                </div>
-                            </div>
-                        </div>
-                        <p v-else style="font-size:13px;color:#9ca3af;font-style:italic">Aucun historique pour le moment.</p>
-                    </div>
-                </div>
-
-                <!-- Documents si validée -->
-                <div v-if="demande.statut?.code === 'validee'" class="glass-form-wrap docs-ok">
-                    <div class="section-head" style="color:#15803d">Documents Officiels Générés</div>
-                    <div style="padding:16px;display:flex;gap:10px;flex-wrap:wrap">
-                        <button type="button" class="btn-accent" @click="openPdf(route('demandes.pdf.autorisation', demande.id), `autorisation_${demande.id}.pdf`)">↓ Autorisation PDF</button>
-                        <button type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.cahier-charges', demande.id), `cahier_des_charges_${demande.id}.pdf`)">↓ Cahier des Charges</button>
-                    </div>
-                </div>
+                        </li>
+                    </ol>
+                    <p v-else class="panel__text muted">Aucun historique pour le moment.</p>
+                </section>
             </div>
 
-            <!-- Panneau décision -->
-            <div class="decision-panel">
-                <div v-if="statutLocked" class="glass-form-wrap self-decision-notice statut-locked-notice">
-                    <div class="section-head">Dossier clôturé</div>
-                    <p class="self-decision-text">
-                        <template v-if="demande.statut?.code === 'rejetee'">
-                            Cette demande a été rejetée. Aucune modification de statut n'est possible.
-                        </template>
-                        <template v-else-if="demande.statut?.code === 'validee'">
-                            Cette demande est validée. Le dossier est définitivement clôturé.
-                        </template>
-                        <template v-else>
-                            Ce dossier ne peut plus être modifié.
-                        </template>
-                    </p>
-                </div>
-                <div v-else-if="!canDecideOnDemande" class="glass-form-wrap self-decision-notice">
-                    <div class="section-head">Décision indisponible</div>
-                    <p class="self-decision-text">
-                        Vous êtes le demandeur de ce dossier. Un autre administrateur ou un validateur rattaché au site doit examiner cette demande.
-                    </p>
-                </div>
-                <div v-else class="glass-form-wrap">
-                    <div class="section-head">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;color:#10b981"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
-                        {{ viewAllDemandes ? 'Décision administrateur' : 'Rendre une Décision' }}
+            <aside class="side">
+                <section v-if="statutLocked" class="panel notice notice--closed">
+                    <header class="panel__head"><h2>{{ code === 'validee' ? 'Demande validée' : 'Dossier clôturé' }}</h2></header>
+                    <div class="panel__body">
+                        <p v-if="code === 'rejetee'">Cette demande a été rejetée. Aucune modification de statut n'est possible.</p>
+                        <p v-else-if="code === 'validee'">Le dossier est définitivement clôturé. Les documents officiels sont disponibles.</p>
+                        <p v-else>Ce dossier ne peut plus être modifié.</p>
+                        <div v-if="code === 'validee'" class="btn-col">
+                            <button type="button" class="btn-accent" @click="openPdf(route('demandes.pdf.autorisation', demande.id), `autorisation_${demande.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
+                            <button type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.cahier-charges', demande.id), `cahier_des_charges_${demande.id}.pdf`)"><Icon name="file-pdf" />Cahier des charges</button>
+                        </div>
                     </div>
-                    <p v-if="demande.statut?.code === 'a_completer'" class="admin-decision-hint waiting-hint">
-                        En attente des compléments du demandeur. Le dossier reviendra automatiquement en analyse dès qu'il sera renvoyé.
-                    </p>
-                    <p v-if="viewAllDemandes" class="admin-decision-hint">
-                        En tant qu'administrateur, votre décision sera identifiée comme telle dans l'historique et la notification au demandeur.
-                    </p>
-                    <form @submit.prevent="submit" class="gf-body">
+                </section>
+
+                <section v-else-if="!canDecideOnDemande" class="panel notice">
+                    <header class="panel__head"><h2>Décision indisponible</h2></header>
+                    <p class="panel__body">Vous êtes le demandeur de ce dossier. Un autre administrateur ou un validateur rattaché au site doit l'examiner.</p>
+                </section>
+
+                <form v-else class="panel decision" @submit.prevent="submit">
+                    <header class="panel__head">
+                        <h2>{{ viewAllDemandes ? 'Décision administrateur' : 'Décision' }}</h2>
+                        <small>Le demandeur reçoit une notification</small>
+                    </header>
+                    <div class="panel__body">
+                        <p v-if="code === 'a_completer'" class="hint hint--att">En attente du demandeur. Le dossier reviendra en analyse dès qu'il sera renvoyé.</p>
+                        <p v-if="viewAllDemandes" class="hint">Votre décision sera identifiée comme décision administrateur dans l'historique.</p>
+
+                        <fieldset class="choices">
+                            <legend class="sr-only">Choisir une décision</legend>
+                            <label v-for="s in options" :key="s.id" class="choice" :class="`choice--${s.code}`">
+                                <input v-model="form.statut_id" type="radio" name="statut" :value="s.id" />
+                                <Icon :name="CHOIX[s.code]?.icon ?? 'stamp'" class="choice__icon" />
+                                <span>
+                                    <strong>{{ CHOIX[s.code]?.label ?? s.libelle }}</strong>
+                                    <small>{{ CHOIX[s.code]?.sub ?? '' }}</small>
+                                </span>
+                            </label>
+                        </fieldset>
+                        <p v-if="form.errors.statut_id" class="gf-error">{{ form.errors.statut_id }}</p>
+                        <p v-if="statutChoisi === 'validee' && docsManquants.length" class="hint hint--att">
+                            Attention : {{ docsManquants.length }} pièce{{ docsManquants.length > 1 ? 's' : '' }} obligatoire{{ docsManquants.length > 1 ? 's' : '' }} manque{{ docsManquants.length > 1 ? 'nt' : '' }} au dossier.
+                        </p>
+
                         <div>
-                            <label class="gf-label">Nouveau statut</label>
-                            <select v-model="form.statut_id" class="gf-select">
-                                <option v-for="s in statuts" :key="s.id" :value="s.id">{{ s.libelle }}</option>
-                            </select>
-                            <p v-if="form.errors.statut_id" class="field-error">{{ form.errors.statut_id }}</p>
-                            <p v-if="statutChoisi === 'a_completer'" class="gf-hint">
-                                Le dossier sera renvoyé au demandeur, qui pourra le modifier puis le renvoyer. Précisez ci-dessous les éléments attendus.
-                            </p>
+                            <label class="gf-label" for="commentaire">{{ statutChoisi === 'a_completer' ? 'Compléments attendus' : 'Commentaire pour le demandeur' }}</label>
+                            <textarea id="commentaire" v-model="form.commentaire" rows="4" class="gf-textarea" required :placeholder="statutChoisi === 'a_completer' ? 'Pièces ou précisions à fournir' : 'Motif de la décision'"></textarea>
+                            <p v-if="form.errors.commentaire" class="gf-error">{{ form.errors.commentaire }}</p>
                         </div>
-                        <div>
-                            <label class="gf-label">{{ statutChoisi === 'a_completer' ? 'Compléments attendus' : 'Commentaire / Justification' }}</label>
-                            <textarea v-model="form.commentaire" rows="5" class="gf-textarea" required placeholder="Expliquez votre décision..."></textarea>
-                        </div>
-                        <button type="submit" :disabled="form.processing" class="btn-accent" style="width:100%;justify-content:center">
-                            <svg v-if="form.processing" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/><path d="M4 12a8 8 0 018-8" fill="currentColor" opacity=".75"/></svg>
-                            {{ form.processing ? 'Traitement...' : 'Enregistrer la décision' }}
+
+                        <button type="submit" :disabled="form.processing || !aChoisi" :class="boutonClasse" class="decision__submit">
+                            <Icon v-if="form.processing" name="circle-notch" class="spin" />
+                            {{ boutonLabel }}
                         </button>
-                    </form>
-                </div>
-            </div>
+                    </div>
+                </form>
+            </aside>
         </div>
     </AuthenticatedLayout>
 </template>
 
 <style scoped>
-.show-layout { display: grid; grid-template-columns: 1fr 290px; gap: 16px; align-items: start; }
-@media (max-width: 900px) { .show-layout { grid-template-columns: 1fr; } }
+.head { display: grid; gap: 6px; }
+.head__ref { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); }
+.late { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--signal); }
+.late svg { width: 14px; height: 14px; }
+.intro { display: grid; gap: 12px; margin-bottom: 24px; }
+.intro__title { font-size: clamp(20px, 2vw, 26px); font-weight: 700; line-height: 1.15; max-width: 48ch; }
 
-.show-main { display: flex; flex-direction: column; gap: 16px; }
+.show-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+@media (max-width: 1000px) { .show-layout { grid-template-columns: minmax(0, 1fr); } }
+.stack { display: grid; gap: 16px; min-width: 0; }
+.side { position: sticky; top: 84px; }
+@media (max-width: 1000px) { .side { position: static; } }
 
-.section-head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 14px 20px; border-bottom: 1px solid var(--c-line-soft);
-    background: linear-gradient(180deg, #ffffff 0%, var(--c-surface-2) 100%);
-    font-size: 13px; font-weight: 700;
-    color: var(--c-text);
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 20px; margin: 0; padding: 16px 24px; background: var(--sunk); border-radius: var(--r); }
+.meta div { display: grid; gap: 3px; align-content: start; min-width: 0; }
+.meta dt { font: 600 10.5px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
+.meta dd { margin: 0; font-weight: 500; font-size: 14px; overflow-wrap: anywhere; }
+.meta dd small { display: block; font-weight: 400; font-size: 12.5px; color: var(--ink-3); }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); min-width: 0; }
+.panel__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 12px; padding: 16px 24px 8px; }
+.panel__head h2 { font-size: 15.5px; font-weight: 700; }
+.panel__head small { font-size: 12.5px; color: var(--ink-3); }
+.panel__text { padding: 16px 24px; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; }
+.panel__body { display: grid; gap: 14px; padding: 16px 24px; font-size: 14px; color: var(--ink-2); }
+.muted { color: var(--ink-3); }
+.link { font-size: 13px; font-weight: 600; color: var(--water); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+
+.conflict { border: 1px solid var(--ochre); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
+.conflict__band { height: 10px; background: repeating-linear-gradient(45deg, var(--ochre) 0 2px, transparent 2px 7px); }
+.conflict__body { display: grid; gap: 6px; padding: 14px 16px; }
+.conflict__tag { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
+.conflict__tag svg { width: 14px; height: 14px; }
+.conflict__body p { font-size: 14px; color: var(--ink-2); }
+.res-ok { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--forest-soft); border-radius: var(--r-sm); font-size: 14px; }
+.res-ok svg { width: 20px; height: 20px; color: var(--forest); flex-shrink: 0; }
+
+.docs { list-style: none; margin: 0; padding: 0; }
+.docs li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--rule-soft); }
+.docs li:last-child { border-bottom: 0; }
+.docs__icon { width: 26px; height: 26px; color: var(--ink-2); }
+.docs__body { display: grid; gap: 2px; min-width: 0; }
+.docs__body strong { font-weight: 500; font-size: 14px; }
+.docs__body small { font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
+.docs__missing .docs__icon, .docs__missing strong { color: var(--ochre); }
+
+.hist { list-style: none; margin: 0; padding: 4px 24px 24px; display: grid; }
+.hist li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 12px; padding-top: 12px; }
+.hist li::before { content: ''; position: absolute; left: 6px; top: 26px; bottom: -12px; border-left: 1px solid var(--rule); }
+.hist li:last-child::before { display: none; }
+.hist__dot { position: relative; z-index: 1; width: 13px; height: 13px; margin-top: 4px; border: 2px solid var(--ink-3); border-radius: 50%; background: var(--surface); }
+.hist--now .hist__dot { border-color: var(--water); background: var(--water); }
+.hist strong { display: block; font-weight: 600; font-size: 14px; }
+.hist small { font-size: 12.5px; color: var(--ink-3); }
+.hist q { display: block; margin-top: 4px; font-size: 13px; font-style: italic; color: var(--ink-2); quotes: "« " " »"; }
+
+.notice { background: var(--ochre-soft); border-color: var(--ochre-line); }
+.notice--closed { background: var(--surface); border-color: var(--rule); }
+.btn-col { display: grid; gap: 8px; }
+
+.hint { font-size: 13px; color: var(--ink-3); }
+.hint--att { color: var(--ochre); font-weight: 600; }
+.choices { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.choice { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 11px 12px; border: 1px solid var(--rule); border-radius: var(--r-sm); cursor: pointer; }
+.choice:has(input:checked) { border-color: var(--ink); background: var(--paper); }
+.choice input { margin-top: 3px; accent-color: var(--forest); }
+.choice__icon { width: 19px; height: 19px; margin-top: 1px; color: var(--ink-3); }
+.choice--validee:has(:checked) .choice__icon { color: var(--forest); }
+.choice--a_completer:has(:checked) .choice__icon { color: var(--ochre); }
+.choice--rejetee:has(:checked) .choice__icon { color: var(--signal); }
+.choice--en_analyse:has(:checked) .choice__icon { color: var(--water); }
+.choice strong { display: block; font-weight: 600; font-size: 14px; color: var(--ink); }
+.choice small { font-size: 12.5px; color: var(--ink-3); }
+.decision__submit { width: 100%; }
+.btn-warn, .btn-danger {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px; border-radius: var(--r-sm); font: 600 14px/1 var(--f-body); color: #fff; cursor: pointer;
 }
-.section-head::before {
-    content: '';
-    width: 4px; height: 14px; border-radius: 4px;
-    background: var(--c-brand);
-    flex-shrink: 0;
-}
-.section-head:has(svg)::before { display: none; }
-
-.info-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-    padding: 16px;
-}
-@media (max-width: 640px) { .info-grid { grid-template-columns: 1fr; } }
-
-.info-item {
-    display: flex; flex-direction: column; gap: 3px;
-    padding: 12px 14px;
-    background: var(--c-surface-2);
-    border: 1px solid var(--c-line-soft);
-    border-radius: var(--radius-md);
-}
-
-.info-item--full { grid-column: 1 / -1; }
-
-.info-lbl {
-    font-size: 9.5px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.1em; color: #6b7280;
-}
-
-.info-val { font-size: 13.5px; font-weight: 600; color: #111827; }
-
-.info-sub { font-size: 11.5px; color: #6b7280; }
-
-.info-desc {
-    margin-top: 6px; padding: 12px 14px;
-    background: var(--c-surface);
-    border: 1px solid var(--c-line);
-    border-radius: var(--radius-sm); font-size: 13px;
-    color: #4b5563; line-height: 1.6;
-}
-
-.alert-list { display: flex; flex-direction: column; gap: 8px; }
-
-.alert-item {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 12px 14px; border-radius: var(--radius-md);
-    font-size: 13px; line-height: 1.5;
-}
-.alert-item svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
-.alert-item p { margin: 0; }
-.alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; box-shadow: inset 3px 0 0 #f59e0b; }
-.alert-warn svg { color: #d97706; }
-.alert-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; box-shadow: inset 3px 0 0 #10b981; }
-
-.timeline { display: flex; flex-direction: column; gap: 18px; position: relative; }
-
-.tl-item { display: flex; gap: 14px; align-items: flex-start; position: relative; }
-.tl-item:not(:last-child)::before {
-    content: '';
-    position: absolute;
-    left: 5px; top: 16px; bottom: -18px;
-    width: 2px; border-radius: 2px;
-    background: linear-gradient(180deg, #a7f3d0, #e7eae9);
-}
-
-.tl-dot {
-    width: 12px; height: 12px; border-radius: 50%;
-    background: var(--c-brand); border: 2px solid #ffffff;
-    box-shadow: 0 0 0 3px #d1fae5;
-    flex-shrink: 0; margin-top: 3px; position: relative; z-index: 1;
-}
-
-.tl-content { flex: 1; }
-
-.tl-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 5px; }
-
-.tl-actor { font-size: 13px; font-weight: 600; color: #111827; }
-.tl-role {
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-    padding: 2px 7px; border-radius: 999px; background: #e5e7eb; color: #4b5563;
-}
-.tl-role--admin { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
-.tl-sep { color: #9ca3af; font-size: 12px; }
-.admin-decision-hint {
-    margin: 0; padding: 10px 18px 0;
-    font-size: 12px; color: #6b7280; line-height: 1.5;
-}
-.tl-date { font-size: 11px; color: #6b7280; margin-left: auto; }
-.waiting-hint { color: #9a3412; }
-
-.tl-comment {
-    font-size: 12px; color: #4b5563; font-style: italic;
-    background: var(--c-surface-2); border: 1px solid var(--c-line-soft); border-left: 3px solid var(--c-brand);
-    padding: 8px 12px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 0;
-}
-
-.decision-panel { position: sticky; top: 96px; }
-.decision-panel > .glass-form-wrap { box-shadow: var(--shadow-lg); }
-
-.self-decision-text {
-    margin: 0; padding: 14px 18px 18px;
-    font-size: 13px; color: #6b7280; line-height: 1.55;
-}
-.self-decision-notice { border-color: #fde68a; background: #fffbeb; }
-.self-decision-notice .section-head { background: transparent; border-bottom-color: #fde68a; }
-.self-decision-notice .section-head::before { background: #f59e0b; }
-.statut-locked-notice { border-color: #fecaca; background: #fef2f2; }
-.statut-locked-notice .section-head { border-bottom-color: #fecaca; }
-.statut-locked-notice .section-head::before { background: #ef4444; }
-.field-error { margin: 6px 0 0; font-size: 12px; color: #dc2626; }
-
-.pj-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.pj-item {
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    padding: 10px 12px; background: var(--c-surface-2); border: 1px solid var(--c-line); border-radius: var(--radius-md);
-    transition: border-color 0.2s, background 0.2s;
-}
-.pj-item:hover { border-color: #a7f3d0; background: #f6fdf9; }
-.pj-type { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--c-brand-700); background: var(--c-brand-soft); border: 1px solid #d1fae5; padding: 2px 8px; border-radius: 999px; }
-.pj-name { font-size: 13px; color: #111827; }
-.docs-ok { border-color: #bbf7d0; background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%); }
-.docs-ok .section-head { background: transparent; border-bottom-color: #d1fae5; }
+.btn-warn { background: var(--ochre); border: 1px solid var(--ochre); }
+.btn-danger { background: var(--signal); border: 1px solid var(--signal); }
+.btn-warn:disabled, .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

@@ -1,8 +1,13 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
 import { useListFilters } from '@/composables/useListFilters.js';
+import TableSkeleton from '@/Components/TableSkeleton.vue';
+import { useNavigation } from '@/composables/useNavigation.js';
+
+const { loading: navLoading, samePage } = useNavigation();
 
 const props = defineProps({ users: Object, filters: { type: Object, default: () => ({}) } });
 const { filters, reset, isActive } = useListFilters('admin.users.index', {
@@ -18,18 +23,18 @@ const roleClass = (role) => ({
 </script>
 
 <template>
-    <Head title="Gestion des Utilisateurs" />
+    <Head title="Utilisateurs" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="ph-row">
-                <div class="ph-title">Gestion des Utilisateurs</div>
+                <div class="ph-title">Utilisateurs</div>
             </div>
         </template>
 
         <div class="filter-bar">
             <div class="filter-search">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                <Icon name="magnifying-glass" />
                 <input v-model="filters.q" type="search" class="gf-input" placeholder="Nom ou email…" aria-label="Rechercher un utilisateur" />
             </div>
             <select v-model="filters.role" class="gf-select" aria-label="Rôle">
@@ -52,24 +57,19 @@ const roleClass = (role) => ({
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <TableSkeleton v-if="navLoading && samePage" :cols="5" />
+                <tbody v-else>
                     <tr v-for="user in users.data" :key="user.id">
                         <td class="fw-strong">{{ user.name }}</td>
                         <td class="text-dim text-sm">{{ user.email }}</td>
                         <td>
-                            <span class="badge-glass" :class="{
-                                'badge-warn': user.role === 'admin',
-                                'badge-info': user.role === 'validateur',
-                                'badge-ok': user.role === 'demandeur'
-                            }">{{ user.role }}</span>
+                            <span class="role" :class="`role--${user.role}`">{{ { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' }[user.role] ?? user.role }}</span>
                         </td>
                         <td class="text-dim text-sm">
                             <span v-if="user.role !== 'validateur'">—</span>
                             <span v-else>
-                                <span v-for="(site, i) in user.sites" :key="site.id">
-                                    {{ site.nom }}<span v-if="i < user.sites.length - 1">, </span>
-                                </span>
-                                <span v-if="user.sites.length === 0" class="italic">Aucun site</span>
+                                <span v-for="site in user.sites" :key="site.id" class="chip">{{ site.nom }}</span>
+                                <span v-if="user.sites.length === 0" class="warn-chip">Aucun site assigné</span>
                             </span>
                         </td>
                         <td class="text-right">
@@ -87,3 +87,11 @@ const roleClass = (role) => ({
     </AuthenticatedLayout>
 </template>
 
+
+<style scoped>
+.role { display: inline-flex; padding: 3px 8px; border-radius: var(--r-sm); font-size: 12px; font-weight: 600; background: var(--sunk); color: var(--ink-2); }
+.role--validateur { background: var(--forest-soft); color: var(--forest); }
+.role--admin { background: var(--ink); color: var(--paper); }
+.chip { display: inline-flex; margin: 2px 4px 2px 0; padding: 3px 8px; border-radius: var(--r-sm); background: var(--sunk); color: var(--ink-2); font-size: 12px; }
+.warn-chip { display: inline-flex; padding: 3px 8px; border-radius: var(--r-sm); background: var(--ochre-soft); color: var(--ochre); font-size: 12px; font-weight: 600; }
+</style>

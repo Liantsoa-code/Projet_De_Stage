@@ -1,8 +1,13 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
 import { useListFilters } from '@/composables/useListFilters.js';
+import TableSkeleton from '@/Components/TableSkeleton.vue';
+import { useNavigation } from '@/composables/useNavigation.js';
+
+const { loading: navLoading, samePage } = useNavigation();
 const props = defineProps({
     periodes: Object,
     sites: { type: Array, default: () => [] },
@@ -16,16 +21,16 @@ const form = useForm({});
 const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(route('admin.periode-sensibles.destroy', id)); };
 </script>
 <template>
-    <Head title="Périodes Sensibles" />
+    <Head title="Périodes sensibles" />
     <AuthenticatedLayout>
         <template #header>
             <div class="ph-row">
                 <div>
-                    <div class="page-title">Périodes Sensibles</div>
+                    <div class="page-title">Périodes sensibles</div>
                     <div class="page-sub">Restrictions temporaires sur les sites protégés</div>
                 </div>
                 <Link :href="route('admin.periode-sensibles.create')" class="btn-accent">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                    <Icon name="plus" />
                     Ajouter une période
                 </Link>
             </div>
@@ -53,16 +58,15 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <TableSkeleton v-if="navLoading && samePage" :cols="5" />
+                <tbody v-else>
                     <tr v-for="p in periodes.data" :key="p.id">
-                        <td class="fw-strong">{{ p.site.nom }}</td>
-                        <td class="text-dim text-sm">
-                            {{ new Date(p.date_debut).toLocaleDateString('fr-FR') }}<br>
-                            au {{ new Date(p.date_fin).toLocaleDateString('fr-FR') }}
-                        </td>
+                        <td><span class="site-label">{{ p.site.nom }}</span></td>
+                        <td class="mono text-sm" style="white-space:nowrap">{{ new Date(p.date_debut).toLocaleDateString('fr-FR') }} → {{ new Date(p.date_fin).toLocaleDateString('fr-FR') }}</td>
                         <td>
-                            <span class="badge-glass" :class="p.niveau_restriction === 'bloquant' ? 'badge-err' : 'badge-warn'">
-                                {{ p.niveau_restriction }}
+                            <span class="lvl" :class="{ 'lvl--block': p.niveau_restriction === 'bloquant' }">
+                                <span class="hatch" :class="{ 'hatch--block': p.niveau_restriction === 'bloquant' }"></span>
+                                {{ p.niveau_restriction === 'bloquant' ? 'Bloquant' : 'Avertissement' }}
                             </span>
                         </td>
                         <td class="text-dim text-sm truncate-cell">{{ p.description }}</td>
@@ -81,3 +85,8 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
         <Pagination :paginator="periodes" label="périodes" />
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+.lvl { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ochre); }
+.lvl--block { color: var(--signal); }
+</style>

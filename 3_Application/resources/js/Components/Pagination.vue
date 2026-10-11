@@ -60,12 +60,12 @@ const next = computed(() => props.paginator.links[props.paginator.links.length -
 .pager__btn {
     min-width: 34px; height: 34px; padding: 0 10px;
     display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 10px; border: 1px solid var(--c-line); background: var(--c-surface);
+    border-radius: var(--r); border: 1px solid var(--c-line); background: var(--c-surface);
     font-size: 13px; font-weight: 600; color: var(--c-text); text-decoration: none;
-    box-shadow: var(--shadow-xs);
+    box-shadow: none;
     transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.pager__btn:hover { background: var(--c-brand-soft); border-color: #a7f3d0; color: var(--c-brand-700); }
+.pager__btn:hover { background: var(--c-brand-soft); border-color: var(--forest-line); color: var(--c-brand-700); }
 .pager__btn--active,
 .pager__btn--active:hover { background: var(--c-ink); border-color: var(--c-ink); color: #fff; }
 .pager__btn--disabled { opacity: 0.4; pointer-events: none; }

@@ -10,7 +10,7 @@ class NotificationController extends Controller
     public function markAsRead(Notification $notification)
     {
         // Sécurité : l'utilisateur ne peut marquer que ses propres notifications
-        if ($notification->user_id !== auth()->id()) {
+        if ((int) $notification->user_id !== (int) auth()->id()) {
             return back();
         }
 
