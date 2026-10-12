@@ -1,10 +1,15 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useListFilters } from '@/composables/useListFilters.js';
-import { statutBadgeClass, formatDate } from '@/utils/statut.js';
+import { statutBadgeClass, formatDate, refDemande } from '@/utils/statut.js';
+import TableSkeleton from '@/Components/TableSkeleton.vue';
+import { useNavigation } from '@/composables/useNavigation.js';
+
+const { loading: navLoading, samePage } = useNavigation();
 
 const props = defineProps({
     demandes: Object, // paginateur Laravel
@@ -32,27 +37,27 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
 </script>
 
 <template>
-    <Head title="Dossiers à Valider" />
+    <Head :title="viewAllDemandes ? 'Toutes les demandes' : 'Dossiers à valider'" />
     <AuthenticatedLayout>
         <template #header>
             <div class="ph-row">
                 <div>
-                    <div class="page-title">{{ viewAllDemandes ? 'Toutes les demandes' : 'Dossiers à Valider' }}</div>
+                    <div class="page-title">{{ viewAllDemandes ? 'Toutes les demandes' : 'Dossiers à valider' }}</div>
                     <div class="page-sub">
                         {{ viewAllDemandes ? 'Toutes les demandes de la plateforme' : 'Demandes soumises sur vos sites assignés' }}
                     </div>
                 </div>
                 <a :href="exportUrl" class="btn-ghost">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                    Exporter (CSV)
+                    <Icon name="download-simple" />
+                    Exporter en CSV
                 </a>
             </div>
         </template>
 
         <div class="filter-bar">
             <div class="filter-search">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                <input v-model="filters.q" type="search" class="gf-input" placeholder="Demandeur, email, site ou n° de dossier…" aria-label="Rechercher" />
+                <Icon name="magnifying-glass" />
+                <input v-model="filters.q" type="search" class="gf-input" placeholder="Demandeur, e-mail, site ou numéro de dossier" aria-label="Rechercher" />
             </div>
             <select v-model="filters.statut" class="gf-select" aria-label="Statut">
                 <option value="">Tous les statuts</option>
@@ -75,7 +80,7 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
             <table class="glass-table">
                 <thead>
                     <tr>
-                        <th>N°</th>
+                        <th>Référence</th>
                         <th>Demandeur</th>
                         <th>Site</th>
                         <th>Période</th>
@@ -83,23 +88,24 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
                         <th class="text-right">Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <TableSkeleton v-if="navLoading && samePage" :cols="6" />
+                <tbody v-else>
                     <tr v-for="d in demandes.data" :key="d.id" class="row-link" @click="ouvrir(d)">
-                        <td class="text-dim text-sm">#{{ d.id }}</td>
+                        <td class="mono text-sm nowrap">{{ refDemande(d) }}</td>
                         <td>
                             <div class="fw-strong">{{ d.user.name }}</div>
                             <div class="text-dim text-sm">{{ d.type_demande?.libelle }}</div>
                         </td>
-                        <td class="text-dim">{{ d.site.nom }}</td>
-                        <td class="text-dim text-sm">
-                            {{ formatDate(d.date_debut) }} — {{ formatDate(d.date_fin) }}
-                        </td>
+                        <td><span class="site-label">{{ d.site.nom }}</span></td>
+                        <td class="mono text-sm nowrap">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</td>
                         <td>
-                            <span :class="statutBadgeClass(d.statut.code)">{{ d.statut.libelle }}</span>
-                            <span v-if="d.resultats_analyse?.length" class="conflict-flag" title="Chevauchement avec une période sensible">⚠</span>
+                            <span class="statut-cell">
+                                <span :class="statutBadgeClass(d.statut.code)">{{ d.statut.libelle }}</span>
+                                <span v-if="d.resultats_analyse?.length" class="hatch" title="Chevauche une période sensible" aria-label="Chevauche une période sensible"></span>
+                            </span>
                         </td>
                         <td class="text-right" @click.stop>
-                            <Link :href="route('validateur.demandes.show', d.id)" class="btn-sm-edit">Analyser →</Link>
+                            <Link :href="route('validateur.demandes.show', d.id)" class="btn-sm-edit">Instruire</Link>
                         </td>
                     </tr>
                     <tr v-if="demandes.data.length === 0">
@@ -117,11 +123,6 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
 </template>
 
 <style scoped>
-.btn-ghost svg { width: 16px; height: 16px; }
-.conflict-flag {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 20px; height: 20px; margin-left: 6px; border-radius: 50%;
-    background: #fffbeb; color: #d97706; border: 1px solid #fde68a;
-    font-size: 11px; vertical-align: middle;
-}
+.nowrap { white-space: nowrap; }
+.statut-cell { display: inline-flex; align-items: center; gap: 8px; }
 </style>

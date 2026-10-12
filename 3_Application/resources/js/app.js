@@ -21,7 +21,6 @@ createInertiaApp({
             .use(ZiggyVue)
             .mount(el);
     },
-    progress: {
-        color: '#4B5563',
-    },
+    // Les chargements sont signalés par des squelettes (voir useNavigation.js)
+    progress: false,
 });

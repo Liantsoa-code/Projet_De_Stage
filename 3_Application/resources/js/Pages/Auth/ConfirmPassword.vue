@@ -1,9 +1,6 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
@@ -19,37 +16,21 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Confirm Password" />
+        <Head title="Confirmer le mot de passe" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            This is a secure area of the application. Please confirm your
-            password before continuing.
+        <div class="auth-head">
+            <h1>Confirmation requise</h1>
+            <p>Cette action est protégée. Saisissez à nouveau votre mot de passe pour continuer.</p>
         </div>
 
-        <form @submit.prevent="submit">
+        <form class="auth-form" @submit.prevent="submit">
             <div>
-                <InputLabel for="password" value="Password" />
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="current-password"
-                    autofocus
-                />
-                <InputError class="mt-2" :message="form.errors.password" />
+                <label class="gf-label" for="password">Mot de passe</label>
+                <input id="password" v-model="form.password" type="password" class="gf-input" required autocomplete="current-password" autofocus />
+                <InputError class="gf-error" :message="form.errors.password" />
             </div>
 
-            <div class="mt-4 flex justify-end">
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Confirm
-                </PrimaryButton>
-            </div>
+            <button class="btn-accent" :disabled="form.processing">Confirmer</button>
         </form>
     </GuestLayout>
 </template>

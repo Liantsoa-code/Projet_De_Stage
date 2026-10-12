@@ -1,4 +1,4 @@
-import { reactive, watch } from 'vue';
+import { onScopeDispose, reactive, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 
 /**
@@ -25,6 +25,9 @@ export function useListFilters(routeName, initial, { textFields = ['q'], delay =
             else apply();
         },
     );
+
+    // Une saisie en attente ne doit pas relancer la recherche après avoir quitté la page
+    onScopeDispose(() => clearTimeout(timer));
 
     const reset = () => {
         Object.keys(filters).forEach((k) => {

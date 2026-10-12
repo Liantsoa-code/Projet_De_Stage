@@ -1,9 +1,7 @@
 <script setup>
-import { onMounted, ref, watch, onUnmounted } from 'vue';
+import { onMounted, ref, onUnmounted } from 'vue';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import MapboxDraw from '@mapbox/mapbox-gl-draw';
-import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 
 const props = defineProps({
     modelValue: {
@@ -18,6 +16,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 const mapContainer = ref(null);
+const pret = ref(false);
 let map = null;
 let draw = null;
 
@@ -57,14 +56,14 @@ function loadExistingPolygon() {
             id: 'site-polygon-fill',
             type: 'fill',
             source: 'site-polygon',
-            paint: { 'fill-color': '#10b981', 'fill-opacity': 0.2 }
+            paint: { 'fill-color': '#00683A', 'fill-opacity': 0.2 }
         });
 
         map.addLayer({
             id: 'site-polygon-outline',
             type: 'line',
             source: 'site-polygon',
-            paint: { 'line-color': '#059669', 'line-width': 2 }
+            paint: { 'line-color': '#00532E', 'line-width': 2 }
         });
 
         // Marqueur pulsant au centroide
@@ -95,7 +94,17 @@ function loadExistingPolygon() {
     }
 }
 
-onMounted(() => {
+onMounted(async () => {
+    // L'outil de dessin n'est chargé qu'en mode édition (pages admin des sites)
+    let MapboxDraw = null;
+    if (props.editable) {
+        [{ default: MapboxDraw }] = await Promise.all([
+            import('@mapbox/mapbox-gl-draw'),
+            import('@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'),
+        ]);
+        if (!mapContainer.value) return; // composant démonté pendant le chargement
+    }
+
     map = new maplibregl.Map({
         container: mapContainer.value,
         style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
@@ -122,6 +131,7 @@ onMounted(() => {
     }
 
     map.on('load', () => {
+        pret.value = true;
         loadExistingPolygon();
     });
 });
@@ -156,6 +166,7 @@ const clearMap = () => {
 <template>
     <div class="map-container relative rounded-md overflow-hidden shadow-sm">
         <div ref="mapContainer" class="map-view h-full w-full z-10"></div>
+        <div v-if="!pret" class="sk map-skeleton" aria-hidden="true"></div>
 
         <button
             v-if="editable && modelValue.length > 0"
@@ -181,6 +192,8 @@ const clearMap = () => {
     min-height: 350px;
 }
 
+.map-skeleton { position: absolute; inset: 0; z-index: 15; border-radius: 0; }
+
 .map-view {
     position: absolute;
     top: 0;
@@ -190,52 +203,52 @@ const clearMap = () => {
 
 .hint {
     background: #ffffff;
-    color: #374151;
+    color: var(--ink-2);
     padding: 8px 12px;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 500;
-    border: 1px solid #d1d5db;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--rule);
+    box-shadow: none;
 }
 
 .hint-ok {
-    background: #ecfdf5;
-    color: #065f46;
+    background: var(--forest-soft);
+    color: var(--forest);
     padding: 8px 12px;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
-    border: 1px solid #a7f3d0;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--forest-line);
+    box-shadow: none;
 }
 
 .clear-btn {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #b91c1c;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    background: var(--signal-soft);
+    border: 1px solid var(--signal-line);
+    color: var(--signal);
+    box-shadow: none;
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
 }
-.clear-btn:hover { background: #fee2e2; }
+.clear-btn:hover { background: var(--signal-soft); }
 
 /* Customisation mapbox-gl-draw pour le theme clair */
 :deep(.mapboxgl-ctrl-group), :deep(.mapboxgl-ctrl) {
     background: #ffffff;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--rule);
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: none;
     pointer-events: auto;
 }
 
 :deep(.mapboxgl-ctrl-group button) {
-    border-bottom: 1px solid #f3f4f6;
-    color: #374151;
+    border-bottom: 1px solid var(--sunk);
+    color: var(--ink-2);
 }
 
 :deep(.mapboxgl-ctrl-group button:last-child) {
@@ -247,7 +260,7 @@ const clearMap = () => {
 }
 
 :deep(.mapboxgl-ctrl-group button:hover) {
-    background: #ecfdf5;
+    background: var(--forest-soft);
 }
 </style>
 
@@ -265,9 +278,9 @@ const clearMap = () => {
     transform: translate(-50%, -50%);
     width: 12px; height: 12px;
     border-radius: 50%;
-    background: #10b981;
+    background: var(--forest);
     border: 2.5px solid #ffffff;
-    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.5);
+    box-shadow: none;
     z-index: 2;
 }
 
@@ -277,7 +290,7 @@ const clearMap = () => {
     transform: translate(-50%, -50%);
     width: 28px; height: 28px;
     border-radius: 50%;
-    border: 2px solid #10b981;
+    border: 2px solid var(--forest);
     animation: pv-pulse 1.8s ease-out infinite;
     z-index: 1;
 }

@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -9,101 +8,12 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
+        'sites' => \App\Models\Site::orderBy('nom')->get(['id', 'nom', 'description', 'polygone_coordonnees']),
     ]);
 });
 
-Route::get('/dashboard', function () {
-    $user = auth()->user();
-    $data = [];
-    
-    if ($user->role === 'admin' || $user->role === 'validateur') {
-        $data['sites'] = $user->role === 'admin'
-            ? \App\Models\Site::all()
-            : $user->sites;
-
-        // Les brouillons ne sont pas encore soumis : exclus de toutes les statistiques.
-        $statsBase = \App\Models\Demande::query()->horsBrouillon()->forStatsViewer($user);
-
-        $totalDemandes = (clone $statsBase)->count();
-        $demandesValidees = (clone $statsBase)->whereHas('statut', fn ($q) => $q->where('code', 'validee'))->count();
-        $demandesEnAttente = (clone $statsBase)->whereHas('statut', fn ($q) => $q->where('code', 'soumise')->orWhere('code', 'en_analyse'))->count();
-
-        // Délai = soumission → décision finale (historique), et non updated_at qui bouge à chaque modification.
-        $delaiMoyen = (clone $statsBase)
-            ->join('historique_statuts', 'historique_statuts.demande_id', '=', 'demandes.id')
-            ->join('statuts as statut_decision', 'statut_decision.id', '=', 'historique_statuts.nouveau_statut_id')
-            ->whereIn('statut_decision.code', ['validee', 'rejetee'])
-            ->whereNotNull('demandes.date_soumission')
-            ->selectRaw('AVG(DATEDIFF(historique_statuts.date_changement, demandes.date_soumission)) as avg_days')
-            ->value('avg_days');
-
-        $data['stats'] = [
-            'total_demandes'      => $totalDemandes,
-            'demandes_en_attente' => $demandesEnAttente,
-            'demandes_validees'   => $demandesValidees,
-            'pct_validees'        => $totalDemandes > 0 ? round(($demandesValidees / $totalDemandes) * 100) : 0,
-            'delai_moyen'         => $delaiMoyen !== null ? round($delaiMoyen, 1) : null,
-            'total_users'         => $user->role === 'admin' ? \App\Models\User::count() : null,
-        ];
-
-        $data['stats_par_site'] = (clone $statsBase)
-            ->join('sites', 'demandes.site_id', '=', 'sites.id')
-            ->selectRaw('sites.nom as nom, COUNT(demandes.id) as total')
-            ->groupBy('sites.id', 'sites.nom')
-            ->orderByDesc('total')
-            ->limit(5)
-            ->get()
-            ->toArray();
-
-        $data['stats_par_type'] = (clone $statsBase)
-            ->join('type_demandes', 'demandes.type_demande_id', '=', 'type_demandes.id')
-            ->selectRaw('type_demandes.libelle as nom, COUNT(demandes.id) as total')
-            ->groupBy('type_demandes.id', 'type_demandes.libelle')
-            ->orderByDesc('total')
-            ->get()
-            ->toArray();
-
-        $data['alertes_retard'] = (clone $statsBase)
-            ->whereHas('statut', fn ($q) => $q->where('code', 'soumise')->orWhere('code', 'en_analyse'))
-            ->whereNotNull('date_soumission')
-            ->where('date_soumission', '<', now()->subDays(7))
-            ->with(['user:id,name', 'site:id,nom'])
-            ->select('demandes.id', 'demandes.user_id', 'demandes.site_id', 'demandes.date_soumission')
-            ->orderBy('demandes.date_soumission')
-            ->limit(5)
-            ->get()
-            ->toArray();
-
-        // resultats_analyse est une liste de chevauchements {type, message} : non vide = conflit détecté.
-        $data['alertes_conflits'] = (clone $statsBase)
-            ->whereHas('statut', fn ($q) => $q->whereIn('code', ['soumise', 'en_analyse']))
-            ->whereNotNull('resultats_analyse')
-            ->whereJsonLength('resultats_analyse', '>', 0)
-            ->with(['user:id,name', 'site:id,nom'])
-            ->select('demandes.id', 'demandes.user_id', 'demandes.site_id', 'demandes.date_soumission')
-            ->limit(5)
-            ->get()
-            ->toArray();
-
-        $data['chart_data'] = (clone $statsBase)
-            ->selectRaw('MONTH(demandes.created_at) as month, COUNT(*) as count')
-            ->whereYear('demandes.created_at', date('Y'))
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->pluck('count', 'month')
-            ->toArray();
-    } else {
-        $data['demandes_count'] = $user->demandes()->count();
-        $data['demandes_validees'] = $user->demandes()->whereHas('statut', function($q) {
-            $q->where('code', 'validee');
-        })->count();
-    }
-
-    return Inertia::render('Dashboard', $data);
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Tableau de bord adapté au rôle (demandeur, validateur, admin)
+Route::get('/dashboard', App\Http\Controllers\DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
 
 use App\Http\Controllers\DemandeController;
 use App\Http\Controllers\NotificationController;

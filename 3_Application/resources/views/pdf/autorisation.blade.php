@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <title>Autorisation d'accès</title>
     <style>
-        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; }
-        .header { text-align: center; border-bottom: 2px solid #2ecc71; padding-bottom: 20px; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: bold; color: #27ae60; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #15201A; }
+        .header { text-align: center; border-bottom: 2px solid #00683A; padding-bottom: 20px; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: bold; color: #00683A; }
         .content { margin: 20px; line-height: 1.6; }
-        .footer { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 12px; color: #7f8c8d; border-top: 1px solid #ccc; padding-top: 10px; }
+        .footer { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 12px; color: #6E7A72; border-top: 1px solid #D3DAD1; padding-top: 10px; }
         h1 { font-size: 20px; text-transform: uppercase; text-align: center; margin-bottom: 40px; }
     </style>
 </head>
@@ -36,7 +36,7 @@
     </div>
 
     <div class="footer">
-        Document officiel généré automatiquement le {{ now()->format('d/m/Y à H:i') }} par la plateforme de gestion Fanamby. Référence: #{{ $demande->id }}
+        Document officiel généré automatiquement le {{ now()->format('d/m/Y à H:i') }} par la plateforme de gestion Fanamby. Référence : FAN-{{ ($demande->created_at ?? now())->format('Y') }}-{{ str_pad($demande->id, 4, '0', STR_PAD_LEFT) }}
     </div>
 </body>
 </html>

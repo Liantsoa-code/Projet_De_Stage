@@ -32,8 +32,8 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        $sites = Site::all();
-        $user->load('sites');
+        $sites = Site::all(['id', 'nom']);
+        $user->load('sites:id,nom');
         return Inertia::render('Admin/Users/Edit', ['userEdit' => $user, 'sites' => $sites]);
     }
 

@@ -16,7 +16,7 @@ class PeriodeSensibleController extends Controller
         // Par défaut, seules les périodes en cours ou à venir ; « passees=1 » affiche aussi l'historique.
         $avecPassees = $request->boolean('passees');
 
-        $periodes = PeriodeSensible::with('site')
+        $periodes = PeriodeSensible::with('site:id,nom')
             ->when($siteId, fn ($q) => $q->where('site_id', $siteId))
             ->when(! $avecPassees, fn ($q) => $q->where('date_fin', '>=', now()->toDateString()))
             ->orderBy('date_debut')
@@ -32,7 +32,7 @@ class PeriodeSensibleController extends Controller
 
     public function create()
     {
-        $sites = Site::all();
+        $sites = Site::all(['id', 'nom']);
         return Inertia::render('Admin/PeriodeSensibles/Create', ['sites' => $sites]);
     }
 
@@ -52,7 +52,7 @@ class PeriodeSensibleController extends Controller
 
     public function edit(PeriodeSensible $periode_sensible)
     {
-        $sites = Site::all();
+        $sites = Site::all(['id', 'nom']);
         return Inertia::render('Admin/PeriodeSensibles/Edit', ['periode' => $periode_sensible, 'sites' => $sites]);
     }
 

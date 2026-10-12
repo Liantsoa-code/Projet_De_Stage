@@ -1,8 +1,13 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
 import { useListFilters } from '@/composables/useListFilters.js';
+import TableSkeleton from '@/Components/TableSkeleton.vue';
+import { useNavigation } from '@/composables/useNavigation.js';
+
+const { loading: navLoading, samePage } = useNavigation();
 
 const props = defineProps({ sites: Object, filters: { type: Object, default: () => ({}) } });
 const { filters, reset, isActive } = useListFilters('admin.sites.index', { q: props.filters.q ?? '' });
@@ -13,16 +18,16 @@ const deleteSite = (id) => {
 </script>
 
 <template>
-    <Head title="Sites Protégés" />
+    <Head title="Sites protégés" />
     <AuthenticatedLayout>
         <template #header>
             <div class="ph-row">
                 <div>
-                    <div class="page-title">Sites Protégés</div>
+                    <div class="page-title">Sites protégés</div>
                     <div class="page-sub">Aires protégées enregistrées dans le système</div>
                 </div>
                 <Link :href="route('admin.sites.create')" class="btn-accent">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                    <Icon name="plus" />
                     Ajouter un site
                 </Link>
             </div>
@@ -30,7 +35,7 @@ const deleteSite = (id) => {
 
         <div class="filter-bar">
             <div class="filter-search">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                <Icon name="magnifying-glass" />
                 <input v-model="filters.q" type="search" class="gf-input" placeholder="Rechercher un site…" aria-label="Rechercher un site" />
             </div>
             <button v-if="isActive()" type="button" class="filter-reset" @click="reset">Réinitialiser</button>
@@ -47,7 +52,8 @@ const deleteSite = (id) => {
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <TableSkeleton v-if="navLoading && samePage" :cols="5" />
+                <tbody v-else>
                     <tr v-for="s in sites.data" :key="s.id">
                         <td class="text-dim text-sm">{{ s.id }}</td>
                         <td class="fw-strong">{{ s.nom }}</td>

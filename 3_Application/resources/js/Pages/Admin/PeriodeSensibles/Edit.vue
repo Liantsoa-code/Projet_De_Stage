@@ -1,4 +1,5 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
@@ -18,13 +19,13 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
 </script>
 
 <template>
-    <Head title="Modifier Période Sensible" />
+    <Head title="Modifier la période sensible" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="page-header">
                 <Link :href="route('admin.periode-sensibles.index')" class="back-link">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+                    <Icon name="arrow-left" />
                     Retour
                 </Link>
                 <span>Modifier la Période Sensible</span>
@@ -84,25 +85,25 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-* { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+* { box-sizing: border-box; font-family: var(--f-body); }
 
 .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 .back-link {
     display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
-    color: var(--c-muted); text-decoration: none; padding: 6px 12px 6px 10px; border-radius: 999px;
-    background: var(--c-surface); border: 1px solid var(--c-line); box-shadow: var(--shadow-xs);
+    color: var(--c-muted); text-decoration: none; padding: 6px 12px 6px 10px; border-radius: var(--r-sm);
+    background: var(--c-surface); border: 1px solid var(--c-line); box-shadow: none;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 .back-link svg { width: 14px; height: 14px; transition: transform 0.2s var(--ease-out); }
-.back-link:hover { background: var(--c-surface-2); color: var(--c-ink); border-color: #d1d5db; }
+.back-link:hover { background: var(--c-surface-2); color: var(--c-ink); border-color: var(--rule); }
 .back-link:hover svg { transform: translateX(-2px); }
 
 .form-wrapper { max-width: 600px; }
 
 .form-card {
     background: var(--c-surface); border: 1px solid var(--c-line);
-    border-radius: var(--radius-xl); box-shadow: var(--shadow-md); overflow: hidden;
+    border-radius: var(--radius-xl); box-shadow: none; overflow: hidden;
 }
 
 .form-body { padding: 28px; display: flex; flex-direction: column; gap: 16px; }
@@ -111,18 +112,18 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
 .field-label { font-size: 12px; font-weight: 600; color: var(--c-text); }
 
 .field-select, .field-input, .field-textarea {
-    width: 100%; padding: 11px 14px; border: 1px solid #d9dedc;
+    width: 100%; padding: 11px 14px; border: 1px solid var(--rule);
     border-radius: var(--radius-sm); font-size: 13px; color: var(--c-ink); background: var(--c-surface);
-    outline: none; font-family: 'Inter', sans-serif;
-    box-shadow: var(--shadow-xs);
+    outline: none; font-family: var(--f-body);
+    box-shadow: none;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
-.field-select:hover, .field-input:hover, .field-textarea:hover { border-color: #bfc7c4; }
+.field-select:hover, .field-input:hover, .field-textarea:hover { border-color: var(--rule); }
 .field-select:focus, .field-input:focus, .field-textarea:focus {
     border-color: var(--c-brand); box-shadow: 0 0 0 4px var(--c-brand-ring);
 }
 .field-textarea { resize: vertical; line-height: 1.5; }
-.field-error { font-size: 11px; color: #dc2626; }
+.field-error { font-size: 11px; color: var(--signal); }
 .field-hint { font-size: 11.5px; color: var(--c-muted); margin: 0; line-height: 1.4; }
 
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -130,27 +131,27 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
 
 .form-footer {
     display: flex; justify-content: flex-end; align-items: center;
-    gap: 10px; padding-top: 16px; border-top: 1px solid var(--c-line-soft);
+    gap: 10px; padding-top: 4px;
 }
 
 .btn-cancel {
     padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
-    color: var(--c-text); text-decoration: none; border: 1px solid #d9dedc;
-    background: var(--c-surface); box-shadow: var(--shadow-xs);
+    color: var(--c-text); text-decoration: none; border: 1px solid var(--rule);
+    background: var(--c-surface); box-shadow: none;
     transition: background 0.2s, border-color 0.2s;
 }
-.btn-cancel:hover { background: var(--c-surface-2); border-color: #bfc7c4; }
+.btn-cancel:hover { background: var(--c-surface-2); border-color: var(--rule); }
 
 .submit-btn {
     padding: 10px 20px;
-    background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
-    color: #fff; border: 1px solid #0b1220;
+    background: var(--ink);
+    color: #fff; border: 1px solid var(--ink);
     border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 600; cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(16, 24, 40, 0.12), 0 6px 16px -6px rgba(16, 24, 40, 0.35);
+    font-family: var(--f-body);
+    box-shadow: none;
     transition: transform 0.2s var(--ease-out), box-shadow 0.2s, background 0.2s;
 }
-.submit-btn:hover { transform: translateY(-1px); background: linear-gradient(180deg, #273444 0%, #161f2e 100%); }
+.submit-btn:hover { transform: translateY(-1px); background: var(--ink); }
 .submit-btn:active { transform: none; }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 </style>

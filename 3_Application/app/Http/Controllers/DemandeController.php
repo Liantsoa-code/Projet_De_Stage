@@ -26,7 +26,7 @@ class DemandeController extends Controller
 
         // Récupère uniquement les demandes de l'utilisateur connecté
         $demandes = Demande::where('user_id', Auth::id())
-            ->with(['site', 'typeDemande', 'statut'])
+            ->with(['site:id,nom', 'typeDemande:id,libelle', 'statut:id,code,libelle'])
             ->when($statut !== '', fn ($q) => $q->whereHas('statut', fn ($s) => $s->where('code', $statut)))
             ->orderBy('created_at', 'desc')
             ->paginate(10)
@@ -51,7 +51,7 @@ class DemandeController extends Controller
         $this->assertOwner($demande);
 
         $demande->load([
-            'site', 'typeDemande', 'statut', 'documents',
+            'site:id,nom', 'typeDemande', 'statut', 'documents',
             'historiqueStatuts' => fn ($q) => $q->orderBy('date_changement'),
             'historiqueStatuts.user:id,name,role',
             'historiqueStatuts.nouveauStatut',

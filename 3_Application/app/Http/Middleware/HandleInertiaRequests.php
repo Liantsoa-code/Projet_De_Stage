@@ -40,12 +40,13 @@ class HandleInertiaRequests extends Middleware
             ],
             'notifications' => function () use ($request) {
                 if ($request->user()) {
+                    // Partagé à chaque page : seuls les champs affichés dans la cloche sont chargés.
                     return \App\Models\Notification::where('user_id', $request->user()->id)
                         ->where('lu', false)
-                        ->with(['demande.site:id,nom'])
+                        ->with(['demande:id,site_id', 'demande.site:id,nom'])
                         ->orderBy('date_envoi', 'desc')
                         ->orderBy('created_at', 'desc')
-                        ->get();
+                        ->get(['id', 'demande_id', 'contenu', 'date_envoi']);
                 }
                 return [];
             },

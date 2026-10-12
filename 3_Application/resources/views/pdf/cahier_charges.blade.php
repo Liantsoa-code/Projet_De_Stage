@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <title>Cahier des Charges</title>
     <style>
-        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; }
-        .header { text-align: center; border-bottom: 2px solid #e67e22; padding-bottom: 20px; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: bold; color: #d35400; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #15201A; }
+        .header { text-align: center; border-bottom: 2px solid #9A5F0C; padding-bottom: 20px; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: bold; color: #00683A; }
         .content { margin: 20px; line-height: 1.6; }
-        .footer { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 12px; color: #7f8c8d; border-top: 1px solid #ccc; padding-top: 10px; }
+        .footer { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 12px; color: #6E7A72; border-top: 1px solid #D3DAD1; padding-top: 10px; }
         h1 { font-size: 20px; text-transform: uppercase; text-align: center; margin-bottom: 40px; }
-        .alert { background-color: #fff3cd; color: #856404; padding: 10px; border: 1px solid #ffeeba; margin-top: 20px; }
+        .alert { background-color: #F6EAD3; color: #9A5F0C; padding: 10px; border: 1px solid #E0C38F; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -53,7 +53,7 @@
     </div>
 
     <div class="footer">
-        Document généré automatiquement le {{ now()->format('d/m/Y à H:i') }} - Réf: #{{ $demande->id }}
+        Document généré automatiquement le {{ now()->format('d/m/Y à H:i') }} - Réf. : FAN-{{ ($demande->created_at ?? now())->format('Y') }}-{{ str_pad($demande->id, 4, '0', STR_PAD_LEFT) }}
     </div>
 </body>
 </html>

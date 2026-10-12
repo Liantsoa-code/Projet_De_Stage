@@ -1,10 +1,7 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 
 defineProps({
     status: {
@@ -23,46 +20,27 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Forgot Password" />
+        <Head title="Mot de passe oublié" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
+        <div class="auth-head">
+            <h1>Mot de passe oublié</h1>
+            <p>Indiquez l'adresse e-mail du compte : vous recevrez un lien pour choisir un nouveau mot de passe.</p>
         </div>
 
-        <div
-            v-if="status"
-            class="mb-4 text-sm font-medium text-green-600"
-        >
-            {{ status }}
-        </div>
+        <div v-if="status" class="auth-status">{{ status }}</div>
 
-        <form @submit.prevent="submit">
+        <form class="auth-form" @submit.prevent="submit">
             <div>
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autofocus
-                    autocomplete="username"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
+                <label class="gf-label" for="email">Adresse e-mail</label>
+                <input id="email" v-model="form.email" type="email" class="gf-input" required autofocus autocomplete="username" />
+                <InputError class="gf-error" :message="form.errors.email" />
             </div>
 
-            <div class="mt-4 flex items-center justify-end">
-                <PrimaryButton
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Email Password Reset Link
-                </PrimaryButton>
-            </div>
+            <button class="btn-accent" :disabled="form.processing">Envoyer le lien</button>
         </form>
+
+        <p class="auth-alt">
+            <Link :href="route('login')" class="text-link">Retour à la connexion</Link>
+        </p>
     </GuestLayout>
 </template>

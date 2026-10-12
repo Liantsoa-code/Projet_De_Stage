@@ -79,6 +79,35 @@ class DemandeParcoursTest extends TestCase
         ], $attrs));
     }
 
+    // ── Tableau de bord demandeur ──
+
+    public function test_dashboard_lists_pending_requests_with_last_validator_comment(): void
+    {
+        $aCompleter = $this->makeDemande('a_completer');
+        HistoriqueStatut::create([
+            'demande_id' => $aCompleter->id,
+            'user_id' => $this->validateur->id,
+            'ancien_statut_id' => Statut::where('code', 'en_analyse')->value('id'),
+            'nouveau_statut_id' => $aCompleter->statut_id,
+            'commentaire' => "Joindre l'attestation d'assurance",
+            'date_changement' => now(),
+        ]);
+        $this->makeDemande('brouillon');
+        $this->makeDemande('validee', ['date_debut' => now()->addDays(3)->toDateString(), 'date_fin' => now()->addDays(6)->toDateString()]);
+        $this->makeDemande('validee', ['date_debut' => now()->subDays(9)->toDateString(), 'date_fin' => now()->subDays(6)->toDateString()]);
+
+        $this->actingAs($this->demandeur)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard')
+                ->has('en_cours', 2)
+                ->has('sejours', 1)
+                ->has('a_completer', 1)
+                ->where('a_completer.0.dernier_commentaire', "Joindre l'attestation d'assurance")
+            );
+    }
+
     // ── Brouillons ──
 
     public function test_draft_only_requires_site_and_type(): void
