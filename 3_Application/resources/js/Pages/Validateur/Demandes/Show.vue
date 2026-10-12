@@ -153,7 +153,7 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                                 <strong>{{ h.nouveau_statut.libelle }}</strong>
                                 <small>
                                     <span class="mono">{{ new Date(h.date_changement).toLocaleDateString('fr-FR') }}</span>
-                                    · {{ h.user.name }}<template v-if="h.user.role"> ({{ ROLES[h.user.role] }})</template>
+                                    · {{ h.user?.name ?? 'Compte supprimé' }}<template v-if="h.user?.role"> ({{ ROLES[h.user.role] }})</template>
                                 </small>
                                 <q v-if="h.commentaire">{{ h.commentaire }}</q>
                             </div>

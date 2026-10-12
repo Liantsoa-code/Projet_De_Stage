@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DemandeController extends Controller
@@ -159,51 +160,58 @@ class DemandeController extends Controller
             'commentaire' => 'required|string|max:1000',
         ]);
 
-        $demande->loadMissing('statut');
         $nouveauStatut = Statut::findOrFail($validated['statut_id']);
 
-        if (! DemandeStatutWorkflow::canTransition($demande->statut, $nouveauStatut)) {
-            return back()->withErrors([
-                'statut_id' => DemandeStatutWorkflow::isTerminal($demande->statut)
+        // Verrou sur la demande : de deux décisions simultanées, seule la première s'applique,
+        // la seconde est contrôlée sur le statut à jour. Statut, historique et notification
+        // sont enregistrés ensemble ou pas du tout.
+        $erreur = DB::transaction(function () use ($demande, $nouveauStatut, $user, $validated) {
+            $demande = Demande::whereKey($demande->id)->lockForUpdate()->firstOrFail();
+            $demande->load('statut', 'site');
+
+            if (! DemandeStatutWorkflow::canTransition($demande->statut, $nouveauStatut)) {
+                return DemandeStatutWorkflow::isTerminal($demande->statut)
                     ? 'Cette demande est clôturée et ne peut plus être modifiée.'
-                    : 'Vous ne pouvez pas rétrograder le statut ni le laisser inchangé.',
+                    : 'Vous ne pouvez pas rétrograder le statut ni le laisser inchangé.';
+            }
+
+            $ancienStatutId = $demande->statut_id;
+
+            // Mise à jour de la demande principale
+            $demande->update(['statut_id' => $nouveauStatut->id]);
+
+            // Historisation (Phase 6.2)
+            HistoriqueStatut::create([
+                'demande_id' => $demande->id,
+                'user_id' => $user->id,
+                'ancien_statut_id' => $ancienStatutId,
+                'nouveau_statut_id' => $nouveauStatut->id,
+                'commentaire' => $validated['commentaire'],
+                'date_changement' => now(),
             ]);
+
+            // Création de la Notification (Phase 6.3)
+            \App\Models\Notification::create([
+                'user_id' => $demande->user_id,
+                'demande_id' => $demande->id,
+                'contenu' => DemandeNotificationMessage::forStatutChange(
+                    $demande,
+                    $nouveauStatut,
+                    $user,
+                    $validated['commentaire']
+                ),
+                'lu' => false,
+                'date_envoi' => now(),
+            ]);
+
+            return null;
+        });
+
+        if ($erreur !== null) {
+            return back()->withErrors(['statut_id' => $erreur]);
         }
 
-        $ancienStatutId = $demande->statut_id;
-        $nouveauStatutId = $nouveauStatut->id;
-        $isAdminDecision = $user->role === 'admin';
-
-        // Mise à jour de la demande principale
-        $demande->update(['statut_id' => $nouveauStatutId]);
-
-        // Historisation (Phase 6.2)
-        HistoriqueStatut::create([
-            'demande_id' => $demande->id,
-            'user_id' => $user->id,
-            'ancien_statut_id' => $ancienStatutId,
-            'nouveau_statut_id' => $nouveauStatutId,
-            'commentaire' => $validated['commentaire'],
-            'date_changement' => now(),
-        ]);
-
-        // Création de la Notification (Phase 6.3)
-        $demande->loadMissing('site');
-
-        \App\Models\Notification::create([
-            'user_id' => $demande->user_id,
-            'demande_id' => $demande->id,
-            'contenu' => DemandeNotificationMessage::forStatutChange(
-                $demande,
-                $nouveauStatut,
-                $user,
-                $validated['commentaire']
-            ),
-            'lu' => false,
-            'date_envoi' => now(),
-        ]);
-
-        $successMessage = $isAdminDecision
+        $successMessage = $user->role === 'admin'
             ? 'Décision administrateur enregistrée et historisée.'
             : 'Le statut a été mis à jour et la décision a été historisée.';
 

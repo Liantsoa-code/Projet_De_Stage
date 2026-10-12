@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\User;
+use App\Support\DemandeDossier;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,9 +53,14 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
+        // La plateforme doit toujours garder au moins un administrateur.
+        if ($user->role === 'admin' && User::where('role', 'admin')->count() === 1) {
+            return back()->withErrors(['password' => 'Vous êtes le seul administrateur : nommez un autre administrateur avant de supprimer votre compte.']);
+        }
+
         Auth::logout();
 
-        $user->delete();
+        DemandeDossier::deleteUser($user);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

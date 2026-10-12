@@ -3,6 +3,8 @@ import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
+import InputError from '@/Components/InputError.vue';
+import { computed } from 'vue';
 
 const props = defineProps({ userEdit: Object, sites: Array });
 
@@ -12,6 +14,9 @@ const form = useForm({
     role: props.userEdit.role,
     sites: currentSiteIds,
 });
+
+// Les erreurs de sites arrivent sous les clés « sites » ou « sites.0 », « sites.1 »…
+const sitesError = computed(() => Object.entries(form.errors).find(([key]) => key === 'sites' || key.startsWith('sites.'))?.[1]);
 
 const submit = () => form.put(route('admin.users.update', props.userEdit.id));
 </script>
@@ -67,6 +72,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                                 </div>
                             </label>
                         </div>
+                        <InputError :message="form.errors.role" />
                     </div>
 
                     <div v-if="form.role === 'validateur'" class="sites-section">
@@ -83,6 +89,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                                 <span>{{ site.nom }}</span>
                             </label>
                         </div>
+                        <InputError :message="sitesError" />
                     </div>
 
                     <div class="form-footer">

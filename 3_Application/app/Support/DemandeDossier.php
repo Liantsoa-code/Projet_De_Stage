@@ -6,6 +6,7 @@ use App\Models\Demande;
 use App\Models\Document;
 use App\Models\PeriodeSensible;
 use App\Models\TypeDemande;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -86,6 +87,19 @@ class DemandeDossier
     {
         Storage::deleteDirectory('demandes/' . $demande->id);
         $demande->delete(); // documents, historique et notifications suivent en cascade
+    }
+
+    /**
+     * Supprime un compte et les fichiers de toutes ses demandes.
+     * Les fichiers ne sont effacés qu'une fois la suppression en base réussie.
+     */
+    public static function deleteUser(User $user): void
+    {
+        $demandeIds = $user->demandes()->pluck('id');
+
+        $user->delete(); // demandes, documents, notifications suivent en cascade ; ses décisions restent sans auteur
+
+        $demandeIds->each(fn (int $id) => Storage::deleteDirectory('demandes/' . $id));
     }
 
     private static function deleteDocument(Document $document): void
