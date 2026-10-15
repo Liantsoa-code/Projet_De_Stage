@@ -36,7 +36,7 @@
     </div>
 
     <div class="footer">
-        Document officiel généré automatiquement le {{ now()->format('d/m/Y à H:i') }} par la plateforme de gestion Fanamby. Référence : FAN-{{ ($demande->created_at ?? now())->format('Y') }}-{{ str_pad($demande->id, 4, '0', STR_PAD_LEFT) }}
+        Document officiel généré automatiquement le {{ now()->format('d/m/Y à H:i') }} par la plateforme de gestion Fanamby. Référence : {{ $demande->reference }}
     </div>
 </body>
 </html>

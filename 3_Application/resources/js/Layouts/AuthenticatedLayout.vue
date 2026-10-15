@@ -155,9 +155,19 @@ function formatNotifDate(value) {
                     <div v-if="notifOpen" class="notif-panel" role="dialog" aria-label="Notifications" @click.stop>
                         <div class="notif-panel__header">
                             <strong>Notifications</strong>
-                            <button type="button" class="icon-btn icon-btn--sm" aria-label="Fermer" @click="notifOpen = false">
-                                <Icon name="x" />
-                            </button>
+                            <div class="notif-panel__actions">
+                                <Link
+                                    v-if="notifications.length > 0"
+                                    :href="route('notifications.read-all')"
+                                    method="post"
+                                    as="button"
+                                    preserve-scroll
+                                    class="notif-read-all"
+                                >Tout marquer comme lu</Link>
+                                <button type="button" class="icon-btn icon-btn--sm" aria-label="Fermer" @click="notifOpen = false">
+                                    <Icon name="x" />
+                                </button>
+                            </div>
                         </div>
                         <p v-if="notifications.length === 0" class="notif-empty">
                             Rien de nouveau pour le moment.
@@ -374,6 +384,16 @@ function formatNotifDate(value) {
     border-bottom: 1px solid var(--rule);
     font-size: 14px;
 }
+.notif-panel__actions { display: flex; align-items: center; gap: 4px; }
+.notif-read-all {
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+    color: var(--forest);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.notif-read-all:hover { background: var(--rule-soft); }
 .notif-empty { padding: 28px 16px; text-align: center; font-size: 14px; color: var(--ink-3); }
 .notif-item {
     display: flex;

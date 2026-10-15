@@ -31,16 +31,25 @@ class DatabaseSeeder extends Seeder
         }
 
         // 2. Création des Types de Demande
-        TypeDemande::create([
-            'libelle' => 'Recherche scientifique',
-            'documents_requis' => ['Protocole de recherche', 'Carte d\'identité'],
-            'regles_specifiques' => ['max_personnes' => 10],
-        ]);
-        TypeDemande::create([
-            'libelle' => 'Tournage documentaire',
-            'documents_requis' => ['Scénario', 'Plan de vol drone', 'Attestation d\'assurance'],
-            'regles_specifiques' => ['max_personnes' => 5],
-        ]);
+        $types = [
+            'Recherche scientifique' => [
+                'documents' => ['Protocole de recherche', 'Carte d\'identité'],
+                'regles' => ['Équipe limitée à 10 personnes'],
+            ],
+            'Tournage documentaire' => [
+                'documents' => ['Scénario', 'Plan de vol drone', 'Attestation d\'assurance'],
+                'regles' => ['Équipe limitée à 5 personnes'],
+            ],
+        ];
+        foreach ($types as $libelle => $listes) {
+            $type = TypeDemande::create(['libelle' => $libelle]);
+            foreach ($listes['documents'] as $document) {
+                $type->documentsRequis()->create(['libelle' => $document]);
+            }
+            foreach ($listes['regles'] as $regle) {
+                $type->reglesSpecifiques()->create(['libelle' => $regle]);
+            }
+        }
 
         // 3. Création des Sites (Aires Protégées)
         $siteLokobe = Site::create([

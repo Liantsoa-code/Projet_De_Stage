@@ -3,19 +3,25 @@
 namespace App\Http\Controllers\Validateur;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DecisionRequest;
 use App\Models\Demande;
 use App\Models\Site;
 use App\Models\Statut;
 use App\Models\HistoriqueStatut;
-use App\Support\DemandeDecisionRules;
-use App\Support\DemandeNotificationMessage;
+use App\Support\DelaiDecision;
+use App\Support\DemandeNotifications;
 use App\Support\DemandeStatutWorkflow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Instruction des demandes (validateur et admin). Les droits d'accès sont dans DemandePolicy.
+ */
 class DemandeController extends Controller
 {
     public function index(Request $request)
@@ -128,9 +134,14 @@ class DemandeController extends Controller
 
     public function show(Demande $demande)
     {
-        $this->assertCanAccessDemande(Auth::user(), $demande);
+        Gate::authorize('instruire', $demande);
 
-        $demande->load(['site:id,nom', 'typeDemande', 'statut', 'user:id,name,email', 'documents', 'historiqueStatuts.user:id,name,role', 'historiqueStatuts.nouveauStatut']);
+        $demande->load([
+            'site:id,nom', 'typeDemande.documentsRequis', 'statut', 'user:id,name,email', 'documents',
+            'historiqueStatuts' => fn ($q) => $q->orderBy('date_changement')->orderBy('id'),
+            'historiqueStatuts.user:id,name,role',
+            'historiqueStatuts.nouveauStatut',
+        ]);
         $allStatuts = Statut::all();
 
         $user = Auth::user();
@@ -140,90 +151,65 @@ class DemandeController extends Controller
             'demande' => $demande,
             'statuts' => DemandeStatutWorkflow::allowedTargetStatuts($demande->statut, $allStatuts),
             'viewAllDemandes' => $user->role === 'admin',
-            'canDecideOnDemande' => DemandeDecisionRules::canUserDecide($user, $demande) && ! $statutLocked,
+            'canDecideOnDemande' => Gate::allows('decider', $demande) && ! $statutLocked,
             'statutLocked' => $statutLocked,
+            // Estimation de la décision sur la timeline, tant que le dossier est en instruction
+            'delaiHabituel' => in_array($demande->statut->code, ['soumise', 'en_analyse'], true)
+                ? DelaiDecision::habituelParSite()($demande->site_id)
+                : null,
         ]);
     }
 
-    public function updateStatut(Request $request, Demande $demande)
+    public function updateStatut(DecisionRequest $request, Demande $demande)
     {
         $user = Auth::user();
-        $this->assertCanAccessDemande($user, $demande);
+        $validated = $request->validated();
 
-        if (! DemandeDecisionRules::canUserDecide($user, $demande)) {
-            abort(403, 'Vous ne pouvez pas valider ou modifier le statut de votre propre demande.');
-        }
-
-        $validated = $request->validate([
-            'statut_id' => 'required|exists:statuts,id',
-            'commentaire' => 'required|string|max:1000',
-        ]);
-
-        $demande->loadMissing('statut');
         $nouveauStatut = Statut::findOrFail($validated['statut_id']);
 
-        if (! DemandeStatutWorkflow::canTransition($demande->statut, $nouveauStatut)) {
-            return back()->withErrors([
-                'statut_id' => DemandeStatutWorkflow::isTerminal($demande->statut)
+        // Verrou sur la demande : de deux décisions simultanées, seule la première s'applique,
+        // la seconde est contrôlée sur le statut à jour. Statut, historique et notification
+        // sont enregistrés ensemble ou pas du tout.
+        $erreur = DB::transaction(function () use ($demande, $nouveauStatut, $user, $validated) {
+            $demande = Demande::whereKey($demande->id)->lockForUpdate()->firstOrFail();
+            $demande->load('statut', 'site');
+
+            if (! DemandeStatutWorkflow::canTransition($demande->statut, $nouveauStatut)) {
+                return DemandeStatutWorkflow::isTerminal($demande->statut)
                     ? 'Cette demande est clôturée et ne peut plus être modifiée.'
-                    : 'Vous ne pouvez pas rétrograder le statut ni le laisser inchangé.',
+                    : 'Vous ne pouvez pas rétrograder le statut ni le laisser inchangé.';
+            }
+
+            $ancienStatutId = $demande->statut_id;
+
+            // Mise à jour de la demande principale
+            $demande->update(['statut_id' => $nouveauStatut->id]);
+
+            // Historisation (Phase 6.2)
+            HistoriqueStatut::create([
+                'demande_id' => $demande->id,
+                'user_id' => $user->id,
+                'ancien_statut_id' => $ancienStatutId,
+                'nouveau_statut_id' => $nouveauStatut->id,
+                'commentaire' => $validated['commentaire'],
+                'date_changement' => now(),
             ]);
+
+            // Notification du demandeur (Phase 6.3)
+            DemandeNotifications::decision($demande, $nouveauStatut, $user, $validated['commentaire']);
+
+            return null;
+        });
+
+        if ($erreur !== null) {
+            return back()->withErrors(['statut_id' => $erreur]);
         }
 
-        $ancienStatutId = $demande->statut_id;
-        $nouveauStatutId = $nouveauStatut->id;
-        $isAdminDecision = $user->role === 'admin';
-
-        // Mise à jour de la demande principale
-        $demande->update(['statut_id' => $nouveauStatutId]);
-
-        // Historisation (Phase 6.2)
-        HistoriqueStatut::create([
-            'demande_id' => $demande->id,
-            'user_id' => $user->id,
-            'ancien_statut_id' => $ancienStatutId,
-            'nouveau_statut_id' => $nouveauStatutId,
-            'commentaire' => $validated['commentaire'],
-            'date_changement' => now(),
-        ]);
-
-        // Création de la Notification (Phase 6.3)
-        $demande->loadMissing('site');
-
-        \App\Models\Notification::create([
-            'user_id' => $demande->user_id,
-            'demande_id' => $demande->id,
-            'contenu' => DemandeNotificationMessage::forStatutChange(
-                $demande,
-                $nouveauStatut,
-                $user,
-                $validated['commentaire']
-            ),
-            'lu' => false,
-            'date_envoi' => now(),
-        ]);
-
-        $successMessage = $isAdminDecision
+        $successMessage = $user->role === 'admin'
             ? 'Décision administrateur enregistrée et historisée.'
             : 'Le statut a été mis à jour et la décision a été historisée.';
 
         return redirect()->route('validateur.demandes.show', $demande->id)
                          ->with('message', $successMessage);
-    }
-
-    private function assertCanAccessDemande($user, Demande $demande): void
-    {
-        // Un brouillon n'est pas encore soumis : invisible côté validation.
-        if ($demande->statut?->code === 'brouillon') {
-            abort(404);
-        }
-
-        if ($user->role === 'admin') {
-            return;
-        }
-
-        if (! $user->sites()->whereKey($demande->site_id)->exists()) {
-            abort(403, 'Accès non autorisé à cette demande.');
-        }
     }
 }

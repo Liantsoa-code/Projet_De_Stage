@@ -26,13 +26,11 @@
         
         <h3>Règles spécifiques liées à l'activité :</h3>
         <ul>
-            @if(is_array($demande->typeDemande->regles_specifiques))
-                @foreach($demande->typeDemande->regles_specifiques as $key => $regle)
-                    <li><strong>{{ is_string($key) ? ucfirst($key) . ' :' : '' }}</strong> {{ is_string($regle) ? $regle : json_encode($regle) }}</li>
-                @endforeach
-            @else
+            @forelse($demande->typeDemande->reglesSpecifiques as $regle)
+                <li>{{ $regle->libelle }}</li>
+            @empty
                 <li>Aucune règle spécifique supplémentaire enregistrée.</li>
-            @endif
+            @endforelse
         </ul>
 
         @if(!empty($demande->resultats_analyse))
@@ -53,7 +51,7 @@
     </div>
 
     <div class="footer">
-        Document généré automatiquement le {{ now()->format('d/m/Y à H:i') }} - Réf. : FAN-{{ ($demande->created_at ?? now())->format('Y') }}-{{ str_pad($demande->id, 4, '0', STR_PAD_LEFT) }}
+        Document généré automatiquement le {{ now()->format('d/m/Y à H:i') }} - Réf. : {{ $demande->reference }}
     </div>
 </body>
 </html>

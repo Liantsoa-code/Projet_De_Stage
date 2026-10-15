@@ -114,6 +114,8 @@ onMounted(async () => {
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // Crédits du fond de carte (exigés par les licences OpenStreetMap et CARTO)
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
     if (props.editable) {
         draw = new MapboxDraw({

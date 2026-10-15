@@ -3,11 +3,12 @@ import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
+import ListeEditable from '@/Components/ListeEditable.vue';
 
 const form = useForm({
     libelle: '',
-    documents_requis: '',
-    regles_specifiques: '',
+    documents_requis: [],
+    regles_specifiques: [],
 });
 const submit = () => form.post(route('admin.type-demandes.store'));
 </script>
@@ -34,8 +35,27 @@ const submit = () => form.post(route('admin.type-demandes.store'));
                     </div>
                     <div class="field-group">
                         <InputLabel value="Documents requis" class="field-label" />
-                        <input type="text" class="field-input" v-model="form.documents_requis" placeholder="Ex : Protocole, Assurance, CNI (séparés par des virgules)" />
-                        <p class="field-hint">Entrez les noms des documents séparés par des virgules. Ils seront demandés lors de la soumission d'une demande.</p>
+                        <ListeEditable
+                            v-model="form.documents_requis"
+                            champ="documents_requis"
+                            :errors="form.errors"
+                            placeholder="Ex : Plan de vol drone"
+                            ajouter-label="Ajouter une pièce"
+                            vide="Aucune pièce exigée pour ce type."
+                        />
+                        <p class="field-hint">Chaque pièce sera demandée lors de la soumission. Renommer une pièce garde les fichiers déjà déposés.</p>
+                    </div>
+                    <div class="field-group">
+                        <InputLabel value="Règles spécifiques" class="field-label" />
+                        <ListeEditable
+                            v-model="form.regles_specifiques"
+                            champ="regles_specifiques"
+                            :errors="form.errors"
+                            placeholder="Ex : Équipe limitée à 10 personnes"
+                            ajouter-label="Ajouter une règle"
+                            vide="Aucune règle particulière."
+                        />
+                        <p class="field-hint">Reprises dans le cahier des charges remis avec l'autorisation.</p>
                     </div>
                     <div class="form-footer">
                         <Link :href="route('admin.type-demandes.index')" class="btn-cancel">Annuler</Link>

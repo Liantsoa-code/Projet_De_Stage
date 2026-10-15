@@ -1,10 +1,11 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
+import TimelineDemande from '@/Components/TimelineDemande.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { openAuthenticatedPdf } from '@/utils/openPdf.js';
-import { statutBadgeClass, formatDate, refDemande, joursDepuis } from '@/utils/statut.js';
+import { statutBadgeClass, formatDate, joursDepuis } from '@/utils/statut.js';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -13,9 +14,8 @@ const props = defineProps({
     viewAllDemandes: { type: Boolean, default: false },
     canDecideOnDemande: { type: Boolean, default: true },
     statutLocked: { type: Boolean, default: false },
+    delaiHabituel: { type: Number, default: null },
 });
-
-const ROLES = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' };
 
 const CHOIX = {
     en_analyse: { label: 'Prendre en charge', sub: 'Passe le dossier en analyse et prévient le demandeur', icon: 'stamp' },
@@ -44,14 +44,16 @@ const openPdf = async (url, filename) => {
     }
 };
 
-const reference = computed(() => refDemande(props.demande));
+const reference = computed(() => props.demande.reference);
 const code = computed(() => props.demande.statut?.code);
 const options = computed(() => props.statuts.filter((s) => s.id !== props.demande.statut_id));
 const statutChoisi = computed(() => props.statuts.find((s) => s.id === form.statut_id)?.code);
 const aChoisi = computed(() => form.statut_id !== props.demande.statut_id);
 
 const docsRequis = computed(() => props.demande.type_demande?.documents_requis ?? []);
-const docsManquants = computed(() => docsRequis.value.filter((n) => !(props.demande.documents ?? []).some((d) => d.type_document === n)));
+const docsManquants = computed(() => docsRequis.value
+    .filter((r) => !(props.demande.documents ?? []).some((d) => d.document_requis_id === r.id))
+    .map((r) => r.libelle));
 const attente = computed(() => (['soumise', 'en_analyse'].includes(code.value) ? joursDepuis(props.demande.date_soumission) : null));
 
 const boutonLabel = computed(() => {
@@ -145,21 +147,8 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                 </section>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Historique</h2></header>
-                    <ol v-if="demande.historique_statuts?.length" class="hist">
-                        <li v-for="(h, i) in demande.historique_statuts" :key="h.id" :class="{ 'hist--now': i === demande.historique_statuts.length - 1 }">
-                            <span class="hist__dot"></span>
-                            <div>
-                                <strong>{{ h.nouveau_statut.libelle }}</strong>
-                                <small>
-                                    <span class="mono">{{ new Date(h.date_changement).toLocaleDateString('fr-FR') }}</span>
-                                    · {{ h.user.name }}<template v-if="h.user.role"> ({{ ROLES[h.user.role] }})</template>
-                                </small>
-                                <q v-if="h.commentaire">{{ h.commentaire }}</q>
-                            </div>
-                        </li>
-                    </ol>
-                    <p v-else class="panel__text muted">Aucun historique pour le moment.</p>
+                    <header class="panel__head"><h2>Suivi du dossier</h2></header>
+                    <TimelineDemande :demande="demande" :delai-habituel="delaiHabituel" />
                 </section>
             </div>
 
@@ -271,16 +260,6 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .docs__body strong { font-weight: 500; font-size: 14px; }
 .docs__body small { font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
 .docs__missing .docs__icon, .docs__missing strong { color: var(--ochre); }
-
-.hist { list-style: none; margin: 0; padding: 4px 24px 24px; display: grid; }
-.hist li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 12px; padding-top: 12px; }
-.hist li::before { content: ''; position: absolute; left: 6px; top: 26px; bottom: -12px; border-left: 1px solid var(--rule); }
-.hist li:last-child::before { display: none; }
-.hist__dot { position: relative; z-index: 1; width: 13px; height: 13px; margin-top: 4px; border: 2px solid var(--ink-3); border-radius: 50%; background: var(--surface); }
-.hist--now .hist__dot { border-color: var(--water); background: var(--water); }
-.hist strong { display: block; font-weight: 600; font-size: 14px; }
-.hist small { font-size: 12.5px; color: var(--ink-3); }
-.hist q { display: block; margin-top: 4px; font-size: 13px; font-style: italic; color: var(--ink-2); quotes: "« " " »"; }
 
 .notice { background: var(--ochre-soft); border-color: var(--ochre-line); }
 .notice--closed { background: var(--surface); border-color: var(--rule); }

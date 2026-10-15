@@ -5,7 +5,7 @@ import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useListFilters } from '@/composables/useListFilters.js';
-import { statutBadgeClass, formatDate, refDemande } from '@/utils/statut.js';
+import { statutBadgeClass, formatDate } from '@/utils/statut.js';
 import TableSkeleton from '@/Components/TableSkeleton.vue';
 import { useNavigation } from '@/composables/useNavigation.js';
 
@@ -91,7 +91,7 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
                 <TableSkeleton v-if="navLoading && samePage" :cols="6" />
                 <tbody v-else>
                     <tr v-for="d in demandes.data" :key="d.id" class="row-link" @click="ouvrir(d)">
-                        <td class="mono text-sm nowrap">{{ refDemande(d) }}</td>
+                        <td class="mono text-sm nowrap">{{ d.reference }}</td>
                         <td>
                             <div class="fw-strong">{{ d.user.name }}</div>
                             <div class="text-dim text-sm">{{ d.type_demande?.libelle }}</div>

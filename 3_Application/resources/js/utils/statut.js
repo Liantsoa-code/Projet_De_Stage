@@ -12,13 +12,6 @@ export function statutBadgeClass(code) {
     return ['badge-glass', BADGES[code] ?? 'badge-draft'];
 }
 
-// Référence officielle d'une demande : FAN-AAAA-NNNN (année de création)
-export function refDemande(d) {
-    if (!d?.id) return '';
-    const annee = d.created_at ? new Date(d.created_at).getFullYear() : new Date().getFullYear();
-    return `FAN-${annee}-${String(d.id).padStart(4, '0')}`;
-}
-
 // Jours écoulés depuis une date (arrondi à l'entier inférieur)
 export function joursDepuis(value) {
     if (!value) return null;

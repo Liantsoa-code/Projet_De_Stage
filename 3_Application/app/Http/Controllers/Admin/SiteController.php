@@ -65,7 +65,7 @@ class SiteController extends Controller
 
     public function destroy(Site $site)
     {
-        // La clé étrangère est en cascade : supprimer le site effacerait ses demandes et leur historique.
+        // La base refuse la suppression (RESTRICT) : on explique pourquoi plutôt que d'afficher une erreur SQL.
         $nbDemandes = Demande::where('site_id', $site->id)->count();
         if ($nbDemandes > 0) {
             return redirect()->route('admin.sites.index')
