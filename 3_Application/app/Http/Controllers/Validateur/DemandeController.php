@@ -3,20 +3,25 @@
 namespace App\Http\Controllers\Validateur;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DecisionRequest;
 use App\Models\Demande;
 use App\Models\Site;
 use App\Models\Statut;
 use App\Models\HistoriqueStatut;
-use App\Support\DemandeDecisionRules;
-use App\Support\DemandeNotificationMessage;
+use App\Support\DelaiDecision;
+use App\Support\DemandeNotifications;
 use App\Support\DemandeStatutWorkflow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Instruction des demandes (validateur et admin). Les droits d'accès sont dans DemandePolicy.
+ */
 class DemandeController extends Controller
 {
     public function index(Request $request)
@@ -129,9 +134,14 @@ class DemandeController extends Controller
 
     public function show(Demande $demande)
     {
-        $this->assertCanAccessDemande(Auth::user(), $demande);
+        Gate::authorize('instruire', $demande);
 
-        $demande->load(['site:id,nom', 'typeDemande', 'statut', 'user:id,name,email', 'documents', 'historiqueStatuts.user:id,name,role', 'historiqueStatuts.nouveauStatut']);
+        $demande->load([
+            'site:id,nom', 'typeDemande.documentsRequis', 'statut', 'user:id,name,email', 'documents',
+            'historiqueStatuts' => fn ($q) => $q->orderBy('date_changement')->orderBy('id'),
+            'historiqueStatuts.user:id,name,role',
+            'historiqueStatuts.nouveauStatut',
+        ]);
         $allStatuts = Statut::all();
 
         $user = Auth::user();
@@ -141,24 +151,19 @@ class DemandeController extends Controller
             'demande' => $demande,
             'statuts' => DemandeStatutWorkflow::allowedTargetStatuts($demande->statut, $allStatuts),
             'viewAllDemandes' => $user->role === 'admin',
-            'canDecideOnDemande' => DemandeDecisionRules::canUserDecide($user, $demande) && ! $statutLocked,
+            'canDecideOnDemande' => Gate::allows('decider', $demande) && ! $statutLocked,
             'statutLocked' => $statutLocked,
+            // Estimation de la décision sur la timeline, tant que le dossier est en instruction
+            'delaiHabituel' => in_array($demande->statut->code, ['soumise', 'en_analyse'], true)
+                ? DelaiDecision::habituelParSite()($demande->site_id)
+                : null,
         ]);
     }
 
-    public function updateStatut(Request $request, Demande $demande)
+    public function updateStatut(DecisionRequest $request, Demande $demande)
     {
         $user = Auth::user();
-        $this->assertCanAccessDemande($user, $demande);
-
-        if (! DemandeDecisionRules::canUserDecide($user, $demande)) {
-            abort(403, 'Vous ne pouvez pas valider ou modifier le statut de votre propre demande.');
-        }
-
-        $validated = $request->validate([
-            'statut_id' => 'required|exists:statuts,id',
-            'commentaire' => 'required|string|max:1000',
-        ]);
+        $validated = $request->validated();
 
         $nouveauStatut = Statut::findOrFail($validated['statut_id']);
 
@@ -190,19 +195,8 @@ class DemandeController extends Controller
                 'date_changement' => now(),
             ]);
 
-            // Création de la Notification (Phase 6.3)
-            \App\Models\Notification::create([
-                'user_id' => $demande->user_id,
-                'demande_id' => $demande->id,
-                'contenu' => DemandeNotificationMessage::forStatutChange(
-                    $demande,
-                    $nouveauStatut,
-                    $user,
-                    $validated['commentaire']
-                ),
-                'lu' => false,
-                'date_envoi' => now(),
-            ]);
+            // Notification du demandeur (Phase 6.3)
+            DemandeNotifications::decision($demande, $nouveauStatut, $user, $validated['commentaire']);
 
             return null;
         });
@@ -217,21 +211,5 @@ class DemandeController extends Controller
 
         return redirect()->route('validateur.demandes.show', $demande->id)
                          ->with('message', $successMessage);
-    }
-
-    private function assertCanAccessDemande($user, Demande $demande): void
-    {
-        // Un brouillon n'est pas encore soumis : invisible côté validation.
-        if ($demande->statut?->code === 'brouillon') {
-            abort(404);
-        }
-
-        if ($user->role === 'admin') {
-            return;
-        }
-
-        if (! $user->sites()->whereKey($demande->site_id)->exists()) {
-            abort(403, 'Accès non autorisé à cette demande.');
-        }
     }
 }

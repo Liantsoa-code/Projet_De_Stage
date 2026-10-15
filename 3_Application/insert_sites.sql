@@ -47,3 +47,7 @@ INSERT INTO sites (nom, description, polygone_coordonnees, created_at, updated_a
   NOW(),
   NOW()
 );
+
+-- Vide la liste des sites mise en cache pour la page d'accueil (Site::pourAccueil),
+-- sinon les nouveaux sites n'y apparaissent qu'au bout d'une journée.
+DELETE FROM cache WHERE `key` LIKE '%sites.accueil';

@@ -45,27 +45,27 @@ class DemandeDossier
     }
 
     /**
-     * Enregistre les fichiers envoyés (doc_0, doc_1… dans l'ordre de documents_requis).
-     * Un nouveau fichier remplace l'ancien du même type ; les pièces qui ne
-     * correspondent plus au type d'activité (changement de type) sont supprimées.
+     * Enregistre les fichiers envoyés (doc_{id de la pièce requise}).
+     * Un nouveau fichier remplace l'ancien pour la même pièce ; les pièces qui ne
+     * correspondent plus au type d'activité (changement de type, pièce retirée) sont supprimées.
      */
     public static function syncDocuments(Demande $demande, Request $request, TypeDemande $type): void
     {
-        $docsRequis = $type->documents_requis ?? [];
+        $docsRequis = $type->documentsRequis;
 
         $demande->documents()
-            ->whereNotIn('type_document', $docsRequis)
+            ->where(fn ($q) => $q->whereNull('document_requis_id')->orWhereNotIn('document_requis_id', $docsRequis->modelKeys()))
             ->get()
             ->each(fn (Document $document) => self::deleteDocument($document));
 
-        foreach ($docsRequis as $index => $docName) {
-            $key = 'doc_' . $index;
+        foreach ($docsRequis as $docRequis) {
+            $key = 'doc_' . $docRequis->id;
             if (! $request->hasFile($key)) {
                 continue;
             }
 
             $demande->documents()
-                ->where('type_document', $docName)
+                ->where('document_requis_id', $docRequis->id)
                 ->get()
                 ->each(fn (Document $document) => self::deleteDocument($document));
 
@@ -73,9 +73,10 @@ class DemandeDossier
 
             Document::create([
                 'demande_id' => $demande->id,
+                'document_requis_id' => $docRequis->id,
                 'nom_fichier' => $file->getClientOriginalName(),
                 'chemin' => $file->store('demandes/' . $demande->id), // Stockage local sécurisé
-                'type_document' => $docName,
+                'type_document' => $docRequis->libelle,
             ]);
         }
     }

@@ -97,7 +97,9 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
 .dash .bars__label { display: grid; gap: 2px; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
 .dash .bars__label small { font-size: 12px; color: var(--ink-3); text-transform: none; letter-spacing: 0; font-family: var(--f-body); font-weight: 400; }
 .dash .bars__track { height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
-.dash .bars__track i { display: block; height: 100%; background: var(--forest); border-radius: 4px; }
+.dash .bars__track i { display: block; height: 100%; background: var(--forest); border-radius: 4px; animation: barre-pousse 0.9s cubic-bezier(0.33, 1, 0.68, 1); }
+@keyframes barre-pousse { from { width: 0; } }
+@media (prefers-reduced-motion: reduce) { .dash .bars__track i { animation: none; } }
 .dash .bars__n { font-size: 13px; text-align: right; color: var(--ink); }
 
 .dash .empty { display: grid; justify-items: center; gap: 10px; padding: 36px 20px; text-align: center; color: var(--ink-3); }

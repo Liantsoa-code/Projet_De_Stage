@@ -1,0 +1,186 @@
+// Schéma de la base projet_stage, à coller sur https://dbdiagram.io
+// Tables métier uniquement (les tables techniques Laravel sont omises :
+// cache, cache_locks, jobs, job_batches, failed_jobs, sessions,
+// password_reset_tokens, migrations).
+
+Project projet_stage {
+  database_type: 'MySQL'
+  Note: 'Plateforme d\'accès aux aires protégées — Fondation FANAMBY'
+}
+
+Enum role_utilisateur {
+  demandeur
+  validateur
+  admin
+}
+
+Enum niveau_restriction {
+  bloquant
+  avertissement
+}
+
+Table users {
+  id bigint [pk, increment]
+  name varchar(255) [not null]
+  email varchar(255) [not null, unique]
+  email_verified_at timestamp
+  password varchar(255) [not null]
+  role role_utilisateur [not null, default: 'demandeur']
+  remember_token varchar(100)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table sites {
+  id bigint [pk, increment]
+  nom varchar(150) [not null]
+  description text
+  polygone_coordonnees json
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table site_user {
+  user_id bigint [not null]
+  site_id bigint [not null]
+
+  indexes {
+    (user_id, site_id) [pk]
+  }
+
+  Note: 'Pivot : sites attribués à chaque validateur'
+}
+
+Table statuts {
+  id bigint [pk, increment]
+  code varchar(50) [not null, unique, note: 'brouillon, soumise, a_completer, ...']
+  libelle varchar(100) [not null]
+  description text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table type_demandes {
+  id bigint [pk, increment]
+  libelle varchar(100) [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table documents_requis {
+  id bigint [pk, increment]
+  type_demande_id bigint [not null]
+  libelle varchar(150) [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (type_demande_id, libelle) [unique]
+  }
+
+  Note: 'Pièces justificatives exigées pour un type de demande (une ligne par pièce)'
+}
+
+Table regles_specifiques {
+  id bigint [pk, increment]
+  type_demande_id bigint [not null]
+  libelle varchar(255) [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Règles reprises dans le cahier des charges (une ligne par règle)'
+}
+
+Table demandes {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  site_id bigint [not null]
+  type_demande_id bigint [not null]
+  description text
+  date_debut date [note: 'Facultative tant que la demande est un brouillon']
+  date_fin date [note: 'Facultative tant que la demande est un brouillon']
+  equipe_nombre int [not null, default: 1, note: 'CHECK (equipe_nombre >= 1)']
+  statut_id bigint [not null]
+  date_soumission timestamp
+  resultats_analyse json [note: 'Dénormalisation : alertes figées au moment de la soumission']
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'CHECK (date_fin >= date_debut). statut_id = dernier statut historisé (brouillon si aucun historique)'
+}
+
+Table documents {
+  id bigint [pk, increment]
+  demande_id bigint [not null]
+  document_requis_id bigint [note: 'Vide si la pièce a été retirée du type depuis le dépôt']
+  nom_fichier varchar(255) [not null]
+  chemin varchar(255) [not null]
+  type_document varchar(50) [not null, note: 'Dénormalisation : libellé de la pièce figé au dépôt']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table historique_statuts {
+  id bigint [pk, increment]
+  demande_id bigint [not null]
+  user_id bigint [note: 'Vide si le compte de l\'auteur a été supprimé']
+  ancien_statut_id bigint
+  nouveau_statut_id bigint [not null]
+  commentaire text
+  date_changement timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table periode_sensibles {
+  id bigint [pk, increment]
+  site_id bigint [not null]
+  date_debut date [not null]
+  date_fin date [not null]
+  description varchar(255) [not null]
+  niveau_restriction niveau_restriction [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'CHECK (date_fin >= date_debut)'
+}
+
+Table notifications {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  demande_id bigint
+  contenu text [not null]
+  lu boolean [not null, default: false]
+  date_envoi timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (user_id, lu, date_envoi) [name: 'notifications_user_lu_envoi_index', note: 'Cloche : non lues d\'un utilisateur']
+  }
+}
+
+// Relations
+Ref: site_user.user_id > users.id [delete: cascade]
+Ref: site_user.site_id > sites.id [delete: cascade]
+
+Ref: demandes.user_id > users.id [delete: cascade]
+Ref: demandes.site_id > sites.id [delete: restrict]
+Ref: demandes.type_demande_id > type_demandes.id [delete: restrict]
+Ref: demandes.statut_id > statuts.id [delete: restrict]
+
+Ref: documents_requis.type_demande_id > type_demandes.id [delete: cascade]
+Ref: regles_specifiques.type_demande_id > type_demandes.id [delete: cascade]
+
+Ref: documents.demande_id > demandes.id [delete: cascade]
+Ref: documents.document_requis_id >? documents_requis.id [delete: set null]
+
+Ref: historique_statuts.demande_id > demandes.id [delete: cascade]
+Ref: historique_statuts.user_id >? users.id [delete: set null]
+Ref: historique_statuts.ancien_statut_id >? statuts.id
+Ref: historique_statuts.nouveau_statut_id > statuts.id
+
+Ref: periode_sensibles.site_id > sites.id [delete: cascade]
+
+Ref: notifications.user_id > users.id [delete: cascade]
+Ref: notifications.demande_id >? demandes.id [delete: cascade]

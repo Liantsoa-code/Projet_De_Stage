@@ -3,14 +3,13 @@ import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
+import ListeEditable from '@/Components/ListeEditable.vue';
 
 const props = defineProps({ type: Object });
 const form = useForm({
     libelle: props.type.libelle,
-    documents_requis: Array.isArray(props.type.documents_requis) ? props.type.documents_requis.join(', ') : '',
-    regles_specifiques: Array.isArray(props.type.regles_specifiques)
-        ? props.type.regles_specifiques.join(', ')
-        : (props.type.regles_specifiques ? JSON.stringify(props.type.regles_specifiques) : ''),
+    documents_requis: (props.type.documents_requis ?? []).map(({ id, libelle }) => ({ id, libelle })),
+    regles_specifiques: (props.type.regles_specifiques ?? []).map(({ id, libelle }) => ({ id, libelle })),
 });
 const submit = () => form.put(route('admin.type-demandes.update', props.type.id));
 </script>
@@ -37,8 +36,27 @@ const submit = () => form.put(route('admin.type-demandes.update', props.type.id)
                     </div>
                     <div class="field-group">
                         <InputLabel value="Documents requis" class="field-label" />
-                        <input type="text" class="field-input" v-model="form.documents_requis" />
-                        <p class="field-hint">Noms des documents séparés par des virgules.</p>
+                        <ListeEditable
+                            v-model="form.documents_requis"
+                            champ="documents_requis"
+                            :errors="form.errors"
+                            placeholder="Ex : Plan de vol drone"
+                            ajouter-label="Ajouter une pièce"
+                            vide="Aucune pièce exigée pour ce type."
+                        />
+                        <p class="field-hint">Chaque pièce sera demandée lors de la soumission. Renommer une pièce garde les fichiers déjà déposés.</p>
+                    </div>
+                    <div class="field-group">
+                        <InputLabel value="Règles spécifiques" class="field-label" />
+                        <ListeEditable
+                            v-model="form.regles_specifiques"
+                            champ="regles_specifiques"
+                            :errors="form.errors"
+                            placeholder="Ex : Équipe limitée à 10 personnes"
+                            ajouter-label="Ajouter une règle"
+                            vide="Aucune règle particulière."
+                        />
+                        <p class="field-hint">Reprises dans le cahier des charges remis avec l'autorisation.</p>
                     </div>
                     <div class="form-footer">
                         <Link :href="route('admin.type-demandes.index')" class="btn-cancel">Annuler</Link>

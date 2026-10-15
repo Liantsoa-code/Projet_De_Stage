@@ -28,12 +28,16 @@ TRUNCATE TABLE documents;
 TRUNCATE TABLE demandes;
 TRUNCATE TABLE periode_sensibles;
 TRUNCATE TABLE site_user;
+TRUNCATE TABLE regles_specifiques;
+TRUNCATE TABLE documents_requis;
 TRUNCATE TABLE type_demandes;
 TRUNCATE TABLE sites;
 TRUNCATE TABLE statuts;
 TRUNCATE TABLE sessions;
 TRUNCATE TABLE password_reset_tokens;
 TRUNCATE TABLE users;
+-- Cache de l'application (dont la liste des sites de la page d'accueil, voir Site::pourAccueil)
+TRUNCATE TABLE cache;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ── Statuts du workflow ──
@@ -81,11 +85,37 @@ INSERT INTO sites (id, nom, description, polygone_coordonnees, created_at, updat
 INSERT INTO site_user (user_id, site_id) VALUES (2, 1), (2, 2), (2, 3), (4, 2), (4, 4);
 
 -- ── Types d'activité ──
-INSERT INTO type_demandes (id, libelle, documents_requis, regles_specifiques, created_at, updated_at) VALUES
-(1, 'Recherche scientifique', '["Protocole de recherche", "Carte d''identité"]', '["Équipe limitée à 10 personnes", "Accompagnement obligatoire par un guide agréé", "Aucun prélèvement sans autorisation du ministère"]', NOW() - INTERVAL 420 DAY, NOW()),
-(2, 'Tournage documentaire', '["Scénario", "Plan de vol drone", "Attestation d''assurance"]', '["Équipe limitée à 5 personnes", "Drone interdit au-dessus des zones de nidification", "Copie des images remise à la Fondation"]', NOW() - INTERVAL 420 DAY, NOW()),
-(3, 'Écotourisme', '["Programme de visite", "Pièce d''identité du responsable"]', '["Groupes de 15 personnes au maximum", "Circulation sur les sentiers balisés uniquement", "Déchets rapportés hors du site"]', NOW() - INTERVAL 420 DAY, NOW()),
-(4, 'Suivi écologique (ONG partenaire)', '["Lettre de mission", "Protocole de suivi"]', '["Rapport de mission remis sous 30 jours", "Données brutes partagées avec la Fondation"]', NOW() - INTERVAL 420 DAY, NOW());
+INSERT INTO type_demandes (id, libelle, created_at, updated_at) VALUES
+(1, 'Recherche scientifique', NOW() - INTERVAL 420 DAY, NOW()),
+(2, 'Tournage documentaire', NOW() - INTERVAL 420 DAY, NOW()),
+(3, 'Écotourisme', NOW() - INTERVAL 420 DAY, NOW()),
+(4, 'Suivi écologique (ONG partenaire)', NOW() - INTERVAL 420 DAY, NOW());
+
+-- ── Pièces exigées par type (une ligne par pièce) ──
+INSERT INTO documents_requis (id, type_demande_id, libelle, created_at, updated_at) VALUES
+(1, 1, 'Protocole de recherche', NOW() - INTERVAL 420 DAY, NOW()),
+(2, 1, 'Carte d''identité', NOW() - INTERVAL 420 DAY, NOW()),
+(3, 2, 'Scénario', NOW() - INTERVAL 420 DAY, NOW()),
+(4, 2, 'Plan de vol drone', NOW() - INTERVAL 420 DAY, NOW()),
+(5, 2, 'Attestation d''assurance', NOW() - INTERVAL 420 DAY, NOW()),
+(6, 3, 'Programme de visite', NOW() - INTERVAL 420 DAY, NOW()),
+(7, 3, 'Pièce d''identité du responsable', NOW() - INTERVAL 420 DAY, NOW()),
+(8, 4, 'Lettre de mission', NOW() - INTERVAL 420 DAY, NOW()),
+(9, 4, 'Protocole de suivi', NOW() - INTERVAL 420 DAY, NOW());
+
+-- ── Règles du cahier des charges par type (une ligne par règle) ──
+INSERT INTO regles_specifiques (id, type_demande_id, libelle, created_at, updated_at) VALUES
+(1, 1, 'Équipe limitée à 10 personnes', NOW() - INTERVAL 420 DAY, NOW()),
+(2, 1, 'Accompagnement obligatoire par un guide agréé', NOW() - INTERVAL 420 DAY, NOW()),
+(3, 1, 'Aucun prélèvement sans autorisation du ministère', NOW() - INTERVAL 420 DAY, NOW()),
+(4, 2, 'Équipe limitée à 5 personnes', NOW() - INTERVAL 420 DAY, NOW()),
+(5, 2, 'Drone interdit au-dessus des zones de nidification', NOW() - INTERVAL 420 DAY, NOW()),
+(6, 2, 'Copie des images remise à la Fondation', NOW() - INTERVAL 420 DAY, NOW()),
+(7, 3, 'Groupes de 15 personnes au maximum', NOW() - INTERVAL 420 DAY, NOW()),
+(8, 3, 'Circulation sur les sentiers balisés uniquement', NOW() - INTERVAL 420 DAY, NOW()),
+(9, 3, 'Déchets rapportés hors du site', NOW() - INTERVAL 420 DAY, NOW()),
+(10, 4, 'Rapport de mission remis sous 30 jours', NOW() - INTERVAL 420 DAY, NOW()),
+(11, 4, 'Données brutes partagées avec la Fondation', NOW() - INTERVAL 420 DAY, NOW());
 
 -- ── Périodes sensibles ──
 INSERT INTO periode_sensibles (id, site_id, date_debut, date_fin, description, niveau_restriction, created_at, updated_at) VALUES
@@ -167,52 +197,57 @@ INSERT INTO demandes (id, user_id, site_id, type_demande_id, description, date_d
 (22, 6, 3, 2, 'Repérages pour une série documentaire (année précédente).', CURDATE() - INTERVAL 330 DAY, CURDATE() - INTERVAL 325 DAY, 2, 5, NOW() - INTERVAL 350 DAY, '[]', NOW() - INTERVAL 352 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 341 DAY);
 
 -- ── Pièces jointes ──
-INSERT INTO documents (demande_id, nom_fichier, chemin, type_document, created_at, updated_at) VALUES
-(1, 'protocole_de_recherche.pdf', 'demandes/1/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR),
-(3, 'protocole_de_recherche.pdf', 'demandes/3/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(3, 'carte_d_identite.pdf', 'demandes/3/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(4, 'protocole_de_recherche.pdf', 'demandes/4/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
-(4, 'carte_d_identite.pdf', 'demandes/4/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
-(5, 'protocole_de_recherche.pdf', 'demandes/5/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
-(5, 'carte_d_identite.pdf', 'demandes/5/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
-(6, 'protocole_de_recherche.pdf', 'demandes/6/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
-(6, 'carte_d_identite.pdf', 'demandes/6/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
-(7, 'protocole_de_recherche.pdf', 'demandes/7/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
-(7, 'carte_d_identite.pdf', 'demandes/7/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
-(8, 'protocole_de_recherche.pdf', 'demandes/8/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
-(8, 'carte_d_identite.pdf', 'demandes/8/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
-(9, 'protocole_de_recherche.pdf', 'demandes/9/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
-(9, 'carte_d_identite.pdf', 'demandes/9/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
-(10, 'protocole_de_recherche.pdf', 'demandes/10/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
-(10, 'carte_d_identite.pdf', 'demandes/10/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
-(11, 'scenario.pdf', 'demandes/11/scenario.pdf', 'Scénario', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
-(11, 'plan_de_vol_drone.pdf', 'demandes/11/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
-(11, 'attestation_d_assurance.pdf', 'demandes/11/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
-(12, 'scenario.pdf', 'demandes/12/scenario.pdf', 'Scénario', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
-(12, 'plan_de_vol_drone.pdf', 'demandes/12/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
-(12, 'attestation_d_assurance.pdf', 'demandes/12/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
-(13, 'scenario.pdf', 'demandes/13/scenario.pdf', 'Scénario', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
-(13, 'plan_de_vol_drone.pdf', 'demandes/13/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
-(13, 'attestation_d_assurance.pdf', 'demandes/13/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
-(14, 'scenario.pdf', 'demandes/14/scenario.pdf', 'Scénario', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
-(14, 'attestation_d_assurance.pdf', 'demandes/14/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
-(15, 'programme_de_visite.pdf', 'demandes/15/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
-(15, 'piece_d_identite_du_responsable.pdf', 'demandes/15/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
-(16, 'programme_de_visite.pdf', 'demandes/16/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(16, 'piece_d_identite_du_responsable.pdf', 'demandes/16/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(17, 'programme_de_visite.pdf', 'demandes/17/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
-(17, 'piece_d_identite_du_responsable.pdf', 'demandes/17/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
-(18, 'programme_de_visite.pdf', 'demandes/18/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
-(18, 'piece_d_identite_du_responsable.pdf', 'demandes/18/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
-(19, 'lettre_de_mission.pdf', 'demandes/19/lettre_de_mission.pdf', 'Lettre de mission', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
-(19, 'protocole_de_suivi.pdf', 'demandes/19/protocole_de_suivi.pdf', 'Protocole de suivi', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
-(20, 'lettre_de_mission.pdf', 'demandes/20/lettre_de_mission.pdf', 'Lettre de mission', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
-(20, 'protocole_de_suivi.pdf', 'demandes/20/protocole_de_suivi.pdf', 'Protocole de suivi', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
-(21, 'protocole_de_recherche.pdf', 'demandes/21/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
-(21, 'carte_d_identite.pdf', 'demandes/21/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
-(22, 'scenario.pdf', 'demandes/22/scenario.pdf', 'Scénario', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
-(22, 'plan_de_vol_drone.pdf', 'demandes/22/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
-(22, 'attestation_d_assurance.pdf', 'demandes/22/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR);
+INSERT INTO documents (demande_id, document_requis_id, nom_fichier, chemin, type_document, created_at, updated_at) VALUES
+(1, 1, 'protocole_de_recherche.pdf', 'demandes/1/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR),
+(3, 1, 'protocole_de_recherche.pdf', 'demandes/3/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(3, 2, 'carte_d_identite.pdf', 'demandes/3/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(4, 1, 'protocole_de_recherche.pdf', 'demandes/4/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
+(4, 2, 'carte_d_identite.pdf', 'demandes/4/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
+(5, 1, 'protocole_de_recherche.pdf', 'demandes/5/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
+(5, 2, 'carte_d_identite.pdf', 'demandes/5/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
+(6, 1, 'protocole_de_recherche.pdf', 'demandes/6/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
+(6, 2, 'carte_d_identite.pdf', 'demandes/6/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
+(7, 1, 'protocole_de_recherche.pdf', 'demandes/7/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
+(7, 2, 'carte_d_identite.pdf', 'demandes/7/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
+(8, 1, 'protocole_de_recherche.pdf', 'demandes/8/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
+(8, 2, 'carte_d_identite.pdf', 'demandes/8/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
+(9, 1, 'protocole_de_recherche.pdf', 'demandes/9/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
+(9, 2, 'carte_d_identite.pdf', 'demandes/9/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
+(10, 1, 'protocole_de_recherche.pdf', 'demandes/10/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
+(10, 2, 'carte_d_identite.pdf', 'demandes/10/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
+(11, 3, 'scenario.pdf', 'demandes/11/scenario.pdf', 'Scénario', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
+(11, 4, 'plan_de_vol_drone.pdf', 'demandes/11/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
+(11, 5, 'attestation_d_assurance.pdf', 'demandes/11/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
+(12, 3, 'scenario.pdf', 'demandes/12/scenario.pdf', 'Scénario', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
+(12, 4, 'plan_de_vol_drone.pdf', 'demandes/12/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
+(12, 5, 'attestation_d_assurance.pdf', 'demandes/12/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
+(13, 3, 'scenario.pdf', 'demandes/13/scenario.pdf', 'Scénario', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
+(13, 4, 'plan_de_vol_drone.pdf', 'demandes/13/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
+(13, 5, 'attestation_d_assurance.pdf', 'demandes/13/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
+(14, 3, 'scenario.pdf', 'demandes/14/scenario.pdf', 'Scénario', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
+(14, 5, 'attestation_d_assurance.pdf', 'demandes/14/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
+(15, 6, 'programme_de_visite.pdf', 'demandes/15/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
+(15, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/15/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
+(16, 6, 'programme_de_visite.pdf', 'demandes/16/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(16, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/16/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(17, 6, 'programme_de_visite.pdf', 'demandes/17/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
+(17, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/17/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
+(18, 6, 'programme_de_visite.pdf', 'demandes/18/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
+(18, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/18/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
+(19, 8, 'lettre_de_mission.pdf', 'demandes/19/lettre_de_mission.pdf', 'Lettre de mission', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
+(19, 9, 'protocole_de_suivi.pdf', 'demandes/19/protocole_de_suivi.pdf', 'Protocole de suivi', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
+(20, 8, 'lettre_de_mission.pdf', 'demandes/20/lettre_de_mission.pdf', 'Lettre de mission', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
+(20, 9, 'protocole_de_suivi.pdf', 'demandes/20/protocole_de_suivi.pdf', 'Protocole de suivi', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
+(21, 1, 'protocole_de_recherche.pdf', 'demandes/21/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
+(21, 2, 'carte_d_identite.pdf', 'demandes/21/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
+(22, 3, 'scenario.pdf', 'demandes/22/scenario.pdf', 'Scénario', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
+(22, 4, 'plan_de_vol_drone.pdf', 'demandes/22/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
+(22, 5, 'attestation_d_assurance.pdf', 'demandes/22/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR);
+
+-- ── Historique : soumission de chaque dossier envoyé (RG09), au nom du demandeur ──
+INSERT INTO historique_statuts (demande_id, user_id, ancien_statut_id, nouveau_statut_id, commentaire, date_changement, created_at, updated_at)
+SELECT id, user_id, NULL, 2, NULL, date_soumission, date_soumission, date_soumission
+FROM demandes WHERE statut_id <> 1 AND date_soumission IS NOT NULL;
 
 -- ── Historique des décisions ──
 INSERT INTO historique_statuts (demande_id, user_id, ancien_statut_id, nouveau_statut_id, commentaire, date_changement, created_at, updated_at) VALUES
@@ -268,6 +303,8 @@ INSERT INTO notifications (user_id, demande_id, contenu, lu, date_envoi, created
 ALTER TABLE users AUTO_INCREMENT = 8;
 ALTER TABLE sites AUTO_INCREMENT = 6;
 ALTER TABLE type_demandes AUTO_INCREMENT = 5;
+ALTER TABLE documents_requis AUTO_INCREMENT = 10;
+ALTER TABLE regles_specifiques AUTO_INCREMENT = 12;
 ALTER TABLE periode_sensibles AUTO_INCREMENT = 9;
 ALTER TABLE demandes AUTO_INCREMENT = 23;
 ALTER TABLE statuts AUTO_INCREMENT = 7;

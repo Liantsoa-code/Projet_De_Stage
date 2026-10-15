@@ -28,7 +28,7 @@ class IntegriteComptesEtDecisionsTest extends TestCase
         }
 
         $this->site = Site::create(['nom' => 'Site A', 'description' => '', 'polygone_coordonnees' => []]);
-        $this->type = TypeDemande::create(['libelle' => 'Recherche', 'documents_requis' => [], 'regles_specifiques' => []]);
+        $this->type = TypeDemande::create(['libelle' => 'Recherche']);
     }
 
     private function makeDemande(User $demandeur, string $statut = 'soumise'): Demande

@@ -20,6 +20,7 @@ class DemandeSecurityTest extends TestCase
     private Site $site;
     private Site $autreSite;
     private TypeDemande $type;
+    private int $protocoleId;
 
     protected function setUp(): void
     {
@@ -31,11 +32,8 @@ class DemandeSecurityTest extends TestCase
 
         $this->site = Site::create(['nom' => 'Site A', 'description' => '', 'polygone_coordonnees' => []]);
         $this->autreSite = Site::create(['nom' => 'Site B', 'description' => '', 'polygone_coordonnees' => []]);
-        $this->type = TypeDemande::create([
-            'libelle' => 'Recherche',
-            'documents_requis' => ['Protocole'],
-            'regles_specifiques' => [],
-        ]);
+        $this->type = TypeDemande::create(['libelle' => 'Recherche']);
+        $this->protocoleId = $this->type->documentsRequis()->create(['libelle' => 'Protocole'])->id;
     }
 
     private function makeDemande(User $demandeur, string $statut = 'soumise', ?Site $site = null): Demande
@@ -71,6 +69,7 @@ class DemandeSecurityTest extends TestCase
             'demande_id' => $demande->id,
             'nom_fichier' => 'protocole.pdf',
             'chemin' => "demandes/{$demande->id}/protocole.pdf",
+            'document_requis_id' => $this->protocoleId,
             'type_document' => 'Protocole',
         ]);
     }
@@ -155,7 +154,7 @@ class DemandeSecurityTest extends TestCase
             'date_fin' => now()->addDays(7)->toDateString(),
             'equipe_nombre' => 3,
             'description' => 'Inventaire de la faune',
-            'doc_0' => UploadedFile::fake()->create('protocole.pdf', 100, 'application/pdf'),
+            'doc_' . $this->protocoleId => UploadedFile::fake()->create('protocole.pdf', 100, 'application/pdf'),
         ], $overrides);
     }
 
@@ -178,9 +177,9 @@ class DemandeSecurityTest extends TestCase
 
         $this->actingAs(User::factory()->create(['role' => 'demandeur']))
             ->post(route('demandes.store'), $this->payload([
-                'doc_0' => UploadedFile::fake()->create('virus.exe', 10, 'application/x-msdownload'),
+                'doc_' . $this->protocoleId => UploadedFile::fake()->create('virus.exe', 10, 'application/x-msdownload'),
             ]))
-            ->assertSessionHasErrors('doc_0');
+            ->assertSessionHasErrors('doc_' . $this->protocoleId);
 
         $this->assertSame(0, Demande::count());
     }
