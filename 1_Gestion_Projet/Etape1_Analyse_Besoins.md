@@ -14,7 +14,7 @@ Les règles de gestion traduisent les contraintes métiers de l'association Fana
 *   **RG08** : Un statut possède un code unique et un libellé descriptif.
 *   **RG09** : Tous les changements de statut d'une demande sont conservés dans un historique, à partir de sa soumission (un brouillon n'a pas encore d'historique). Chaque entrée consigne l'ancien et le nouveau statut, la date et l'utilisateur auteur ; si le compte de l'auteur est supprimé, l'entrée est conservée sans auteur.
 *   **RG10** : Une demande peut contenir de zéro à plusieurs documents justificatifs, mais un document appartient à une seule demande. Chaque document fournit au plus une pièce requise par le type de la demande ; s'il est remplacé, l'ancien fichier est supprimé.
-*   **RG11** : Un site protégé peut être concerné par zéro ou plusieurs périodes sensibles (ex: nidification des tortues).
+*   **RG11** : Une aire protégée peut être concernée par zéro ou plusieurs périodes sensibles (ex: nidification des tortues).
 *   **RG12** : Le système génère des notifications. Une notification est adressée à un seul utilisateur et concerne au maximum une demande spécifique.
 *   **RG13** : La date de fin d'une demande ou d'une période sensible ne peut pas précéder sa date de début, et une équipe compte au moins une personne.
 *   **RG14** : Un site ou un type de demande auquel des demandes sont rattachées ne peut pas être supprimé : les demandes et leur historique sont des traces à conserver.
@@ -32,7 +32,7 @@ Le dictionnaire des données recense de manière exhaustive toutes les informati
 | **email_utilisateur**| Texte | Adresse email (sert d'identifiant de connexion) |
 | **mot_de_passe** | Texte | Mot de passe chiffré |
 | **role_utilisateur** | Texte court | Niveau de privilège (demandeur, validateur, admin) |
-| **id_site** | Entier | Identifiant unique du site protégé |
+| **id_site** | Entier | Identifiant unique de l'aire protégée |
 | **nom_site** | Texte | Nom de l'aire protégée (ex: Lokobe) |
 | **description_site** | Texte long | Informations générales sur le site |
 | **coordonnees_site** | JSON | Tracé du polygone géographique pour la carte interactive |

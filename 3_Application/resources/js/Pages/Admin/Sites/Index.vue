@@ -13,22 +13,22 @@ const props = defineProps({ sites: Object, filters: { type: Object, default: () 
 const { filters, reset, isActive } = useListFilters('admin.sites.index', { q: props.filters.q ?? '' });
 const form = useForm({});
 const deleteSite = (id) => {
-    if (confirm('Supprimer ce site ?')) form.delete(route('admin.sites.destroy', id));
+    if (confirm('Supprimer cette aire protégée ?')) form.delete(route('admin.sites.destroy', id));
 };
 </script>
 
 <template>
-    <Head title="Sites protégés" />
+    <Head title="Aires protégées" />
     <AuthenticatedLayout>
         <template #header>
             <div class="ph-row">
                 <div>
-                    <div class="page-title">Sites protégés</div>
+                    <div class="page-title">Aires protégées</div>
                     <div class="page-sub">Aires protégées enregistrées dans le système</div>
                 </div>
                 <Link :href="route('admin.sites.create')" class="btn-accent">
                     <Icon name="plus" />
-                    Ajouter un site
+                    Ajouter une aire protégée
                 </Link>
             </div>
         </template>
@@ -36,7 +36,7 @@ const deleteSite = (id) => {
         <div class="filter-bar">
             <div class="filter-search">
                 <Icon name="magnifying-glass" />
-                <input v-model="filters.q" type="search" class="gf-input" placeholder="Rechercher un site…" aria-label="Rechercher un site" />
+                <input v-model="filters.q" type="search" class="gf-input" placeholder="Rechercher une aire protégée…" aria-label="Rechercher une aire protégée" />
             </div>
             <button v-if="isActive()" type="button" class="filter-reset" @click="reset">Réinitialiser</button>
         </div>
@@ -46,7 +46,7 @@ const deleteSite = (id) => {
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Nom du site</th>
+                        <th>Nom de l'aire protégée</th>
                         <th>Description</th>
                         <th>Demandes</th>
                         <th class="text-right">Actions</th>
@@ -62,15 +62,15 @@ const deleteSite = (id) => {
                         <td class="text-right">
                             <div style="display:flex;gap:8px;justify-content:flex-end">
                                 <Link :href="route('admin.sites.edit', s.id)" class="btn-sm-edit">Modifier</Link>
-                                <button @click="deleteSite(s.id)" class="btn-sm-delete" :disabled="s.demandes_count > 0" :title="s.demandes_count > 0 ? 'Des demandes sont rattachées à ce site' : undefined">Supprimer</button>
+                                <button @click="deleteSite(s.id)" class="btn-sm-delete" :disabled="s.demandes_count > 0" :title="s.demandes_count > 0 ? 'Des demandes sont rattachées à cette aire protégée' : undefined">Supprimer</button>
                             </div>
                         </td>
                     </tr>
-                    <tr v-if="sites.data.length === 0"><td colspan="5" class="table-empty">{{ isActive() ? 'Aucun site ne correspond à cette recherche.' : 'Aucun site enregistré.' }}</td></tr>
+                    <tr v-if="sites.data.length === 0"><td colspan="5" class="table-empty">{{ isActive() ? 'Aucune aire protégée ne correspond à cette recherche.' : 'Aucune aire protégée enregistrée.' }}</td></tr>
                 </tbody>
             </table>
         </div>
 
-        <Pagination :paginator="sites" label="sites" />
+        <Pagination :paginator="sites" label="aires protégées" />
     </AuthenticatedLayout>
 </template>

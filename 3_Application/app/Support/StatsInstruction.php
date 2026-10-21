@@ -75,6 +75,35 @@ abstract class StatsInstruction
             ->values();
     }
 
+    /**
+     * Statistiques principales : demandes reçues (hors brouillons), en attente d'une décision
+     * finale (soumises, en analyse ou chez le demandeur pour complément) et validées.
+     * Reçues = en attente + validées + rejetées.
+     */
+    protected function principales(): array
+    {
+        $parCode = (clone $this->base)
+            ->join('t_statuts', 't_statuts.id', '=', 't_demandes.statut_id')
+            ->selectRaw('t_statuts.code as code, COUNT(*) as total')
+            ->groupBy('t_statuts.code')
+            ->pluck('total', 'code')
+            ->map(fn ($n) => (int) $n);
+
+        $nb = fn (string ...$codes) => collect($codes)->sum(fn ($code) => $parCode[$code] ?? 0);
+        $decidees = $nb('validee', 'rejetee');
+
+        return [
+            'recues' => $parCode->sum(),
+            'recues_mois' => (clone $this->base)->where('t_demandes.date_soumission', '>=', now()->startOfMonth())->count(),
+            'en_attente' => $nb('soumise', 'en_analyse', 'a_completer'),
+            'chez_demandeur' => $nb('a_completer'),
+            'validees' => $nb('validee'),
+            'rejetees' => $nb('rejetee'),
+            // Sur les seuls dossiers décidés : les dossiers en attente ne font pas baisser le taux.
+            'taux_validation' => $decidees > 0 ? (int) round($nb('validee') / $decidees * 100) : null,
+        ];
+    }
+
     protected function compteurs(Collection $enAttente): array
     {
         return [
@@ -92,7 +121,7 @@ abstract class StatsInstruction
      */
     protected function carte(Collection $enAttente): array
     {
-        $colonnes = ['sites.id', 'sites.nom', 'sites.description', 'sites.polygone_coordonnees'];
+        $colonnes = ['t_sites.id', 't_sites.nom', 't_sites.description', 't_sites.polygone_coordonnees'];
         $sites = $this->user->role === 'admin' ? Site::all($colonnes) : $this->user->sites()->get($colonnes);
 
         return [

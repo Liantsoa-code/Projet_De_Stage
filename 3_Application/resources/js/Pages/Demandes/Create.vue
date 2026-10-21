@@ -16,6 +16,8 @@ const props = defineProps({
     sites: Array,
     types: Array,
     periodes: { type: Array, default: () => [] },
+    // Pièces réutilisables déjà déposées dans un autre dossier, par id de pièce requise ({ id, nom_fichier, depose_le, reference })
+    reutilisables: { type: [Object, Array], default: () => ({}) },
     // Présent en modification (brouillon ou dossier à compléter)
     demande: { type: Object, default: null },
     complement: { type: String, default: null },
@@ -26,6 +28,8 @@ const aCompleter = computed(() => props.demande?.statut?.code === 'a_completer')
 
 // Stockage des fichiers uploades separement (avant transfert dans le form)
 const uploadedFiles = ref({});
+// Pièces réutilisables que le demandeur a choisi de ne pas reprendre, par id de pièce requise
+const ecartees = ref({});
 
 const form = useForm({
     site_id: props.demande?.site_id ?? '',
@@ -74,6 +78,13 @@ const calendrier = computed(() => {
 // Quand le type change, on vide les fichiers precedemment choisis
 function onTypeChange() {
     uploadedFiles.value = {};
+    ecartees.value = {};
+}
+
+// Reprendre ou non une pièce déjà déposée dans un autre dossier
+function ecarterReprise(docId, ecarter) {
+    ecartees.value[docId] = ecarter;
+    if (!ecarter) form.clearErrors('doc_' + docId);
 }
 
 // Un fichier choisi efface le message « pièce obligatoire » de cette pièce
@@ -102,7 +113,10 @@ function envoyer(action) {
     const extra = enEdition.value ? { _method: 'put' } : {};
     const url = enEdition.value ? route('demandes.update', props.demande.id) : route('demandes.store');
 
-    form.transform((data) => ({ ...data, ...docs, ...extra, action }))
+    // Pièces reprises d'un autre dossier : le serveur copie lui-même le fichier
+    const reprendre = pieces.value.filter(p => p.reprise).map(p => p.id);
+
+    form.transform((data) => ({ ...data, ...docs, ...extra, reprendre, action }))
         .post(url, {
             forceFormData: true,
             preserveScroll: true,
@@ -117,17 +131,20 @@ const titre = computed(() => {
     return 'Nouvelle demande d\'accès';
 });
 
-// Pièces exigées par le type choisi, avec le fichier choisi pendant la saisie ou celui déjà envoyé
+// Pièces exigées par le type choisi, avec le fichier choisi pendant la saisie, celui déjà envoyé,
+// ou à défaut celui d'un autre dossier pour une pièce réutilisable (reprise d'office, sauf si écartée)
 const piecesRequises = computed(() => typeSelectionne.value?.documents_requis ?? []);
 const pieces = computed(() => piecesRequises.value.map((doc) => {
     const fichier = uploadedFiles.value['doc_' + doc.id] ?? null;
     const existant = docsExistants.value[doc.id] ?? null;
-    return { ...doc, fichier, existant, fourni: Boolean(fichier || existant) };
+    const reutilisable = props.reutilisables[doc.id] ?? null;
+    const reprise = !fichier && !existant && !ecartees.value[doc.id] ? reutilisable : null;
+    return { ...doc, fichier, existant, reutilisable, reprise, fourni: Boolean(fichier || existant || reprise) };
 }));
 
 // ── Parcours en étapes : chaque étape est vérifiée avant de passer à la suivante ──
 const ETAPES = [
-    { id: 'activite', titre: 'Activité et site', champs: ['type_demande_id', 'site_id'] },
+    { id: 'activite', titre: 'Activité et aire protégée', champs: ['type_demande_id', 'site_id'] },
     { id: 'dates', titre: 'Dates et équipe', champs: ['date_debut', 'date_fin', 'equipe_nombre'] },
     { id: 'mission', titre: 'Objet de la mission', champs: ['description', 'message_complement'] },
     { id: 'pieces', titre: 'Pièces à joindre', champs: [] },
@@ -147,7 +164,7 @@ function erreursEtape(id) {
     } else if (id === 'dates') {
         if (!form.date_debut) err.date_debut = 'Indiquez la date d\'arrivée.';
         else if (form.date_debut < today) err.date_debut = 'La date de début ne peut pas être antérieure à aujourd\'hui.';
-        else if (bloquant.value) err.date_debut = 'Ces dates chevauchent une période bloquante sur ce site : choisissez d\'autres dates.';
+        else if (bloquant.value) err.date_debut = 'Ces dates chevauchent une période bloquante sur cette aire protégée : choisissez d\'autres dates.';
         if (!form.date_fin) err.date_fin = 'Indiquez la date de départ.';
         else if (form.date_debut && form.date_fin < form.date_debut) err.date_fin = 'La date de fin doit être postérieure ou égale à la date de début.';
         const equipe = Number(form.equipe_nombre);
@@ -282,7 +299,7 @@ function allerAuxErreurs(errors) {
                     <EtapeActivite v-if="etape === 'activite'" :form="form" :types="types" :sites="sites" @type-change="onTypeChange" />
                     <EtapeDates v-else-if="etape === 'dates'" :form="form" :today="today" />
                     <EtapeMission v-else-if="etape === 'mission'" :form="form" :a-completer="aCompleter" />
-                    <EtapePieces v-else-if="etape === 'pieces'" :form="form" :type-activite="typeSelectionne" :pieces="pieces" @fichier="choisirFichier" />
+                    <EtapePieces v-else-if="etape === 'pieces'" :form="form" :type-activite="typeSelectionne" :pieces="pieces" @fichier="choisirFichier" @ecarter="ecarterReprise" />
                     <EtapeRecap
                         v-else
                         :form="form"

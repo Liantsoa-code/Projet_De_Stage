@@ -3,6 +3,7 @@ import CompteurAnime from '@/Components/CompteurAnime.vue';
 import Icon from '@/Components/Icon.vue';
 import CarteSites from '@/Pages/Dashboard/Partials/CarteSites.vue';
 import LigneDossier from '@/Pages/Dashboard/Partials/LigneDossier.vue';
+import StatsPrincipales from '@/Pages/Dashboard/Partials/StatsPrincipales.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { formatDate } from '@/utils/statut.js';
@@ -79,7 +80,9 @@ onUnmounted(() => chart?.destroy());
 
 <template>
     <div class="dash">
-        <div class="kpis">
+        <StatsPrincipales />
+
+        <div class="kpis kpis--sec">
             <div class="kpi" :class="{ 'kpi--warn': q.pct_objectif != null && q.pct_objectif < 80 }">
                 <span class="kpi__n">
                     <template v-if="q.delai_median != null"><CompteurAnime :valeur="q.delai_median" /><small>&nbsp;j</small></template>
@@ -91,18 +94,18 @@ onUnmounted(() => chart?.destroy());
                     <template v-else>aucune décision pour le moment</template>
                 </span>
             </div>
-            <div class="kpi">
-                <span class="kpi__n">
-                    <template v-if="q.taux_validation != null"><CompteurAnime :valeur="q.taux_validation" /><small>&nbsp;%</small></template>
-                    <template v-else>—</template>
-                </span>
-                <span class="kpi__l">Taux de validation</span>
-                <span class="kpi__s">{{ q.decisions ?? 0 }} décisions<template v-if="q.pct_complement != null"> · {{ q.pct_complement }} % avec complément</template></span>
-            </div>
             <div class="kpi" :class="{ 'kpi--alert': c.imminents || c.retards }">
                 <CompteurAnime class="kpi__n" :valeur="c.en_attente ?? 0" />
-                <span class="kpi__l">Dossiers en attente</span>
+                <span class="kpi__l">À traiter par les validateurs</span>
                 <span class="kpi__s">{{ c.imminents ?? 0 }} arrivées imminentes · {{ c.retards ?? 0 }} en retard</span>
+            </div>
+            <div class="kpi">
+                <span class="kpi__n">
+                    <template v-if="q.pct_complement != null"><CompteurAnime :valeur="q.pct_complement" /><small>&nbsp;%</small></template>
+                    <template v-else>—</template>
+                </span>
+                <span class="kpi__l">Passés par un complément</span>
+                <span class="kpi__s">sur {{ q.decisions ?? 0 }} dossiers décidés</span>
             </div>
             <div class="kpi">
                 <CompteurAnime class="kpi__n" :valeur="terrain.personnes" />
@@ -120,7 +123,7 @@ onUnmounted(() => chart?.destroy());
                 <div v-if="sansValidateur.length" class="alerte-orga">
                     <Icon name="warning" />
                     <div>
-                        <strong>{{ sansValidateur.length }} site{{ sansValidateur.length > 1 ? 's' : '' }} sans validateur</strong>
+                        <strong>{{ sansValidateur.length }} {{ sansValidateur.length > 1 ? 'aires protégées' : 'aire protégée' }} sans validateur</strong>
                         <p>{{ sansValidateur.map((s) => s.nom).join(', ') }} : les nouvelles demandes n'y sont notifiées à personne.</p>
                         <Link :href="route('admin.users.index', { role: 'validateur' })" class="link">Affecter un validateur</Link>
                     </div>
@@ -130,7 +133,7 @@ onUnmounted(() => chart?.destroy());
                 </div>
                 <div v-else-if="!sansValidateur.length" class="empty">
                     <Icon name="check-circle" />
-                    <p>Aucun dossier urgent, en retard ou en conflit, et chaque site a son validateur.</p>
+                    <p>Aucun dossier urgent, en retard ou en conflit, et chaque aire protégée a son validateur.</p>
                 </div>
             </section>
 
@@ -168,11 +171,11 @@ onUnmounted(() => chart?.destroy());
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Charge des validateurs</h2>
-                        <small>dossiers en attente sur leurs sites</small>
+                        <small>dossiers en attente sur leurs aires protégées</small>
                     </header>
                     <ul v-if="chargeValidateurs.length" class="bars">
                         <li v-for="v in chargeValidateurs" :key="v.id">
-                            <span class="bars__label">{{ v.nom }}<small>{{ v.sites }} site{{ v.sites > 1 ? 's' : '' }}</small></span>
+                            <span class="bars__label">{{ v.nom }}<small>{{ v.sites }} {{ v.sites > 1 ? 'aires protégées' : 'aire protégée' }}</small></span>
                             <span class="bars__track"><i :style="{ width: `${(v.en_attente / maxValidateur) * 100}%` }"></i></span>
                             <CompteurAnime class="bars__n mono" :valeur="v.en_attente" />
                         </li>

@@ -3,6 +3,7 @@ import CompteurAnime from '@/Components/CompteurAnime.vue';
 import Icon from '@/Components/Icon.vue';
 import CarteSites from '@/Pages/Dashboard/Partials/CarteSites.vue';
 import LigneDossier from '@/Pages/Dashboard/Partials/LigneDossier.vue';
+import StatsPrincipales from '@/Pages/Dashboard/Partials/StatsPrincipales.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -18,7 +19,9 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
 
 <template>
     <div class="dash">
-        <div class="kpis">
+        <StatsPrincipales />
+
+        <div class="kpis kpis--sec">
             <div class="kpi">
                 <CompteurAnime class="kpi__n" :valeur="c.en_attente ?? 0" />
                 <span class="kpi__l">À traiter</span>
@@ -39,11 +42,6 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
                 <span class="kpi__l">Conflits de calendrier</span>
                 <span class="kpi__s">période sensible sur les dates</span>
             </div>
-            <div class="kpi">
-                <CompteurAnime class="kpi__n" :valeur="c.attente_demandeur ?? 0" />
-                <span class="kpi__l">Chez le demandeur</span>
-                <span class="kpi__s">compléments demandés</span>
-            </div>
         </div>
 
         <div class="dash-grid">
@@ -61,7 +59,7 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
                 </div>
             </section>
 
-            <CarteSites titre="Vos sites" />
+            <CarteSites titre="Vos aires protégées" />
         </div>
 
         <div class="grid-2">
@@ -86,7 +84,7 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
             <section class="panel">
                 <header class="panel__head">
                     <h2>Mon activité en {{ mois }}</h2>
-                    <small v-if="delaiMedian != null">délai médian sur vos sites : {{ delaiMedian }} j</small>
+                    <small v-if="delaiMedian != null">délai médian sur vos aires protégées : {{ delaiMedian }} j</small>
                 </header>
                 <ul class="activite">
                     <li><CompteurAnime class="activite__n mono" :valeur="activite.en_analyse ?? 0" />prises en charge</li>

@@ -43,9 +43,9 @@ class UserController extends Controller
         $validated = $request->validate([
             'role' => 'required|in:demandeur,validateur,admin',
             'sites' => 'nullable|array', // Identifiants des sites (si validateur)
-            'sites.*' => 'integer|exists:sites,id',
+            'sites.*' => 'integer|exists:t_sites,id',
         ], [
-            'sites.*.exists' => "Un des sites sélectionnés n'existe plus.",
+            'sites.*.exists' => "Une des aires protégées sélectionnées n'existe plus.",
         ]);
 
         // L'admin connecté ne peut pas se retirer son propre rôle : la plateforme garde toujours un administrateur.

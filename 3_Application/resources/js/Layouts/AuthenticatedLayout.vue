@@ -2,6 +2,7 @@
 import Icon from '@/Components/Icon.vue';
 import PageSkeleton from '@/Components/PageSkeleton.vue';
 import { useNavigation, skeletonVariant } from '@/composables/useNavigation.js';
+import { pageVisible } from '@/utils/pages.js';
 import { ref, computed, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
@@ -29,8 +30,8 @@ const navGroups = computed(() => {
             label: 'Mon espace',
             items: [
                 { label: 'Tableau de bord', route: 'dashboard', match: ['dashboard'], icon: 'squares-four' },
-                { label: 'Mes demandes', route: 'demandes.index', match: ['demandes.index', 'demandes.show', 'demandes.edit'], icon: 'file-text' },
-                { label: 'Nouvelle demande', route: 'demandes.create', match: ['demandes.create'], icon: 'plus' },
+                { label: 'Mes demandes', route: 'demandes.index', match: ['demandes.index', 'demandes.show', 'demandes.edit'], icon: 'file-text', page: 'mes_demandes' },
+                { label: 'Nouvelle demande', route: 'demandes.create', match: ['demandes.create'], icon: 'plus', page: 'nouvelle_demande' },
             ],
         },
     ];
@@ -44,7 +45,9 @@ const navGroups = computed(() => {
                     route: 'validateur.demandes.index',
                     match: ['validateur.demandes.*'],
                     icon: 'stamp',
+                    page: 'dossiers_a_valider',
                 },
+                { label: 'Références', route: 'references.index', match: ['references.*'], icon: 'books', page: 'references' },
             ],
         });
     }
@@ -53,14 +56,18 @@ const navGroups = computed(() => {
         groups.push({
             label: 'Administration',
             items: [
-                { label: 'Sites protégés', route: 'admin.sites.index', match: ['admin.sites.*'], icon: 'map-trifold' },
-                { label: 'Périodes sensibles', route: 'admin.periode-sensibles.index', match: ['admin.periode-sensibles.*'], icon: 'calendar-x' },
-                { label: 'Types de demandes', route: 'admin.type-demandes.index', match: ['admin.type-demandes.*'], icon: 'stack' },
-                { label: 'Utilisateurs', route: 'admin.users.index', match: ['admin.users.*'], icon: 'users' },
+                { label: 'Aires protégées', route: 'admin.sites.index', match: ['admin.sites.*'], icon: 'map-trifold', page: 'aires_protegees' },
+                { label: 'Périodes sensibles', route: 'admin.periode-sensibles.index', match: ['admin.periode-sensibles.*'], icon: 'calendar-x', page: 'periodes_sensibles' },
+                { label: 'Types de demandes', route: 'admin.type-demandes.index', match: ['admin.type-demandes.*'], icon: 'stack', page: 'types_demandes' },
+                { label: 'Utilisateurs', route: 'admin.users.index', match: ['admin.users.*'], icon: 'users', page: 'utilisateurs' },
             ],
         });
     }
-    return groups;
+
+    // Pages masquées dans config/pages.php, puis groupes devenus vides
+    return groups
+        .map((group) => ({ ...group, items: group.items.filter((item) => !item.page || pageVisible(item.page)) }))
+        .filter((group) => group.items.length);
 });
 
 const isActive = (match) => match.some((m) => route().current(m));
@@ -113,13 +120,17 @@ function formatNotifDate(value) {
             </nav>
 
             <div class="side-foot">
-                <Link :href="route('profile.edit')" class="who" title="Mon profil">
+                <component
+                    :is="pageVisible('profil') ? Link : 'span'"
+                    v-bind="pageVisible('profil') ? { href: route('profile.edit'), title: 'Mon profil' } : {}"
+                    class="who"
+                >
                     <span class="avatar">{{ initials }}</span>
                     <span class="who__text">
                         <span class="who__name">{{ user?.name }}</span>
                         <span class="who__role">{{ ROLE_LABELS[user?.role] ?? user?.role }}</span>
                     </span>
-                </Link>
+                </component>
                 <Link :href="route('logout')" method="post" as="button" class="icon-btn" aria-label="Se déconnecter" title="Se déconnecter">
                     <Icon name="sign-out" />
                 </Link>

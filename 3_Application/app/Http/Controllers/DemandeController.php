@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\DemandeRequest;
 use App\Models\Demande;
+use App\Models\Document;
 use App\Models\HistoriqueStatut;
 use App\Models\PeriodeSensible;
 use App\Models\Site;
@@ -36,10 +37,10 @@ class DemandeController extends Controller
             ->withQueryString();
 
         // Nombre de demandes par statut, pour les onglets de filtre
-        $compteurs = Demande::where('demandes.user_id', Auth::id())
-            ->join('statuts', 'statuts.id', '=', 'demandes.statut_id')
-            ->selectRaw('statuts.code as code, COUNT(*) as total')
-            ->groupBy('statuts.code')
+        $compteurs = Demande::where('t_demandes.user_id', Auth::id())
+            ->join('t_statuts', 't_statuts.id', '=', 't_demandes.statut_id')
+            ->selectRaw('t_statuts.code as code, COUNT(*) as total')
+            ->groupBy('t_statuts.code')
             ->pluck('total', 'code');
 
         return Inertia::render('Demandes/Index', [
@@ -92,7 +93,7 @@ class DemandeController extends Controller
 
         // Si une période bloquante est détectée, on refuse catégoriquement la demande.
         if ($analyse['bloquant']) {
-            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur ce site.']);
+            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur cette aire protégée.']);
         }
 
         $demande = DB::transaction(function () use ($request, $validated, $typeDemande, $soumission, $analyse) {
@@ -111,7 +112,7 @@ class DemandeController extends Controller
                 'resultats_analyse' => $analyse['resultats'], // Fige les résultats dans un JSON
             ]);
 
-            DemandeDossier::syncDocuments($demande, $request, $typeDemande);
+            DemandeDossier::syncDocuments($demande, $request, $typeDemande, $request->piecesReprises());
 
             // Un brouillon n'entre dans l'historique qu'au moment de sa soumission.
             if ($soumission) {
@@ -136,7 +137,7 @@ class DemandeController extends Controller
 
         $demande->load(['documents', 'statut']);
 
-        return Inertia::render('Demandes/Create', $this->formProps() + [
+        return Inertia::render('Demandes/Create', $this->formProps($demande) + [
             'demande' => $demande,
             'complement' => $demande->statut->code === 'a_completer'
                 ? $demande->historiqueStatuts()
@@ -158,7 +159,7 @@ class DemandeController extends Controller
         $analyse = $this->analyse($validated, $soumission);
 
         if ($analyse['bloquant']) {
-            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur ce site.']);
+            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur cette aire protégée.']);
         }
 
         $statutChange = DB::transaction(function () use ($request, $demande, $validated, $typeDemande, $soumission, $renvoiComplement, $ancienStatut, $analyse) {
@@ -192,7 +193,7 @@ class DemandeController extends Controller
             }
 
             $demande->update($champs);
-            DemandeDossier::syncDocuments($demande, $request, $typeDemande);
+            DemandeDossier::syncDocuments($demande, $request, $typeDemande, $request->piecesReprises());
 
             return false;
         });
@@ -231,11 +232,19 @@ class DemandeController extends Controller
     /**
      * Données communes aux formulaires de création et de modification.
      */
-    private function formProps(): array
+    private function formProps(?Demande $demande = null): array
     {
         return [
             'sites' => Site::all(),
-            'types' => TypeDemande::with('documentsRequis:id,type_demande_id,libelle')->get(),
+            'types' => TypeDemande::with('documentsRequis:id,type_demande_id,libelle,reutilisable')->get(),
+            // Pièces réutilisables déjà déposées dans un autre dossier, reprises d'office (id de pièce requise => fichier)
+            'reutilisables' => DemandeDossier::piecesReutilisables(Auth::id(), $demande?->id)
+                ->map(fn (Document $document) => [
+                    'id' => $document->id,
+                    'nom_fichier' => $document->nom_fichier,
+                    'depose_le' => $document->created_at->toDateString(),
+                    'reference' => $document->demande->reference,
+                ]),
             // Périodes à venir, pour alerter le demandeur avant l'envoi
             'periodes' => PeriodeSensible::where('date_fin', '>=', now()->toDateString())
                 ->orderBy('date_debut')

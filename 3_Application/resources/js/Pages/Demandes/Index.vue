@@ -90,7 +90,7 @@ const openPdf = async (url, filename) => {
                 <thead>
                     <tr>
                         <th>Référence</th>
-                        <th>Site</th>
+                        <th>Aire protégée</th>
                         <th>Type d'activité</th>
                         <th>Période</th>
                         <th>Statut</th>

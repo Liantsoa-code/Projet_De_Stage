@@ -4,16 +4,18 @@ import Icon from '@/Components/Icon.vue';
 // Liste de lignes { id, libelle } : l'id d'une ligne existante est conservé quand on la renomme.
 const lignes = defineModel({ type: Array, required: true });
 
-defineProps({
+const props = defineProps({
     placeholder: { type: String, default: '' },
     ajouterLabel: { type: String, default: 'Ajouter' },
     vide: { type: String, default: 'Aucun élément.' },
     // Erreurs de validation Inertia, ex. { 'documents_requis.0.libelle': '…' }
     errors: { type: Object, default: () => ({}) },
     champ: { type: String, required: true },
+    // Case à cocher facultative sur chaque ligne, ex. { cle: 'reutilisable', label: 'Réutilisable', aide: '…' }
+    option: { type: Object, default: null },
 });
 
-const ajouter = () => lignes.value.push({ id: null, libelle: '' });
+const ajouter = () => lignes.value.push({ id: null, libelle: '', ...(props.option ? { [props.option.cle]: false } : {}) });
 const retirer = (i) => lignes.value.splice(i, 1);
 </script>
 
@@ -25,6 +27,10 @@ const retirer = (i) => lignes.value.splice(i, 1);
                 <input type="text" class="field-input" v-model="ligne.libelle" :placeholder="placeholder" />
                 <p v-if="errors[`${champ}.${i}.libelle`]" class="field-error">{{ errors[`${champ}.${i}.libelle`] }}</p>
             </div>
+            <label v-if="option" class="liste__option" :title="option.aide">
+                <input type="checkbox" v-model="ligne[option.cle]" />
+                {{ option.label }}
+            </label>
             <button type="button" class="liste__retirer" :aria-label="`Retirer ${ligne.libelle || 'la ligne'}`" @click="retirer(i)">
                 <Icon name="x" />
             </button>
@@ -48,6 +54,11 @@ const retirer = (i) => lignes.value.splice(i, 1);
 }
 .field-input:focus { border-color: var(--c-brand); box-shadow: 0 0 0 4px var(--c-brand-ring); }
 .field-error { margin: 0; font-size: 11px; color: var(--signal); }
+.liste__option {
+    flex: none; display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 4px;
+    font-size: 12.5px; color: var(--c-text); cursor: pointer; user-select: none;
+}
+.liste__option input { accent-color: var(--forest); }
 .liste__retirer {
     flex: none; display: inline-flex; align-items: center; justify-content: center;
     width: 38px; height: 38px; border: 1px solid var(--rule); border-radius: var(--radius-sm);

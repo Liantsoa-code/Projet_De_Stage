@@ -25,12 +25,13 @@ class DatabaseSeeder extends Seeder
             ['code' => 'rejetee', 'libelle' => 'Rejetée', 'description' => 'Demande refusée'],
             ['code' => 'a_completer', 'libelle' => 'À compléter', 'description' => 'Des compléments sont demandés au demandeur'],
         ];
-        // firstOrCreate : certains statuts sont déjà insérés par les migrations.
+        // firstOrCreate : les statuts sont déjà insérés par la migration de t_statuts.
         foreach ($statuts as $statut) {
             Statut::firstOrCreate(['code' => $statut['code']], $statut);
         }
 
-        // 2. Création des Types de Demande
+        // 2. Création des Types de Demande (pièces réutilisables d'une demande à l'autre)
+        $reutilisables = ['Carte d'identité', 'Attestation d'assurance'];
         $types = [
             'Recherche scientifique' => [
                 'documents' => ['Protocole de recherche', 'Carte d\'identité'],
@@ -44,7 +45,7 @@ class DatabaseSeeder extends Seeder
         foreach ($types as $libelle => $listes) {
             $type = TypeDemande::create(['libelle' => $libelle]);
             foreach ($listes['documents'] as $document) {
-                $type->documentsRequis()->create(['libelle' => $document]);
+                $type->documentsRequis()->create(['libelle' => $document, 'reutilisable' => in_array($document, $reutilisables, true)]);
             }
             foreach ($listes['regles'] as $regle) {
                 $type->reglesSpecifiques()->create(['libelle' => $regle]);

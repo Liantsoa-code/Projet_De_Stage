@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Demande extends Model
 {
+    protected $table = 't_demandes';
+
     protected $fillable = [
         'user_id', 'site_id', 'type_demande_id', 'description',
         'date_debut', 'date_fin', 'equipe_nombre', 'statut_id',
@@ -41,6 +43,7 @@ class Demande extends Model
     public function statut() { return $this->belongsTo(Statut::class); }
     public function documents() { return $this->hasMany(Document::class); }
     public function historiqueStatuts() { return $this->hasMany(HistoriqueStatut::class); }
+    public function documentsOfficiels() { return $this->hasMany(DocumentOfficiel::class); }
 
     /**
      * Exclut les brouillons : ils ne sont visibles que par leur auteur.
@@ -63,12 +66,12 @@ class Demande extends Model
             return $query->whereRaw('0 = 1');
         }
 
-        $siteIds = $viewer->sites()->pluck('sites.id');
+        $siteIds = $viewer->sites()->pluck('t_sites.id');
 
         if ($siteIds->isEmpty()) {
             return $query->whereRaw('0 = 1');
         }
 
-        return $query->whereIn('demandes.site_id', $siteIds);
+        return $query->whereIn('t_demandes.site_id', $siteIds);
     }
 }

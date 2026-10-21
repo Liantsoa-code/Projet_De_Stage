@@ -29,7 +29,7 @@ class DemandeDecisionRules
         if ($creator->role === 'demandeur') {
             return $query
                 ->where('role', 'validateur')
-                ->whereHas('sites', fn ($q) => $q->where('sites.id', $siteId))
+                ->whereHas('sites', fn ($q) => $q->where('t_sites.id', $siteId))
                 ->get();
         }
 
@@ -38,7 +38,7 @@ class DemandeDecisionRules
                 $q->where('role', 'admin')
                     ->orWhere(function ($q2) use ($siteId) {
                         $q2->where('role', 'validateur')
-                            ->whereHas('sites', fn ($q3) => $q3->where('sites.id', $siteId));
+                            ->whereHas('sites', fn ($q3) => $q3->where('t_sites.id', $siteId));
                     });
             })
             ->get();

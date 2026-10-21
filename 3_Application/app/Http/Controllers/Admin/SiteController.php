@@ -43,7 +43,7 @@ class SiteController extends Controller
         ]);
 
         Site::create($validated);
-        return redirect()->route('admin.sites.index')->with('message', 'Site créé avec succès.');
+        return redirect()->route('admin.sites.index')->with('message', 'Aire protégée créée avec succès.');
     }
 
     public function edit(Site $site)
@@ -60,7 +60,7 @@ class SiteController extends Controller
         ]);
 
         $site->update($validated);
-        return redirect()->route('admin.sites.index')->with('message', 'Site modifié avec succès.');
+        return redirect()->route('admin.sites.index')->with('message', 'Aire protégée modifiée avec succès.');
     }
 
     public function destroy(Site $site)
@@ -73,6 +73,6 @@ class SiteController extends Controller
         }
 
         $site->delete();
-        return redirect()->route('admin.sites.index')->with('message', 'Site supprimé avec succès.');
+        return redirect()->route('admin.sites.index')->with('message', 'Aire protégée supprimée avec succès.');
     }
 }

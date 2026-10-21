@@ -7,7 +7,7 @@ marines et terrestres.
 
 PROBLÈME À RÉSOUDRE
 
-Aujourd'hui, les demandes d'accès aux sites protégés sont traitées par 
+Aujourd'hui, les demandes d'accès aux aires protégées sont traitées par 
 email : pas de suivi structuré, pas de vérification automatique des 
 conflits avec les périodes sensibles (nidification, reproduction), pas 
 de traçabilité des décisions, pas de contrôle d'accès aux données.
@@ -19,7 +19,7 @@ STACK TECHNIQUE
 - Frontend : Vue 3 + Inertia.js 2
 - Style : TailwindCSS 3
 - Génération PDF : DomPDF (barryvdh/laravel-dompdf)
-- Gestion des rôles : colonne users.role + Gates Laravel (is-admin, is-validateur, is-demandeur)
+- Gestion des rôles : colonne t_users.role + Gates Laravel (is-admin, is-validateur, is-demandeur)
 
 RÔLES ET PERMISSIONS (RBAC)
 
@@ -32,21 +32,25 @@ MODÈLE DE DONNÉES (état actuel, noms des tables réelles)
 
 Référence complète : 2_Conception/Conception_BDD.md (MCD, MLD, normalisation, MPD)
 et 3_Application/database/schema.dbml. # = clé étrangère, (*) = peut être vide.
+Toutes les tables portent le préfixe t_ (tables techniques de Laravel comprises).
 
-- users (id, name, email, password, role)
-- sites (id, nom, description, polygone_coordonnees)
-- site_user (#user_id, #site_id) — table d'association validateurs ↔ sites
-- statuts (id, code, libelle, description)
-- type_demandes (id, libelle)
-- documents_requis (id, #type_demande_id, libelle) — pièces exigées par type
-- regles_specifiques (id, #type_demande_id, libelle) — règles du cahier des charges
-- demandes (id, #user_id, #site_id, #type_demande_id, #statut_id, description,
+- t_users (id, name, email, password, role)
+- t_sites (id, nom, description, polygone_coordonnees)
+- t_site_user (#user_id, #site_id) — table d'association validateurs ↔ sites
+- t_statuts (id, code, libelle, description)
+- t_type_demandes (id, libelle)
+- t_documents_requis (id, #type_demande_id, libelle) — pièces exigées par type
+- t_regles_specifiques (id, #type_demande_id, libelle) — règles du cahier des charges
+- t_demandes (id, #user_id, #site_id, #type_demande_id, #statut_id, description,
   date_debut, date_fin, equipe_nombre, date_soumission, resultats_analyse)
-- documents (id, #demande_id, #document_requis_id (*), nom_fichier, chemin, type_document)
-- historique_statuts (id, #demande_id, #user_id (*), #ancien_statut_id (*),
+- t_documents (id, #demande_id, #document_requis_id (*), nom_fichier, chemin, type_document)
+- t_historique_statuts (id, #demande_id, #user_id (*), #ancien_statut_id (*),
   #nouveau_statut_id, commentaire, date_changement)
-- periode_sensibles (id, #site_id, date_debut, date_fin, description, niveau_restriction)
-- notifications (id, #user_id, #demande_id (*), contenu, lu, date_envoi)
+- t_periode_sensibles (id, #site_id, date_debut, date_fin, description, niveau_restriction)
+- t_notifications (id, #user_id, #demande_id (*), contenu, lu, date_envoi)
+- t_documents_officiels (id, #demande_id, #genere_par (*), type, contenu) — autorisation et cahier des charges relus
+- t_documents_reference (id, #user_id (*), titre, description, nom_fichier, chemin, type_mime, taille)
+- t_modeles_reference (id, titre, description, usage, icone, automatique, contenu)
 
 FONCTIONNALITÉS À DÉVELOPPER (par ordre de priorité)
 

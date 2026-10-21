@@ -41,7 +41,7 @@ const carte = ref(null);
                 <h1>Demandes d'accès aux aires protégées</h1>
                 <p class="hero__lead">
                     Chercheurs, équipes de tournage et partenaires déposent ici leurs demandes d'accès.
-                    Le calendrier de chaque site est vérifié pendant la saisie, et l'autorisation officielle est délivrée en PDF une fois le dossier validé.
+                    Le calendrier de chaque aire protégée est vérifié pendant la saisie, et l'autorisation officielle est délivrée en PDF une fois le dossier validé.
                 </p>
                 <div class="hero__cta">
                     <Link v-if="user" :href="route('demandes.create')" class="btn-accent"><Icon name="plus" />Nouvelle demande</Link>
@@ -56,13 +56,13 @@ const carte = ref(null);
                         <span class="steps__n">1</span>
                         <div>
                             <strong>Déposer la demande</strong>
-                            <p>Site, dates, équipe et pièces exigées pour le type d'activité. Un brouillon peut être repris à tout moment.</p>
+                            <p>Aire protégée, dates, équipe et pièces exigées pour le type d'activité. Un brouillon peut être repris à tout moment.</p>
                         </div>
                     </li>
                     <li>
                         <span class="steps__n">2</span>
                         <div>
-                            <strong>Instruction par le validateur du site</strong>
+                            <strong>Instruction par le validateur de l'aire protégée</strong>
                             <p>Les chevauchements avec les périodes sensibles sont signalés. Le validateur peut demander un complément.</p>
                         </div>
                     </li>
@@ -76,10 +76,10 @@ const carte = ref(null);
                 </ol>
             </div>
 
-            <aside class="hero__map" aria-label="Sites ouverts aux demandes">
+            <aside class="hero__map" aria-label="Aires protégées ouvertes aux demandes">
                 <header class="hero__map-head">
-                    <span class="eyebrow">{{ sites.length }} site{{ sites.length > 1 ? 's' : '' }} ouvert{{ sites.length > 1 ? 's' : '' }} aux demandes</span>
-                    <span class="hero__map-hint">Choisissez un site pour le situer</span>
+                    <span class="eyebrow">{{ sites.length }} {{ sites.length > 1 ? 'aires protégées ouvertes' : 'aire protégée ouverte' }} aux demandes</span>
+                    <span class="hero__map-hint">Choisissez une aire protégée pour la situer</span>
                 </header>
                 <div class="hero__map-box">
                     <DashboardMap ref="carte" :sites="sites" />

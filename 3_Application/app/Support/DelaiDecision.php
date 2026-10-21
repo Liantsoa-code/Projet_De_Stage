@@ -25,11 +25,11 @@ class DelaiDecision
     public static function decisions(Builder $base): Collection
     {
         return (clone $base)
-            ->join('historique_statuts as h', 'h.demande_id', '=', 'demandes.id')
-            ->join('statuts as decision', 'decision.id', '=', 'h.nouveau_statut_id')
+            ->join('t_historique_statuts as h', 'h.demande_id', '=', 't_demandes.id')
+            ->join('t_statuts as decision', 'decision.id', '=', 'h.nouveau_statut_id')
             ->whereIn('decision.code', ['validee', 'rejetee'])
-            ->whereNotNull('demandes.date_soumission')
-            ->get(['demandes.id', 'demandes.site_id', 'demandes.date_soumission', 'h.date_changement as date_decision', 'decision.code as decision'])
+            ->whereNotNull('t_demandes.date_soumission')
+            ->get(['t_demandes.id', 't_demandes.site_id', 't_demandes.date_soumission', 'h.date_changement as date_decision', 'decision.code as decision'])
             ->map(fn (Demande $d) => [
                 'id' => $d->id,
                 'site_id' => $d->site_id,

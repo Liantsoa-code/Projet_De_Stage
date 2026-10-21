@@ -104,7 +104,7 @@ const mois = computed(() => {
     <section class="panel">
         <header class="panel__head">
             <h2>{{ titre }}</h2>
-            <small>{{ sites.length }} site{{ sites.length > 1 ? 's' : '' }}</small>
+            <small>{{ sites.length }} {{ sites.length > 1 ? 'aires protégées' : 'aire protégée' }}</small>
         </header>
         <div class="map-box">
             <DashboardMap :sites="sites" :etats="etatsDuJour" :charges="chargeSites" />
@@ -118,7 +118,7 @@ const mois = computed(() => {
                         <template v-if="nbBloquants && nbSensibles"> · </template>
                         <span v-if="nbSensibles" class="t-ochre">{{ nbSensibles }} sensible{{ nbSensibles > 1 ? 's' : '' }}</span>
                     </template>
-                    <template v-else>Tous les sites ouverts</template>
+                    <template v-else>Toutes les aires protégées ouvertes</template>
                 </span>
             </div>
 

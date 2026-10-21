@@ -27,7 +27,7 @@ class DemandeSecurityTest extends TestCase
         parent::setUp();
 
         foreach (['soumise' => 'Soumise', 'en_analyse' => 'En analyse', 'validee' => 'Validée', 'rejetee' => 'Rejetée'] as $code => $libelle) {
-            Statut::create(['code' => $code, 'libelle' => $libelle, 'description' => '']);
+            Statut::firstOrCreate(['code' => $code], ['libelle' => $libelle, 'description' => '']);
         }
 
         $this->site = Site::create(['nom' => 'Site A', 'description' => '', 'polygone_coordonnees' => []]);

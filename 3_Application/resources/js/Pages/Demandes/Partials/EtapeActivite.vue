@@ -24,7 +24,7 @@ defineEmits(['type-change']);
         <div>
             <label class="gf-label" for="site_id">Aire protégée</label>
             <select id="site_id" v-model="form.site_id" class="gf-select" required>
-                <option disabled value="">Choisissez un site</option>
+                <option disabled value="">Choisissez une aire protégée</option>
                 <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
             </select>
             <InputError class="gf-error" :message="form.errors.site_id" />

@@ -73,7 +73,7 @@ function sejour() {
     const equipe = `${d.equipe_nombre} personne${d.equipe_nombre > 1 ? 's' : ''}`;
     const sousReserve = valide ? '' : ' Prévue si la demande est validée.';
     return [
-        { cle: 'arrivee', titre: 'Arrivée sur le site', date: d.date_debut, jourSeul: true, icone: 'map-pin', ton: valide ? 'ok' : 'neutre', etat: etat(d.date_debut), texte: `${equipe} sur le terrain jusqu'au ${formatDate(d.date_fin)}.${sousReserve}` },
+        { cle: 'arrivee', titre: 'Arrivée dans l\'aire protégée', date: d.date_debut, jourSeul: true, icone: 'map-pin', ton: valide ? 'ok' : 'neutre', etat: etat(d.date_debut), texte: `${equipe} sur le terrain jusqu'au ${formatDate(d.date_fin)}.${sousReserve}` },
         { cle: 'fin', titre: 'Fin du séjour', date: d.date_fin, jourSeul: true, icone: 'tree-evergreen', ton: valide ? 'ok' : 'neutre', etat: etat(d.date_fin), texte: valide && etat(d.date_fin) === 'passe' ? 'Le séjour autorisé est terminé.' : `Départ du site.${sousReserve}` },
     ];
 }
@@ -117,10 +117,10 @@ const evenements = computed(() => {
     const avenir = {
         brouillon: [
             etapePrevue('envoi', props.vueDemandeur ? 'Envoi de votre demande' : 'Envoi par le demandeur', 'Toutes les informations et pièces obligatoires sont nécessaires pour envoyer le dossier.'),
-            etapePrevue('prise', 'Prise en charge', 'Un validateur du site ouvre le dossier et l\'étudie.'),
+            etapePrevue('prise', 'Prise en charge', 'Un validateur de l\'aire protégée ouvre le dossier et l\'étudie.'),
             etapePrevue('decision', 'Décision', 'Validation ou rejet du dossier, avec le commentaire du validateur.'),
         ],
-        soumise: [etapePrevue('prise', 'Prise en charge', 'Un validateur du site ouvre le dossier et l\'étudie.'), decision()],
+        soumise: [etapePrevue('prise', 'Prise en charge', 'Un validateur de l\'aire protégée ouvre le dossier et l\'étudie.'), decision()],
         en_analyse: [decision()],
         a_completer: [
             etapePrevue('renvoi', props.vueDemandeur ? 'Renvoi de votre dossier complété' : 'Renvoi par le demandeur', 'Le dossier repart directement en analyse dès qu\'il est renvoyé.', { ton: 'att', icone: 'hourglass-medium' }),

@@ -81,24 +81,32 @@ On applique les règles de passage du cours :
 
 1. Chaque entité devient une table, et son identifiant devient la clé primaire.
 2. Une association avec une cardinalité (1,1) ou (0,1) d'un côté devient une clé étrangère de ce côté. Avec (0,1), la clé étrangère peut être vide.
-3. L'association plusieurs-à-plusieurs GÉRER devient une table d'association, `site_user`, dont la clé primaire combine les deux clés étrangères.
+3. L'association plusieurs-à-plusieurs GÉRER devient une table d'association, `t_site_user`, dont la clé primaire combine les deux clés étrangères.
 
-Les noms sont ceux du schéma réel. La clé primaire est soulignée, et le symbole # marque une clé étrangère ; un (*) signale une clé étrangère qui peut être vide.
+Les noms sont ceux du schéma réel. **Convention de nommage** : chaque table porte le préfixe `t_` (table), suivi du nom de l'entité au pluriel ; les noms d'index et de contraintes reprennent le nom de la table (`t_demandes_user_id_foreign`, `chk_t_demandes_dates`). La clé primaire est soulignée, et le symbole # marque une clé étrangère ; un (*) signale une clé étrangère qui peut être vide.
 
-- **users** (<u>id</u>, name, email, password, role, …)
-- **sites** (<u>id</u>, nom, description, polygone_coordonnees)
-- **site_user** (<u>#user_id, #site_id</u>)
-- **statuts** (<u>id</u>, code, libelle, description)
-- **type_demandes** (<u>id</u>, libelle)
-- **documents_requis** (<u>id</u>, #type_demande_id, libelle)
-- **regles_specifiques** (<u>id</u>, #type_demande_id, libelle)
-- **demandes** (<u>id</u>, #user_id, #site_id, #type_demande_id, #statut_id, description, date_debut, date_fin, equipe_nombre, date_soumission, resultats_analyse)
-- **documents** (<u>id</u>, #demande_id, #document_requis_id (*), nom_fichier, chemin, type_document)
-- **historique_statuts** (<u>id</u>, #demande_id, #user_id (*), #ancien_statut_id (*), #nouveau_statut_id, commentaire, date_changement)
-- **periode_sensibles** (<u>id</u>, #site_id, date_debut, date_fin, description, niveau_restriction)
-- **notifications** (<u>id</u>, #user_id, #demande_id (*), contenu, lu, date_envoi)
+- **t_users** (<u>id</u>, name, email, password, role, …)
+- **t_sites** (<u>id</u>, nom, description, polygone_coordonnees)
+- **t_site_user** (<u>#user_id, #site_id</u>)
+- **t_statuts** (<u>id</u>, code, libelle, description)
+- **t_type_demandes** (<u>id</u>, libelle)
+- **t_documents_requis** (<u>id</u>, #type_demande_id, libelle, reutilisable)
+- **t_regles_specifiques** (<u>id</u>, #type_demande_id, libelle)
+- **t_demandes** (<u>id</u>, #user_id, #site_id, #type_demande_id, #statut_id, description, date_debut, date_fin, equipe_nombre, date_soumission, resultats_analyse)
+- **t_documents** (<u>id</u>, #demande_id, #document_requis_id (*), nom_fichier, chemin, type_document)
+- **t_historique_statuts** (<u>id</u>, #demande_id, #user_id (*), #ancien_statut_id (*), #nouveau_statut_id, commentaire, date_changement)
+- **t_periode_sensibles** (<u>id</u>, #site_id, date_debut, date_fin, description, niveau_restriction)
+- **t_notifications** (<u>id</u>, #user_id, #demande_id (*), contenu, lu, date_envoi)
 
-On obtient 12 tables : 11 entités, plus la table d'association `site_user`. Les quatre clés étrangères facultatives viennent des quatre cardinalités (0,1) du MCD : FOURNIR, DÉCIDER, QUITTER et PORTER SUR.
+On obtient 12 tables : 11 entités, plus la table d'association `t_site_user`. Les quatre clés étrangères facultatives viennent des quatre cardinalités (0,1) du MCD : FOURNIR, DÉCIDER, QUITTER et PORTER SUR.
+
+Trois tables ont été ajoutées avec les fonctionnalités suivantes (documents officiels relus avant la validation, page Références). Elles ne figurent pas encore dans le MCD :
+
+- **t_documents_officiels** (<u>id</u>, #demande_id, #genere_par (*), type, contenu) — un document de chaque type par demande (UNIQUE `demande_id, type`)
+- **t_documents_reference** (<u>id</u>, #user_id (*), titre, description, nom_fichier, chemin, type_mime, taille)
+- **t_modeles_reference** (<u>id</u>, titre, description, usage, icone, automatique, contenu) — titre unique
+
+La base compte donc 15 tables métier.
 
 ## 4. Normalisation
 
@@ -108,33 +116,34 @@ Chaque cellule doit contenir une seule valeur. Le schéma compte quatre colonnes
 
 | Colonne | Verdict | Raison |
 |---|---|---|
-| `type_demandes.documents_requis` (ancienne) | ❌ Violait la 1NF → **corrigée** | Une liste de pièces dans une seule cellule, comme le contre-exemple « cours_suivis = INF101, MAT202 » du cours. La pièce jointe ne pouvait s'y rattacher que par son libellé : renommer une pièce faisait perdre les fichiers déjà déposés. Elle est remplacée par la table `documents_requis`, référencée par `documents.document_requis_id`. |
-| `type_demandes.regles_specifiques` (ancienne) | ❌ Violait la 1NF → **corrigée** | Une liste de règles dans une seule cellule. Elle est remplacée par la table `regles_specifiques`. |
-| `sites.polygone_coordonnees` | ✅ Conforme | Un contour géographique est **une seule valeur** : il n'a de sens qu'en entier. On ne cherche jamais un sommet isolé. C'est l'équivalent d'un type géométrique, que MySQL propose aussi (`POLYGON`). |
-| `demandes.resultats_analyse` | ✅ Assumée | C'est la photographie, prise à la soumission, du rapport du moteur d'analyse. Elle est toujours lue en entier et ne doit jamais être recalculée. C'est une dénormalisation volontaire (section 6). |
+| `t_type_demandes.documents_requis` (ancienne) | ❌ Violait la 1NF → **corrigée** | Une liste de pièces dans une seule cellule, comme le contre-exemple « cours_suivis = INF101, MAT202 » du cours. La pièce jointe ne pouvait s'y rattacher que par son libellé : renommer une pièce faisait perdre les fichiers déjà déposés. Elle est remplacée par la table `t_documents_requis`, référencée par `t_documents.document_requis_id`. |
+| `t_type_demandes.regles_specifiques` (ancienne) | ❌ Violait la 1NF → **corrigée** | Une liste de règles dans une seule cellule. Elle est remplacée par la table `t_regles_specifiques`. |
+| `t_sites.polygone_coordonnees` | ✅ Conforme | Un contour géographique est **une seule valeur** : il n'a de sens qu'en entier. On ne cherche jamais un sommet isolé. C'est l'équivalent d'un type géométrique, que MySQL propose aussi (`POLYGON`). |
+| `t_demandes.resultats_analyse` | ✅ Assumée | C'est la photographie, prise à la soumission, du rapport du moteur d'analyse. Elle est toujours lue en entier et ne doit jamais être recalculée. C'est une dénormalisation volontaire (section 6). |
 
-Les migrations de correction sont [2026_10_13_090000_normaliser_listes_type_demandes.php](../3_Application/database/migrations/2026_10_13_090000_normaliser_listes_type_demandes.php) (données existantes reprises) et le test [ConceptionBddTest.php](../3_Application/tests/Feature/ConceptionBddTest.php).
+La structure corrigée est créée directement par [2026_10_19_200003_create_t_type_demandes_table.php](../3_Application/database/migrations/2026_10_19_200003_create_t_type_demandes_table.php) : la migration de correction d'origine, qui reprenait les données existantes, a été fondue dans le schéma lors de la réécriture des migrations. Le comportement est vérifié par le test [ConceptionBddTest.php](../3_Application/tests/Feature/ConceptionBddTest.php).
 
 ### Deuxième forme normale (2NF)
 
-La 2NF ne peut être violée que par une table à clé primaire composée. Il n'y en a qu'une, `site_user` (user_id, site_id), et elle n'a aucun autre attribut. Toutes les autres tables ont une clé primaire simple. **Le schéma est en 2NF.**
+La 2NF ne peut être violée que par une table à clé primaire composée. Il n'y en a qu'une, `t_site_user` (user_id, site_id), et elle n'a aucun autre attribut. Toutes les autres tables ont une clé primaire simple. **Le schéma est en 2NF.**
 
 ### Troisième forme normale (3NF)
 
 On a cherché, table par table, un attribut non-clé qui dépendrait d'un autre attribut non-clé :
 
-- `demandes` : description, dates, effectif, date de soumission et analyse dépendent tous de la demande. Le site, le type et l'auteur sont des clés étrangères, et leurs propres attributs (nom du site, libellé du type…) restent dans leurs tables.
-- `notifications` : `user_id` ne se déduit pas de `demande_id`, car le destinataire peut être le demandeur, un validateur du site ou un administrateur.
-- `historique_statuts` : l'auteur, les statuts et la date décrivent un événement, et non la demande.
-- `documents` : `type_document` dépend de `document_requis_id`, ce qui est une dépendance transitive. Elle est **volontaire** : le libellé est figé au jour du dépôt (section 6).
-- `documents_requis` a deux clés candidates, `id` et (`type_demande_id`, `libelle`), toutes deux protégées par une contrainte. La table est donc aussi en forme de Boyce-Codd (BCNF).
+- `t_demandes` : description, dates, effectif, date de soumission et analyse dépendent tous de la demande. Le site, le type et l'auteur sont des clés étrangères, et leurs propres attributs (nom du site, libellé du type…) restent dans leurs tables.
+- `t_notifications` : `user_id` ne se déduit pas de `demande_id`, car le destinataire peut être le demandeur, un validateur du site ou un administrateur.
+- `t_historique_statuts` : l'auteur, les statuts et la date décrivent un événement, et non la demande.
+- `t_documents` : `type_document` dépend de `document_requis_id`, ce qui est une dépendance transitive. Elle est **volontaire** : le libellé est figé au jour du dépôt (section 6).
+- `t_documents_requis` a deux clés candidates, `id` et (`type_demande_id`, `libelle`), toutes deux protégées par une contrainte. La table est donc aussi en forme de Boyce-Codd (BCNF).
 
 **Le schéma est en 3NF.** Les seules redondances sont les trois dénormalisations décrites en section 6.
 
 ## 5. Modèle physique (MPD)
 
 - **SGBD** : MySQL 8.0.16+ ou MariaDB 10.2+ (InnoDB, utf8mb4).
-- **Source de vérité** : les migrations Laravel de [database/migrations/](../3_Application/database/migrations/).
+- **Source de vérité** : les migrations Laravel de [database/migrations/](../3_Application/database/migrations/), une par table (ou groupe de tables liées), qui créent directement l'état final avec ses contraintes.
+- **Nommage** : préfixe `t_` sur **toutes** les tables, y compris les tables techniques de Laravel (`t_sessions`, `t_cache`, `t_cache_locks`, `t_jobs`, `t_job_batches`, `t_failed_jobs`, `t_password_reset_tokens`, `t_migrations`), déclarées dans la configuration de l'application.
 - **Script lisible** : [base_de_donnees.sql](base_de_donnees.sql). Il a été vérifié identique à la base migrée : mêmes colonnes, types, valeurs par défaut, clés, CHECK et index.
 - **Diagramme** : [schema.dbml](../3_Application/database/schema.dbml), à coller sur dbdiagram.io.
 
@@ -144,16 +153,16 @@ Le framework impose quelques noms anglais pour les comptes. Les autres noms repr
 
 | Dictionnaire | Colonne |
 |---|---|
-| id_utilisateur, nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur | users.id, name, email, password, role |
-| nom_site, description_site, coordonnees_site | sites.nom, description, polygone_coordonnees |
-| libelle_type | type_demandes.libelle |
-| description_demande, date_debut_activite, date_fin_activite, nombre_personnes | demandes.description, date_debut, date_fin, equipe_nombre |
-| code_statut, libelle_statut, description_statut | statuts.code, libelle, description |
-| libelle_document_requis / libelle_regle | documents_requis.libelle / regles_specifiques.libelle |
-| chemin_fichier | documents.chemin |
-| commentaire_statut | historique_statuts.commentaire |
-| date_debut_periode, date_fin_periode, description_periode | periode_sensibles.date_debut, date_fin, description |
-| contenu_notification, lu_notification | notifications.contenu, lu |
+| id_utilisateur, nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur | t_users.id, name, email, password, role |
+| nom_site, description_site, coordonnees_site | t_sites.nom, description, polygone_coordonnees |
+| libelle_type | t_type_demandes.libelle |
+| description_demande, date_debut_activite, date_fin_activite, nombre_personnes | t_demandes.description, date_debut, date_fin, equipe_nombre |
+| code_statut, libelle_statut, description_statut | t_statuts.code, libelle, description |
+| libelle_document_requis / libelle_regle | t_documents_requis.libelle / t_regles_specifiques.libelle |
+| chemin_fichier | t_documents.chemin |
+| commentaire_statut | t_historique_statuts.commentaire |
+| date_debut_periode, date_fin_periode, description_periode | t_periode_sensibles.date_debut, date_fin, description |
+| contenu_notification, lu_notification | t_notifications.contenu, lu |
 
 ### Types
 
@@ -169,48 +178,48 @@ Le framework impose quelques noms anglais pour les comptes. Les autres noms repr
 
 | Contrainte | Où | Règle |
 |---|---|---|
-| Clés primaires | Toutes les tables ; composée pour `site_user` | — |
-| UNIQUE | `users.email`, `statuts.code`, `documents_requis (type_demande_id, libelle)` | RG01, RG08, RG06 |
+| Clés primaires | Toutes les tables ; composée pour `t_site_user` | — |
+| UNIQUE | `t_users.email`, `t_statuts.code`, `t_documents_requis (type_demande_id, libelle)` | RG01, RG08, RG06 |
 | NOT NULL | Tout attribut obligatoire. Les dates d'une demande restent facultatives tant qu'elle est un brouillon. | — |
-| CHECK `date_fin >= date_debut` | `demandes`, `periode_sensibles` | RG13 |
-| CHECK `equipe_nombre >= 1` | `demandes` | RG13 |
-| ENUM | `users.role`, `periode_sensibles.niveau_restriction` | RG01, RG11 |
+| CHECK `date_fin >= date_debut` | `t_demandes`, `t_periode_sensibles` | RG13 |
+| CHECK `equipe_nombre >= 1` | `t_demandes` | RG13 |
+| ENUM | `t_users.role`, `t_periode_sensibles.niveau_restriction` | RG01, RG11 |
 
 Les règles de suppression découlent du sens de chaque lien :
 
 | Clé étrangère | ON DELETE | Pourquoi |
 |---|---|---|
-| demandes → sites, type_demandes, statuts | **RESTRICT** | Une demande et son historique sont des traces : supprimer un site ou un type ne doit pas les effacer (RG14). L'interface explique le refus. |
-| demandes → users | CASCADE | Supprimer son compte efface ses propres demandes. Ses décisions sur les dossiers des autres restent. |
-| historique_statuts → users | SET NULL | La décision reste, sans auteur (RG09). |
-| documents → documents_requis | SET NULL | Retirer une pièce d'un type ne supprime pas les fichiers des dossiers déjà déposés. |
-| documents, historique, notifications → demandes ; documents_requis, regles_specifiques → type_demandes ; periode_sensibles, site_user → sites | CASCADE | Ces lignes n'existent que par leur parent. |
+| t_demandes → t_sites, t_type_demandes, t_statuts | **RESTRICT** | Une demande et son historique sont des traces : supprimer un site ou un type ne doit pas les effacer (RG14). L'interface explique le refus. |
+| t_demandes → t_users | CASCADE | Supprimer son compte efface ses propres demandes. Ses décisions sur les dossiers des autres restent. |
+| t_historique_statuts → t_users | SET NULL | La décision reste, sans auteur (RG09). |
+| t_documents → t_documents_requis | SET NULL | Retirer une pièce d'un type ne supprime pas les fichiers des dossiers déjà déposés. |
+| t_documents, t_historique_statuts, t_notifications → t_demandes ; t_documents_requis, t_regles_specifiques → t_type_demandes ; t_periode_sensibles, t_site_user → t_sites | CASCADE | Ces lignes n'existent que par leur parent. |
 
-La migration correspondante est [2026_10_13_090100_contraintes_integrite_bdd.php](../3_Application/database/migrations/2026_10_13_090100_contraintes_integrite_bdd.php). La base applique ces contraintes quel que soit le code qui l'appelle, et des tests vérifient qu'elle refuse les données invalides.
+Chaque contrainte est déclarée dans la migration de sa table, par exemple [2026_10_19_200004_create_t_demandes_table.php](../3_Application/database/migrations/2026_10_19_200004_create_t_demandes_table.php) pour les RESTRICT et les CHECK de `t_demandes`. La base applique ces contraintes quel que soit le code qui l'appelle, et des tests vérifient qu'elle refuse les données invalides.
 
 ### Index
 
 - InnoDB indexe automatiquement chaque clé étrangère, donc les jointures et les filtres par demandeur, site, type ou statut sont couverts.
-- Index composite `notifications (user_id, lu, date_envoi)` : la cloche lit à **chaque page** les notifications non lues de l'utilisateur, triées par date. Cet index répond à la requête sans parcourir la table. Il sert aussi d'index à la clé étrangère `user_id`.
+- Index composite `t_notifications (user_id, lu, date_envoi)` : la cloche lit à **chaque page** les notifications non lues de l'utilisateur, triées par date. Cet index répond à la requête sans parcourir la table. Il sert aussi d'index à la clé étrangère `user_id`.
 
 ## 6. Dénormalisation maîtrisée
 
 Le schéma contient trois redondances. Chacune répond à un besoin réel, et la cohérence de chaque copie est garantie.
 
-### 6.1 `demandes.resultats_analyse` — figer une valeur dans le temps
+### 6.1 `t_demandes.resultats_analyse` — figer une valeur dans le temps
 
 C'est le cas du `prix_unitaire` dans le cours. À la soumission, le moteur d'analyse compare les dates aux périodes sensibles du site, et ses alertes sont copiées dans la demande. Si une période est modifiée l'année suivante, la demande garde l'analyse sur laquelle la décision a été prise. Recalculer cette analyse donnerait un résultat **faux** pour une demande passée. Cette copie est donc une nécessité métier.
 
-### 6.2 `documents.type_document` — libellé figé au dépôt
+### 6.2 `t_documents.type_document` — libellé figé au dépôt
 
 Même logique. La pièce jointe est reliée par clé étrangère à la pièce requise qu'elle fournit (`document_requis_id`), mais elle garde le libellé tel qu'il était au jour du dépôt. Si l'administration renomme ou retire la pièce plus tard, le dossier montre toujours ce qui a été réellement déposé.
 
-### 6.3 `demandes.statut_id` — statut courant
+### 6.3 `t_demandes.statut_id` — statut courant
 
-- **Le besoin** : le statut courant est lu partout : listes, filtres et compteurs par statut, tableaux de bord, contrôles d'accès. Le retrouver dans `historique_statuts` demanderait, pour chaque demande, de chercher la dernière entrée de l'historique. C'est une sous-requête corrélée répétée sur chaque ligne, comme le `COUNT(*)` répété du cours (exemple 3).
+- **Le besoin** : le statut courant est lu partout : listes, filtres et compteurs par statut, tableaux de bord, contrôles d'accès. Le retrouver dans `t_historique_statuts` demanderait, pour chaque demande, de chercher la dernière entrée de l'historique. C'est une sous-requête corrélée répétée sur chaque ligne, comme le `COUNT(*)` répété du cours (exemple 3).
 - **L'invariant** : `statut_id` est le `nouveau_statut_id` de la dernière entrée de l'historique, ou « brouillon » si la demande n'a pas encore d'historique.
 - **La cohérence** est garantie par la logique applicative. Chaque changement de statut, y compris la soumission, met à jour la demande et ajoute l'entrée d'historique **dans la même transaction**, sous verrou sur la demande. On le voit dans `DemandeController::historiser` et dans `Validateur\DemandeController::updateStatut`.
-- **Le rattrapage** : les soumissions antérieures à cette règle ont été historisées par la migration [2026_10_13_090200_historiser_soumissions.php](../3_Application/database/migrations/2026_10_13_090200_historiser_soumissions.php). Une requête de contrôle sur les 22 demandes du jeu de test confirme l'invariant (0 écart).
+- **Le rattrapage** : les soumissions antérieures à cette règle avaient été historisées par une migration de reprise, devenue inutile depuis la réécriture des migrations (la base repart vide) ; le jeu de test [donnees_test.sql](../3_Application/database/donnees_test.sql) historise lui aussi chaque soumission. Une requête de contrôle sur les 22 demandes du jeu de test confirme l'invariant (0 écart).
 
 ## 7. Conformité aux bonnes pratiques de la démarche
 

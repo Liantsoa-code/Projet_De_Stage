@@ -1,16 +1,19 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
 import InputError from '@/Components/InputError.vue';
+import { formatDate } from '@/utils/statut.js';
 
-// Étape « Pièces à joindre » : un nouveau fichier remplace celui déjà fourni pour la même pièce
+// Étape « Pièces à joindre » : un nouveau fichier remplace celui déjà fourni pour la même pièce.
+// Une pièce réutilisable déjà déposée dans un autre dossier est reprise d'office ; le demandeur peut l'écarter.
 defineProps({
     form: { type: Object, required: true },
     typeActivite: { type: Object, default: null },
-    // Pièces exigées par le type, avec le fichier choisi (fichier) ou déjà envoyé (existant)
+    // Pièces exigées par le type, avec le fichier choisi (fichier), déjà envoyé (existant)
+    // ou repris d'un autre dossier (reprise, parmi les pièces réutilisables : reutilisable)
     pieces: { type: Array, required: true },
 });
 
-defineEmits(['fichier']);
+defineEmits(['fichier', 'ecarter']);
 </script>
 
 <template>
@@ -23,7 +26,17 @@ defineEmits(['fichier']);
                 <strong>{{ p.libelle }}</strong>
                 <small v-if="p.fichier">{{ p.fichier.name }}</small>
                 <small v-else-if="p.existant">Déjà fourni : <a :href="route('documents.show', p.existant.id)">{{ p.existant.nom_fichier }}</a></small>
-                <small v-else>PDF, JPG, PNG, Word ou OpenDocument, 20 Mo au maximum</small>
+                <small v-else-if="p.reprise">
+                    Reprise de votre dossier {{ p.reprise.reference }} (déposée le {{ formatDate(p.reprise.depose_le) }}) :
+                    <a :href="route('documents.show', p.reprise.id)">{{ p.reprise.nom_fichier }}</a>
+                    · <button type="button" class="doc__lien" @click="$emit('ecarter', p.id, true)">Ne pas reprendre</button>
+                </small>
+                <small v-else>
+                    PDF, JPG, PNG, Word ou OpenDocument, 20 Mo au maximum
+                    <template v-if="p.reutilisable && !p.fichier">
+                        · <button type="button" class="doc__lien" @click="$emit('ecarter', p.id, false)">Reprendre {{ p.reutilisable.nom_fichier }}</button>
+                    </template>
+                </small>
                 <InputError class="gf-error" :message="form.errors['doc_' + p.id]" />
             </div>
             <label class="btn-ghost btn--sm doc__btn">
@@ -47,6 +60,9 @@ defineEmits(['fichier']);
 .doc__body strong { font-weight: 600; font-size: 14px; }
 .doc__body small { font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
 .doc__body a { color: var(--water); font-weight: 600; }
+.doc__lien { padding: 0; background: none; border: 0; font: inherit; font-weight: 600; color: var(--water); cursor: pointer; }
+.doc__lien:hover { text-decoration: underline; }
+.doc__lien:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }
 .doc__btn { cursor: pointer; }
 .doc__btn:focus-within { outline: 2px solid var(--water); outline-offset: 2px; }
 .btn--sm { padding: 7px 10px; font-size: 13px; }

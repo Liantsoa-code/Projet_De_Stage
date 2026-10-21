@@ -72,11 +72,11 @@ const chevauche = (p) => props.chevauchements.some(c => c.id === p.id);
                 </div>
                 <div v-else class="res res--ok">
                     <Icon name="check-circle" />
-                    <div><strong>Aucune période sensible</strong>Le site est ouvert sur ces dates.</div>
+                    <div><strong>Aucune période sensible</strong>L'aire protégée est ouverte sur ces dates.</div>
                 </div>
 
                 <div class="periodes">
-                    <p class="eyebrow">Périodes sensibles du site</p>
+                    <p class="eyebrow">Périodes sensibles de l'aire protégée</p>
                     <ul v-if="periodes.length" class="periodes__list">
                         <li v-for="p in periodes" :key="p.id" class="periodes__item" :class="{ 'periodes__item--hit': chevauche(p) }">
                             <span class="hatch" :class="{ 'hatch--block': p.niveau_restriction === 'bloquant' }"></span>

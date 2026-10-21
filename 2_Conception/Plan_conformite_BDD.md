@@ -33,14 +33,14 @@ Un seul écart a été relevé : `demandes.statut_id` était déclaré `RESTRICT
 ### Base de données (3 migrations)
 
 - [x] **Correction de la 1NF.** Les listes JSON deviennent les tables `documents_requis` et `regles_specifiques`. Chaque pièce jointe est reliée à sa pièce requise par `documents.document_requis_id`. Les données existantes sont reprises.
-  - Migration : [2026_10_13_090000_normaliser_listes_type_demandes.php](../3_Application/database/migrations/2026_10_13_090000_normaliser_listes_type_demandes.php)
+  - Migration : `2026_10_13_090000_normaliser_listes_type_demandes.php` (fondue depuis dans les migrations réécrites, voir section 6)
 - [x] **Contraintes du MPD.**
   - CHECK `date_fin >= date_debut` sur `demandes` et `periode_sensibles`, et CHECK `equipe_nombre >= 1`.
   - `RESTRICT` sur la suppression d'un site ou d'un type encore utilisé.
   - Index `notifications (user_id, lu, date_envoi)`.
-  - Migration : [2026_10_13_090100_contraintes_integrite_bdd.php](../3_Application/database/migrations/2026_10_13_090100_contraintes_integrite_bdd.php)
+  - Migration : `2026_10_13_090100_contraintes_integrite_bdd.php` (fondue depuis dans les migrations réécrites, voir section 6)
 - [x] **Historisation des soumissions déjà faites.** Désormais, `statut_id` est toujours le dernier statut de l'historique.
-  - Migration : [2026_10_13_090200_historiser_soumissions.php](../3_Application/database/migrations/2026_10_13_090200_historiser_soumissions.php)
+  - Migration : `2026_10_13_090200_historiser_soumissions.php` (fondue depuis dans les migrations réécrites, voir section 6)
 
 ### Application
 
@@ -80,7 +80,7 @@ Un seul écart a été relevé : `demandes.statut_id` était déclaré `RESTRICT
 
 - [ ] **Régénérer `Base.pdf`** : collez [schema.dbml](../3_Application/database/schema.dbml) sur [dbdiagram.io](https://dbdiagram.io), puis réexportez le PDF. L'actuel ne contient pas `documents_requis`, `regles_specifiques` ni les RESTRICT.
 - [ ] **Tester à l'écran** l'admin des types (`/admin/type-demandes`) : ajouter, renommer et retirer une pièce ou une règle. Puis le formulaire de demande avec ses pièces jointes.
-- [ ] **Sur toute autre machine**, lancer `php artisan migrate`.
+- [ ] **Sur toute autre machine**, recréer la base : `php artisan db:wipe`, puis `php artisan migrate`, puis recharger le jeu de test (voir section 6 : `migrate:fresh` seul ne supprime pas les anciennes tables sans préfixe).
 - [ ] **Commiter** les changements une fois vérifiés.
 - [ ] *(Facultatif)* Lancer `php artisan boost:install`, demandé par le `CLAUDE.md` du projet. La commande est interactive.
 
@@ -99,8 +99,9 @@ Un seul écart a été relevé : `demandes.statut_id` était déclaré `RESTRICT
 # Appliquer les migrations
 php artisan migrate
 
-# Annuler les trois migrations de mise en conformité (testé)
-php artisan migrate:rollback --step=3
+# Recréer la base complète (tables t_) : vider, puis migrer
+php artisan db:wipe
+php artisan migrate
 
 # Recharger le jeu de données de test
 mysql -u root projet_stage < database/donnees_test.sql
@@ -111,3 +112,30 @@ php artisan test
 # Compiler le front
 npm run build
 ```
+
+---
+
+## 6. Réécriture de la base et préfixe `t_` (19/10/2026)
+
+Les 20 migrations accumulées (création, puis corrections successives) sont remplacées par un jeu propre : chaque migration crée directement **l'état final** d'une table, avec ses clés, ses CHECK, ses index et ses données de départ. Toutes les tables portent désormais le préfixe **`t_`**.
+
+### Ce qui a été fait
+
+- [x] **15 migrations** au lieu de 20 : 3 pour les tables techniques de Laravel, puis une par table métier (ou groupe de tables liées : `t_type_demandes` avec `t_documents_requis` et `t_regles_specifiques`).
+- [x] **Préfixe `t_` sur les 23 tables** : les 15 tables métier et les 8 tables techniques (`t_sessions`, `t_cache`, `t_cache_locks`, `t_jobs`, `t_job_batches`, `t_failed_jobs`, `t_password_reset_tokens`, `t_migrations`), ces dernières déclarées dans `config/` (auth, cache, database, queue, session).
+- [x] **Noms des index et contraintes** dérivés du nom de table : `t_demandes_user_id_foreign`, `chk_t_demandes_dates`, `t_notifications_user_lu_envoi_index`…
+- [x] **Référentiel des statuts** : les 6 statuts sont insérés par la migration de `t_statuts` (avant, 2 par une migration et 4 par le seeder).
+- [x] **Code** : chaque modèle déclare sa table (`protected $table = 't_…'`), la relation validateurs ↔ sites pointe vers `t_site_user`, et les jointures, colonnes qualifiées et règles de validation (`exists:t_sites,id`…) utilisent les nouveaux noms.
+- [x] **Scripts** : [donnees_test.sql](../3_Application/database/donnees_test.sql) (qui vide aussi `t_documents_officiels` et `t_documents_reference`), `insert_sites.sql`, [base_de_donnees.sql](base_de_donnees.sql) réécrit (il décrit maintenant les 15 tables métier et insère les statuts), [schema.dbml](../3_Application/database/schema.dbml) (15 tables, 20 relations).
+
+### Vérifications
+
+- [x] **Schéma identique à l'ancien, au préfixe près** : comparaison automatique des 23 tables (colonnes, types, valeurs par défaut, clés, CHECK, index) entre la base d'avant et la base recréée — aucun écart.
+- [x] **Script de conception exécuté** sur une base temporaire : ses 15 tables sont identiques à celles des migrations.
+- [x] **125 tests au vert** sur la base de test recréée.
+- [x] **Base de développement recréée** puis rechargée avec le jeu de test ; contrôle de l'invariant `statut_id` : 22 demandes, 0 écart.
+- [x] **Essai réel** (serveur lancé) : connexion des trois rôles, pages principales, export CSV et PDF des modèles en 200, accès refusés en 403 là où il le faut, sessions enregistrées dans `t_sessions`.
+
+### Point d'attention
+
+`php artisan migrate:fresh` ne vide la base que s'il y trouve sa table de suivi, désormais `t_migrations`. Sur une base qui a encore les anciennes tables (sans préfixe), il crée les tables `t_` **à côté** des anciennes. Il faut donc lancer `php artisan db:wipe` avant `php artisan migrate`.

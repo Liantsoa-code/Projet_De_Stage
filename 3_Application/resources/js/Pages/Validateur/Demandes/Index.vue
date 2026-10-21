@@ -44,7 +44,7 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
                 <div>
                     <div class="page-title">{{ viewAllDemandes ? 'Toutes les demandes' : 'Dossiers à valider' }}</div>
                     <div class="page-sub">
-                        {{ viewAllDemandes ? 'Toutes les demandes de la plateforme' : 'Demandes soumises sur vos sites assignés' }}
+                        {{ viewAllDemandes ? 'Toutes les demandes de la plateforme' : 'Demandes soumises sur vos aires protégées assignées' }}
                     </div>
                 </div>
                 <a :href="exportUrl" class="btn-ghost">
@@ -57,14 +57,14 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
         <div class="filter-bar">
             <div class="filter-search">
                 <Icon name="magnifying-glass" />
-                <input v-model="filters.q" type="search" class="gf-input" placeholder="Demandeur, e-mail, site ou numéro de dossier" aria-label="Rechercher" />
+                <input v-model="filters.q" type="search" class="gf-input" placeholder="Demandeur, e-mail, aire protégée ou numéro de dossier" aria-label="Rechercher" />
             </div>
             <select v-model="filters.statut" class="gf-select" aria-label="Statut">
                 <option value="">Tous les statuts</option>
                 <option v-for="s in statuts" :key="s.id" :value="s.code">{{ s.libelle }}</option>
             </select>
-            <select v-model="filters.site_id" class="gf-select" aria-label="Site">
-                <option value="">Tous les sites</option>
+            <select v-model="filters.site_id" class="gf-select" aria-label="Aire protégée">
+                <option value="">Toutes les aires protégées</option>
                 <option v-for="s in sites" :key="s.id" :value="String(s.id)">{{ s.nom }}</option>
             </select>
             <label class="filter-field">
@@ -82,7 +82,7 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
                     <tr>
                         <th>Référence</th>
                         <th>Demandeur</th>
-                        <th>Site</th>
+                        <th>Aire protégée</th>
                         <th>Période</th>
                         <th>Statut</th>
                         <th class="text-right">Action</th>

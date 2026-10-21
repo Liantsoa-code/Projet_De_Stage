@@ -29,6 +29,7 @@ class StatsAdmin extends StatsInstruction
             ->count('demande_id');
 
         return $this->carte($enAttente) + [
+            'principales' => $this->principales(),
             'compteurs' => $this->compteurs($enAttente),
             'urgents' => $enAttente->filter(fn ($d) => $d['imminent'] || $d['retard'] || $d['conflit'])->take(6)->values(),
             'qualite' => [
@@ -48,9 +49,9 @@ class StatsAdmin extends StatsInstruction
             'frequentation' => $this->frequentation(),
             'par_mois' => $this->parMois(),
             'par_type' => (clone $this->base)
-                ->join('type_demandes', 'demandes.type_demande_id', '=', 'type_demandes.id')
-                ->selectRaw('type_demandes.libelle as nom, COUNT(demandes.id) as total')
-                ->groupBy('type_demandes.id', 'type_demandes.libelle')
+                ->join('t_type_demandes', 't_demandes.type_demande_id', '=', 't_type_demandes.id')
+                ->selectRaw('t_type_demandes.libelle as nom, COUNT(t_demandes.id) as total')
+                ->groupBy('t_type_demandes.id', 't_type_demandes.libelle')
                 ->orderByDesc('total')
                 ->get()
                 ->toArray(),
@@ -139,8 +140,8 @@ class StatsAdmin extends StatsInstruction
         $parMois = ['courante' => array_fill(0, 12, 0), 'precedente' => array_fill(0, 12, 0)];
 
         (clone $this->base)
-            ->whereYear('demandes.created_at', '>=', $annee - 1)
-            ->get(['demandes.created_at'])
+            ->whereYear('t_demandes.created_at', '>=', $annee - 1)
+            ->get(['t_demandes.created_at'])
             ->each(function (Demande $d) use (&$parMois, $annee) {
                 $parMois[$d->created_at->year === $annee ? 'courante' : 'precedente'][$d->created_at->month - 1]++;
             });

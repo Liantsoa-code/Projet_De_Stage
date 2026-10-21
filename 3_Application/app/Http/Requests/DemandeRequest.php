@@ -7,17 +7,20 @@ use App\Models\TypeDemande;
 use App\Support\DemandeDossier;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 
 /**
  * Création et modification d'une demande : brouillon, soumission ou renvoi d'un complément.
  *
  * Brouillon : seuls le site et le type sont obligatoires.
- * Soumission : tous les champs et toutes les pièces (sauf celles déjà fournies).
+ * Soumission : tous les champs et toutes les pièces (sauf celles déjà fournies ou reprises d'un autre dossier).
  */
 class DemandeRequest extends FormRequest
 {
     private ?TypeDemande $typeDemande = null;
+
+    private ?Collection $piecesReprises = null;
 
     /**
      * Vérifié avant la validation : seul l'auteur modifie sa demande, et seulement si elle est modifiable.
@@ -32,17 +35,22 @@ class DemandeRequest extends FormRequest
         $requis = $this->estSoumission() ? 'required' : 'nullable';
 
         $rules = [
-            'site_id' => 'required|exists:sites,id',
-            'type_demande_id' => 'required|exists:type_demandes,id',
+            'site_id' => 'required|exists:t_sites,id',
+            'type_demande_id' => 'required|exists:t_type_demandes,id',
             'date_debut' => "$requis|date|after_or_equal:today",
             'date_fin' => "$requis|date" . ($this->filled('date_debut') ? '|after_or_equal:date_debut' : ''),
             'equipe_nombre' => "$requis|integer|min:1",
             'description' => "$requis|string",
             'message_complement' => 'nullable|string|max:1000',
+            'reprendre' => 'nullable|array',
+            'reprendre.*' => 'integer',
         ];
 
-        // Pièces exigées par le type d'activité choisi
-        $dejaFournies = $this->demande()?->documents()->pluck('document_requis_id')->all() ?? [];
+        // Pièces exigées par le type d'activité choisi, hors celles déjà jointes ou reprises d'un autre dossier
+        $dejaFournies = [
+            ...$this->demande()?->documents()->pluck('document_requis_id')->all() ?? [],
+            ...$this->piecesReprises()->keys()->all(),
+        ];
 
         foreach ($this->typeDemande()?->documentsRequis ?? [] as $docRequis) {
             $obligatoire = $this->estSoumission() && ! in_array($docRequis->id, $dejaFournies);
@@ -86,6 +94,25 @@ class DemandeRequest extends FormRequest
     public function typeDemande(): ?TypeDemande
     {
         return $this->typeDemande ??= TypeDemande::with('documentsRequis')->find($this->input('type_demande_id'));
+    }
+
+    /**
+     * Pièces réutilisables que le demandeur choisit de reprendre (reprendre[] = ids de pièces requises),
+     * limitées à celles qu'il a réellement déposées dans un autre de ses dossiers.
+     *
+     * @return Collection<int, \App\Models\Document>
+     */
+    public function piecesReprises(): Collection
+    {
+        if ($this->piecesReprises !== null) {
+            return $this->piecesReprises;
+        }
+
+        $ids = array_map('intval', array_filter((array) $this->input('reprendre', []), 'is_numeric'));
+
+        return $this->piecesReprises = $ids
+            ? DemandeDossier::piecesReutilisables($this->user()->id, $this->demande()?->id)->only($ids)
+            : collect();
     }
 
     /**

@@ -86,7 +86,7 @@ const openPdf = async (url, filename) => {
             <Icon name="seal-check" class="callout__icon" />
             <div class="callout__body">
                 <span class="callout__tag">Demande validée</span>
-                <p>Présentez l'autorisation à l'arrivée sur le site et respectez le cahier des charges.</p>
+                <p>Présentez l'autorisation à l'arrivée dans l'aire protégée et respectez le cahier des charges.</p>
             </div>
             <div class="btn-row">
                 <button type="button" class="btn-accent" @click="openPdf(route('demandes.pdf.autorisation', demande.id), `autorisation_${demande.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
@@ -97,7 +97,7 @@ const openPdf = async (url, filename) => {
         <div class="show-layout">
             <div class="stack">
                 <dl class="meta">
-                    <div><dt>Site</dt><dd>{{ demande.site.nom }}</dd></div>
+                    <div><dt>Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
                     <div><dt>Activité</dt><dd>{{ demande.type_demande.libelle }}</dd></div>
                     <div>
                         <dt>Séjour</dt>
@@ -169,7 +169,7 @@ const openPdf = async (url, filename) => {
                                 <p>Supprimer définitivement ce brouillon et ses pièces jointes ?</p>
                                 <div class="del-confirm__btns">
                                     <button type="button" class="btn-ghost" @click="confirmDelete = false">Annuler</button>
-                                    <button type="button" class="btn-sm-delete" :disabled="deleting" @click="supprimer">Oui, supprimer</button>
+                                    <button type="button" class="btn-sm-delete del-btn" :disabled="deleting" @click="supprimer">Oui, supprimer</button>
                                 </div>
                             </div>
                         </template>
@@ -241,7 +241,10 @@ const openPdf = async (url, filename) => {
 .docs__missing .docs__icon, .docs__missing strong { color: var(--ochre); }
 
 .side-actions { display: grid; gap: 10px; padding: 16px 24px; }
-.del-btn { justify-content: center; padding: 9px 14px; }
+/* Même gabarit que .btn-ghost (« Modifier le brouillon », « Annuler ») */
+.del-btn { justify-content: center; gap: 8px; min-height: 36px; padding: 8px 14px; border-radius: var(--r-sm); font: 600 14px/1 var(--f-body); white-space: nowrap; }
+.del-btn :deep(svg) { width: 16px; height: 16px; }
+@media (pointer: coarse) { .del-btn { min-height: 40px; } }
 .del-confirm { padding: 12px; background: var(--signal-soft); border: 1px solid var(--signal-line); border-radius: var(--r-sm); }
 .del-confirm p { margin-bottom: 10px; font-size: 13px; color: var(--ink); }
 .del-confirm__btns { display: flex; justify-content: flex-end; gap: 8px; }

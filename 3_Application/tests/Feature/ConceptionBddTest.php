@@ -10,6 +10,7 @@ use App\Models\Site;
 use App\Models\Statut;
 use App\Models\TypeDemande;
 use App\Models\User;
+use App\Support\DocumentsOfficiels;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -156,12 +157,12 @@ class ConceptionBddTest extends TestCase
             'documents_requis' => [['libelle' => 'Scénario'], ['libelle' => 'scénario']],
         ])->assertSessionHasErrors('documents_requis.1.libelle');
 
-        $this->assertDatabaseMissing('type_demandes', ['libelle' => 'Tournage']);
+        $this->assertDatabaseMissing('t_type_demandes', ['libelle' => 'Tournage']);
     }
 
     public function test_specific_rules_appear_in_the_terms_of_reference(): void
     {
-        $html = view('pdf.cahier_charges', ['demande' => $this->makeDemande()->load('user', 'site', 'typeDemande')])->render();
+        $html = view('pdf.cahier_charges', DocumentsOfficiels::donneesVue($this->makeDemande(), 'cahier_charges'))->render();
 
         $this->assertStringContainsString('Équipe limitée à 10 personnes', $html);
     }

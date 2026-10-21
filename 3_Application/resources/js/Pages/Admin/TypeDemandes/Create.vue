@@ -10,6 +10,8 @@ const form = useForm({
     documents_requis: [],
     regles_specifiques: [],
 });
+// Pièce qu'un demandeur n'a à déposer qu'une fois (reprise d'un dossier précédent)
+const optionReutilisable = { cle: 'reutilisable', label: 'Réutilisable', aide: 'Reprise automatiquement des dossiers précédents du demandeur' };
 const submit = () => form.post(route('admin.type-demandes.store'));
 </script>
 
@@ -42,8 +44,9 @@ const submit = () => form.post(route('admin.type-demandes.store'));
                             placeholder="Ex : Plan de vol drone"
                             ajouter-label="Ajouter une pièce"
                             vide="Aucune pièce exigée pour ce type."
+                            :option="optionReutilisable"
                         />
-                        <p class="field-hint">Chaque pièce sera demandée lors de la soumission. Renommer une pièce garde les fichiers déjà déposés.</p>
+                        <p class="field-hint">Chaque pièce sera demandée lors de la soumission. Renommer une pièce garde les fichiers déjà déposés. Une pièce réutilisable (pièce d'identité, assurance…) déjà déposée par le demandeur est reprise automatiquement dans ses demandes suivantes, s'il ne la remplace pas.</p>
                     </div>
                     <div class="field-group">
                         <InputLabel value="Règles spécifiques" class="field-label" />

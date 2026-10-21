@@ -17,6 +17,7 @@ class StatsValidateur extends StatsInstruction
         $enAttente = $this->dossiersEnAttente();
 
         return $this->carte($enAttente) + [
+            'principales' => $this->principales(),
             'compteurs' => $this->compteurs($enAttente),
             'file' => $enAttente->take(8)->values(),
             'attente_demandeur' => $this->attenteDemandeur(),
@@ -33,9 +34,9 @@ class StatsValidateur extends StatsInstruction
         return (clone $this->base)
             ->whereHas('statut', fn ($q) => $q->where('code', 'a_completer'))
             ->with(['user:id,name', 'site:id,nom'])
-            ->select('demandes.id', 'demandes.user_id', 'demandes.site_id', 'demandes.created_at')
+            ->select('t_demandes.id', 't_demandes.user_id', 't_demandes.site_id', 't_demandes.created_at')
             ->addSelect(['complement_le' => HistoriqueStatut::select('date_changement')
-                ->whereColumn('historique_statuts.demande_id', 'demandes.id')
+                ->whereColumn('t_historique_statuts.demande_id', 't_demandes.id')
                 ->whereHas('nouveauStatut', fn ($q) => $q->where('code', 'a_completer'))
                 ->latest('date_changement')
                 ->limit(1)])
@@ -57,14 +58,14 @@ class StatsValidateur extends StatsInstruction
     private function activite(): array
     {
         $parCode = HistoriqueStatut::query()
-            ->join('statuts', 'statuts.id', '=', 'historique_statuts.nouveau_statut_id')
-            ->join('demandes', 'demandes.id', '=', 'historique_statuts.demande_id')
-            ->where('historique_statuts.user_id', $this->user->id)
-            ->where('demandes.user_id', '!=', $this->user->id)
-            ->where('historique_statuts.date_changement', '>=', now()->startOfMonth())
-            ->whereIn('statuts.code', ['en_analyse', 'a_completer', 'validee', 'rejetee'])
-            ->selectRaw('statuts.code as code, COUNT(*) as total')
-            ->groupBy('statuts.code')
+            ->join('t_statuts', 't_statuts.id', '=', 't_historique_statuts.nouveau_statut_id')
+            ->join('t_demandes', 't_demandes.id', '=', 't_historique_statuts.demande_id')
+            ->where('t_historique_statuts.user_id', $this->user->id)
+            ->where('t_demandes.user_id', '!=', $this->user->id)
+            ->where('t_historique_statuts.date_changement', '>=', now()->startOfMonth())
+            ->whereIn('t_statuts.code', ['en_analyse', 'a_completer', 'validee', 'rejetee'])
+            ->selectRaw('t_statuts.code as code, COUNT(*) as total')
+            ->groupBy('t_statuts.code')
             ->pluck('total', 'code');
 
         return collect(['en_analyse', 'a_completer', 'validee', 'rejetee'])

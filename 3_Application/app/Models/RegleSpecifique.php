@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class RegleSpecifique extends Model
 {
-    protected $table = 'regles_specifiques';
+    protected $table = 't_regles_specifiques';
 
     protected $fillable = ['type_demande_id', 'libelle'];
 

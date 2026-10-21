@@ -8,9 +8,11 @@ import ListeEditable from '@/Components/ListeEditable.vue';
 const props = defineProps({ type: Object });
 const form = useForm({
     libelle: props.type.libelle,
-    documents_requis: (props.type.documents_requis ?? []).map(({ id, libelle }) => ({ id, libelle })),
+    documents_requis: (props.type.documents_requis ?? []).map(({ id, libelle, reutilisable }) => ({ id, libelle, reutilisable: Boolean(reutilisable) })),
     regles_specifiques: (props.type.regles_specifiques ?? []).map(({ id, libelle }) => ({ id, libelle })),
 });
+// Pièce qu'un demandeur n'a à déposer qu'une fois (reprise d'un dossier précédent)
+const optionReutilisable = { cle: 'reutilisable', label: 'Réutilisable', aide: 'Reprise automatiquement des dossiers précédents du demandeur' };
 const submit = () => form.put(route('admin.type-demandes.update', props.type.id));
 </script>
 
@@ -43,8 +45,9 @@ const submit = () => form.put(route('admin.type-demandes.update', props.type.id)
                             placeholder="Ex : Plan de vol drone"
                             ajouter-label="Ajouter une pièce"
                             vide="Aucune pièce exigée pour ce type."
+                            :option="optionReutilisable"
                         />
-                        <p class="field-hint">Chaque pièce sera demandée lors de la soumission. Renommer une pièce garde les fichiers déjà déposés.</p>
+                        <p class="field-hint">Chaque pièce sera demandée lors de la soumission. Renommer une pièce garde les fichiers déjà déposés. Une pièce réutilisable (pièce d'identité, assurance…) déjà déposée par le demandeur est reprise automatiquement dans ses demandes suivantes, s'il ne la remplace pas.</p>
                     </div>
                     <div class="field-group">
                         <InputLabel value="Règles spécifiques" class="field-label" />

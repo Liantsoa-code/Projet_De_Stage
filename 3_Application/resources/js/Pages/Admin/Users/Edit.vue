@@ -78,7 +78,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                     <div v-if="form.role === 'validateur'" class="sites-section">
                         <div class="sites-section__header">
                             <Icon name="map-pin" />
-                            Sites gérés par ce validateur
+                            Aires protégées gérées par ce validateur
                         </div>
                         <div class="sites-grid">
                             <label v-for="site in sites" :key="site.id" class="site-checkbox" :class="{ 'site-checkbox--checked': form.sites.includes(site.id) }">

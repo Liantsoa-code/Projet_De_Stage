@@ -10,7 +10,7 @@ const props = defineProps({
     site: { type: Object, default: null },
     // État du calendrier sur les dates choisies : aucun (pas de dates), ouvert, sensible ou bloquant
     calendrier: { type: String, required: true },
-    // Pièces exigées par le type, avec le fichier choisi (fichier) ou déjà envoyé (existant)
+    // Pièces exigées par le type, avec le fichier choisi (fichier), déjà envoyé (existant) ou repris d'un autre dossier (reprise)
     pieces: { type: Array, required: true },
 });
 
@@ -25,7 +25,7 @@ const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin
     <p class="hint">Vérifiez votre dossier avant de l'envoyer. Chaque partie peut encore être modifiée.</p>
     <dl class="recap">
         <div class="recap__bloc">
-            <dt>Activité et site <button type="button" class="recap__edit" @click="$emit('modifier', 'activite')">Modifier</button></dt>
+            <dt>Activité et aire protégée <button type="button" class="recap__edit" @click="$emit('modifier', 'activite')">Modifier</button></dt>
             <dd><strong>{{ typeActivite?.libelle ?? '—' }}</strong> · {{ site?.nom ?? '—' }}</dd>
         </div>
         <div class="recap__bloc">
@@ -52,7 +52,7 @@ const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin
                         <Icon :name="p.fourni ? 'check-circle' : 'file-dashed'" />
                         <span>
                             {{ p.libelle }}
-                            <small>{{ p.fichier?.name ?? p.existant?.nom_fichier ?? 'Manquante' }}</small>
+                            <small>{{ p.fichier?.name ?? p.existant?.nom_fichier ?? (p.reprise ? `${p.reprise.nom_fichier} (reprise du dossier ${p.reprise.reference})` : 'Manquante') }}</small>
                         </span>
                     </li>
                 </ul>

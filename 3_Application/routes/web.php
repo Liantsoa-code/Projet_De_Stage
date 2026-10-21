@@ -8,9 +8,12 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DemandeController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentReferenceController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PdfController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ModeleReferenceController;
+use App\Http\Controllers\ReferenceController;
 use App\Http\Controllers\Validateur\DemandeController as ValidateurDemandeController;
 use Illuminate\Support\Facades\Route;
 
@@ -48,4 +51,30 @@ Route::middleware(['auth', 'can:is-validateur'])->prefix('validateur')->name('va
     Route::get('demandes/export', [ValidateurDemandeController::class, 'export'])->name('demandes.export');
     Route::get('demandes/{demande}', [ValidateurDemandeController::class, 'show'])->name('demandes.show');
     Route::post('demandes/{demande}/statut', [ValidateurDemandeController::class, 'updateStatut'])->name('demandes.update-statut');
+    // Validation en deux temps : générer les documents, les relire et modifier, puis signer (update-statut)
+    Route::post('demandes/{demande}/documents', [ValidateurDemandeController::class, 'genererDocuments'])->name('demandes.documents.generer');
+    Route::put('demandes/{demande}/documents', [ValidateurDemandeController::class, 'modifierDocuments'])->name('demandes.documents.modifier');
+    Route::delete('demandes/{demande}/documents', [ValidateurDemandeController::class, 'annulerDocuments'])->name('demandes.documents.annuler');
+    Route::get('demandes/{demande}/documents/{type}/apercu', [ValidateurDemandeController::class, 'apercuDocument'])
+        ->whereIn('type', ['autorisation', 'cahier_charges'])->name('demandes.documents.apercu');
+});
+
+// Références : modèles des documents officiels (avis favorable, autorisation, refus…)
+// et documents déposés par l'équipe (dépôt limité par le limiteur « demandes »).
+Route::middleware(['auth', 'can:is-validateur'])->prefix('references')->name('references.')->group(function () {
+    Route::get('/', [ReferenceController::class, 'index'])->name('index');
+    Route::get('modeles/{modele}', [ModeleReferenceController::class, 'show'])->whereNumber('modele')->name('modeles.show');
+    Route::post('documents', [DocumentReferenceController::class, 'store'])->middleware('throttle:demandes')->name('documents.store');
+    Route::get('documents/{document}', [DocumentReferenceController::class, 'show'])->name('documents.show');
+    Route::delete('documents/{document}', [DocumentReferenceController::class, 'destroy'])->name('documents.destroy');
+});
+
+// Gestion des modèles de la page Références : admins uniquement
+Route::middleware(['auth', 'can:is-admin'])->prefix('references/modeles')->name('references.modeles.')->group(function () {
+    Route::get('create', [ModeleReferenceController::class, 'create'])->name('create');
+    Route::post('/', [ModeleReferenceController::class, 'store'])->name('store');
+    Route::post('apercu', [ModeleReferenceController::class, 'apercu'])->name('apercu');
+    Route::get('{modele}/edit', [ModeleReferenceController::class, 'edit'])->name('edit');
+    Route::put('{modele}', [ModeleReferenceController::class, 'update'])->name('update');
+    Route::delete('{modele}', [ModeleReferenceController::class, 'destroy'])->name('destroy');
 });

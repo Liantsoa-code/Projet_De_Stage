@@ -17,7 +17,7 @@ class DemandeDecisionRulesTest extends TestCase
 
     private function makeDemande(User $creator, Site $site): Demande
     {
-        $statut = Statut::create(['code' => 'soumise', 'libelle' => 'Soumise', 'description' => '']);
+        $statut = Statut::firstOrCreate(['code' => 'soumise'], ['libelle' => 'Soumise', 'description' => '']);
         $type = TypeDemande::create(['libelle' => 'Test']);
 
         return Demande::create([

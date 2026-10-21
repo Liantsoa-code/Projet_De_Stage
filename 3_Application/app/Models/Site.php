@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Cache;
 
 class Site extends Model
 {
+    protected $table = 't_sites';
+
     /** Clé de cache de la liste des sites affichée sur la page d'accueil. */
     public const CACHE_ACCUEIL = 'sites.accueil';
 
@@ -36,7 +38,7 @@ class Site extends Model
 
     public function validateurs()
     {
-        return $this->belongsToMany(User::class);
+        return $this->belongsToMany(User::class, 't_site_user');
     }
 
     public function demandes()

@@ -13,7 +13,7 @@ class TypeDemandeController extends Controller
 {
     public function index()
     {
-        $types = TypeDemande::with('documentsRequis:id,type_demande_id,libelle')->get();
+        $types = TypeDemande::with('documentsRequis:id,type_demande_id,libelle,reutilisable')->get();
         return Inertia::render('Admin/TypeDemandes/Index', ['types' => $types]);
     }
 
@@ -36,7 +36,7 @@ class TypeDemandeController extends Controller
 
     public function edit(TypeDemande $type_demande)
     {
-        $type_demande->load(['documentsRequis:id,type_demande_id,libelle', 'reglesSpecifiques:id,type_demande_id,libelle']);
+        $type_demande->load(['documentsRequis:id,type_demande_id,libelle,reutilisable', 'reglesSpecifiques:id,type_demande_id,libelle']);
 
         return Inertia::render('Admin/TypeDemandes/Edit', ['type' => $type_demande]);
     }
@@ -56,6 +56,7 @@ class TypeDemandeController extends Controller
     /**
      * Pièces requises et règles : une ligne par élément ({id, libelle}), l'id est conservé
      * quand on renomme une pièce, pour que les fichiers déjà déposés restent rattachés.
+     * Une pièce peut être marquée réutilisable : elle est alors reprise d'un dossier précédent du demandeur.
      */
     private function validateType(Request $request): array
     {
@@ -64,6 +65,7 @@ class TypeDemandeController extends Controller
             'documents_requis' => 'array',
             'documents_requis.*.id' => 'nullable|integer',
             'documents_requis.*.libelle' => 'required|string|max:150|distinct:ignore_case',
+            'documents_requis.*.reutilisable' => 'boolean',
             'regles_specifiques' => 'array',
             'regles_specifiques.*.id' => 'nullable|integer',
             'regles_specifiques.*.libelle' => 'required|string|max:255',

@@ -24,7 +24,7 @@ class IntegriteComptesEtDecisionsTest extends TestCase
         parent::setUp();
 
         foreach (['soumise' => 'Soumise', 'en_analyse' => 'En analyse', 'validee' => 'Validée', 'rejetee' => 'Rejetée'] as $code => $libelle) {
-            Statut::create(['code' => $code, 'libelle' => $libelle, 'description' => '']);
+            Statut::firstOrCreate(['code' => $code], ['libelle' => $libelle, 'description' => '']);
         }
 
         $this->site = Site::create(['nom' => 'Site A', 'description' => '', 'polygone_coordonnees' => []]);
@@ -62,9 +62,11 @@ class IntegriteComptesEtDecisionsTest extends TestCase
         $validateur = $this->validateurDuSite();
         $demande = $this->makeDemande(User::factory()->create());
 
+        $this->actingAs($validateur)->post(route('validateur.demandes.documents.generer', $demande))->assertSessionHasNoErrors();
         $this->actingAs($validateur)->post(route('validateur.demandes.update-statut', $demande), [
             'statut_id' => Statut::where('code', 'validee')->value('id'),
             'commentaire' => 'Dossier complet.',
+            'signature' => $validateur->name,
         ])->assertSessionHasNoErrors();
 
         $this->actingAs($validateur)
@@ -122,9 +124,11 @@ class IntegriteComptesEtDecisionsTest extends TestCase
         $premier = $this->validateurDuSite();
         $second = $this->validateurDuSite();
 
+        $this->actingAs($premier)->post(route('validateur.demandes.documents.generer', $demande))->assertSessionHasNoErrors();
         $this->actingAs($premier)->post(route('validateur.demandes.update-statut', $demande), [
             'statut_id' => Statut::where('code', 'validee')->value('id'),
             'commentaire' => 'Accepté.',
+            'signature' => $premier->name,
         ])->assertSessionHasNoErrors();
 
         // Le second validateur avait ouvert le dossier avant la décision du premier.
@@ -161,7 +165,7 @@ class IntegriteComptesEtDecisionsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame('validateur', $user->fresh()->role);
-        $this->assertEquals([$this->site->id], $user->sites()->pluck('sites.id')->all());
+        $this->assertEquals([$this->site->id], $user->sites()->pluck('t_sites.id')->all());
     }
 
     public function test_user_update_rejects_unknown_site(): void

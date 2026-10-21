@@ -179,7 +179,7 @@ const clearMap = () => {
         </button>
 
         <div v-if="editable && modelValue.length === 0" class="hint absolute bottom-4 left-4 z-[20] pointer-events-none">
-             Utilisez l'outil polygone en haut à gauche pour délimiter le site.
+             Utilisez l'outil polygone en haut à gauche pour délimiter l'aire protégée.
         </div>
 
         <div v-if="editable && modelValue.length > 0" class="hint-ok absolute bottom-4 left-4 z-[20] pointer-events-none">

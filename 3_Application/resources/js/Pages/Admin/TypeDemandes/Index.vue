@@ -46,7 +46,7 @@ const deleteType = (id) => {
                         <td>
                             <div style="display:flex;flex-wrap:wrap;gap:5px;">
                                 <span v-for="doc in type.documents_requis" :key="doc.id" style="padding:3px 10px;background:var(--sunk);border:1px solid var(--rule);border-radius: var(--r-sm);font-size:11.5px;color:var(--ink-2);font-weight:500;">
-                                    {{ doc.libelle }}
+                                    {{ doc.libelle }}<template v-if="doc.reutilisable"> · réutilisable</template>
                                 </span>
                                 <span v-if="!type.documents_requis || type.documents_requis.length === 0" class="text-dim text-sm" style="font-style:italic">Aucun document requis</span>
                             </div>

@@ -48,7 +48,7 @@ const handleFileUpload = (event) => {
 </script>
 
 <template>
-    <Head title="Nouveau site protégé" />
+    <Head title="Nouvelle aire protégée" />
     <AuthenticatedLayout>
         <template #header>
             <div style="display:flex;align-items:center;gap:12px">
@@ -56,14 +56,14 @@ const handleFileUpload = (event) => {
                     <Icon name="arrow-left" />
                     Retour
                 </Link>
-                <span class="ph-title">Nouveau site protégé</span>
+                <span class="ph-title">Nouvelle aire protégée</span>
             </div>
         </template>
         <div style="max-width:720px">
             <div class="glass-form-wrap">
                 <form @submit.prevent="submit" class="gf-body">
                     <div>
-                        <label class="gf-label">Nom du site *</label>
+                        <label class="gf-label">Nom de l'aire protégée *</label>
                         <input type="text" class="gf-input" v-model="form.nom" required placeholder="Ex : Parc National d'Ankarafantsika" autofocus />
                         <InputError class="gf-error" :message="form.errors.nom" />
                     </div>
@@ -90,7 +90,7 @@ const handleFileUpload = (event) => {
                     <div class="gf-footer">
                         <Link :href="route('admin.sites.index')" class="btn-ghost">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="btn-accent">
-                            {{ form.processing ? 'Enregistrement...' : 'Enregistrer le site' }}
+                            {{ form.processing ? 'Enregistrement...' : 'Enregistrer l\'aire protégée' }}
                         </button>
                     </div>
                 </form>
