@@ -1,9 +1,10 @@
 <script setup>
+import CompteurAnime from '@/Components/CompteurAnime.vue';
 import Icon from '@/Components/Icon.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { refDemande, formatDate } from '@/utils/statut.js';
+import { formatDate } from '@/utils/statut.js';
 import { openAuthenticatedPdf } from '@/utils/openPdf.js';
 
 // Espace demandeur : où en sont mes dossiers, et que dois-je faire ?
@@ -43,7 +44,7 @@ const openPdf = async (url, filename) => {
         <section v-for="d in aCompleter" :key="`todo-${d.id}`" class="callout callout--att">
             <Icon name="pencil-simple-line" class="callout__icon" />
             <div class="callout__body">
-                <span class="callout__tag">Complément demandé · <span class="mono">{{ refDemande(d) }}</span></span>
+                <span class="callout__tag">Complément demandé · <span class="mono">{{ d.reference }}</span></span>
                 <h2>{{ d.type_demande?.libelle }} · {{ d.site?.nom }}</h2>
                 <q v-if="d.dernier_commentaire">{{ d.dernier_commentaire }}</q>
                 <small v-if="d.commentaire_par">{{ d.commentaire_par }}, le {{ formatDate(d.commentaire_le) }}</small>
@@ -60,7 +61,7 @@ const openPdf = async (url, filename) => {
                 <div v-if="enCours.length" class="rows">
                     <Link v-for="d in enCours" :key="d.id" :href="route('demandes.show', d.id)" class="row row--mine">
                         <span class="row__main">
-                            <span class="mono ref">{{ refDemande(d) }}</span>
+                            <span class="mono ref">{{ d.reference }}</span>
                             <strong>{{ d.type_demande?.libelle }}</strong>
                         </span>
                         <span class="row__main">
@@ -85,7 +86,7 @@ const openPdf = async (url, filename) => {
                     <div v-for="d in sejours" :key="d.id" class="stay">
                         <div class="stay__when">
                             <template v-if="joursAvant(d.date_debut) > 0">
-                                <span class="stay__n">{{ joursAvant(d.date_debut) }}</span>
+                                <CompteurAnime class="stay__n" :valeur="joursAvant(d.date_debut)" />
                                 <span>jour{{ joursAvant(d.date_debut) > 1 ? 's' : '' }} avant l'arrivée</span>
                             </template>
                             <template v-else>

@@ -17,6 +17,8 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    protected $table = 't_users';
+
     /**
      * Get the attributes that should be cast.
      *
@@ -32,7 +34,7 @@ class User extends Authenticatable
 
     public function sites()
     {
-        return $this->belongsToMany(Site::class);
+        return $this->belongsToMany(Site::class, 't_site_user');
     }
 
     public function demandes()

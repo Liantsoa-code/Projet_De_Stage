@@ -19,7 +19,27 @@ export async function openAuthenticatedPdf(url, filename = 'document.pdf') {
         throw new Error(message);
     }
 
-    const blob = await response.blob();
+    ouvrirBlob(await response.blob(), filename);
+}
+
+/**
+ * Envoie des données (POST, avec le jeton CSRF d'axios) et ouvre le PDF renvoyé :
+ * aperçu d'un texte pas encore enregistré.
+ */
+export async function openPostedPdf(url, data, filename = 'apercu.pdf') {
+    let response;
+    try {
+        response = await window.axios.post(url, data, { responseType: 'blob', headers: { Accept: 'application/pdf' } });
+    } catch (e) {
+        throw new Error(e.response?.status === 422
+            ? 'Le contenu est vide ou trop long pour produire un aperçu.'
+            : 'Impossible de produire l\'aperçu.');
+    }
+
+    ouvrirBlob(response.data, filename);
+}
+
+function ouvrirBlob(blob, filename) {
     const blobUrl = URL.createObjectURL(blob);
 
     // Avec « noopener », window.open renvoie toujours null : le repli téléchargerait le PDF en double.

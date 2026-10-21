@@ -5,7 +5,7 @@ import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { openAuthenticatedPdf } from '@/utils/openPdf.js';
-import { statutBadgeClass, formatDate, refDemande } from '@/utils/statut.js';
+import { statutBadgeClass, formatDate } from '@/utils/statut.js';
 import TableSkeleton from '@/Components/TableSkeleton.vue';
 import { useNavigation } from '@/composables/useNavigation.js';
 
@@ -90,7 +90,7 @@ const openPdf = async (url, filename) => {
                 <thead>
                     <tr>
                         <th>Référence</th>
-                        <th>Site</th>
+                        <th>Aire protégée</th>
                         <th>Type d'activité</th>
                         <th>Période</th>
                         <th>Statut</th>
@@ -100,7 +100,7 @@ const openPdf = async (url, filename) => {
                 <TableSkeleton v-if="navLoading && samePage" :cols="6" />
                 <tbody v-else>
                     <tr v-for="d in demandes.data" :key="d.id" class="row-link" @click="ouvrir(d)">
-                        <td class="mono text-sm nowrap">{{ refDemande(d) }}</td>
+                        <td class="mono text-sm nowrap">{{ d.reference }}</td>
                         <td><span class="site-label">{{ d.site.nom }}</span></td>
                         <td class="text-dim">{{ d.type_demande.libelle }}</td>
                         <td class="mono text-sm nowrap">

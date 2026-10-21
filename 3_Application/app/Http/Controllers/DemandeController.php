@@ -2,22 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DemandeRequest;
 use App\Models\Demande;
+use App\Models\Document;
 use App\Models\HistoriqueStatut;
-use App\Models\Site;
-use App\Models\TypeDemande;
-use App\Models\Statut;
-use App\Models\User;
 use App\Models\PeriodeSensible;
+use App\Models\Site;
+use App\Models\Statut;
+use App\Models\TypeDemande;
+use App\Support\DelaiDecision;
+use App\Support\DemandeDossier;
+use App\Support\DemandeNotifications;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use App\Support\DemandeDecisionRules;
-use App\Support\DemandeDossier;
-use App\Support\DemandeNotificationMessage;
-use App\Support\DemandeStatutWorkflow;
+use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
 
+/**
+ * Espace demandeur. Les droits d'accès sont dans DemandePolicy, la validation dans DemandeRequest.
+ */
 class DemandeController extends Controller
 {
     public function index(Request $request)
@@ -33,10 +37,10 @@ class DemandeController extends Controller
             ->withQueryString();
 
         // Nombre de demandes par statut, pour les onglets de filtre
-        $compteurs = Demande::where('demandes.user_id', Auth::id())
-            ->join('statuts', 'statuts.id', '=', 'demandes.statut_id')
-            ->selectRaw('statuts.code as code, COUNT(*) as total')
-            ->groupBy('statuts.code')
+        $compteurs = Demande::where('t_demandes.user_id', Auth::id())
+            ->join('t_statuts', 't_statuts.id', '=', 't_demandes.statut_id')
+            ->selectRaw('t_statuts.code as code, COUNT(*) as total')
+            ->groupBy('t_statuts.code')
             ->pluck('total', 'code');
 
         return Inertia::render('Demandes/Index', [
@@ -48,11 +52,11 @@ class DemandeController extends Controller
 
     public function show(Demande $demande)
     {
-        $this->assertOwner($demande);
+        Gate::authorize('view', $demande);
 
         $demande->load([
-            'site:id,nom', 'typeDemande', 'statut', 'documents',
-            'historiqueStatuts' => fn ($q) => $q->orderBy('date_changement'),
+            'site:id,nom', 'typeDemande.documentsRequis', 'statut', 'documents',
+            'historiqueStatuts' => fn ($q) => $q->orderBy('date_changement')->orderBy('id'),
             'historiqueStatuts.user:id,name,role',
             'historiqueStatuts.nouveauStatut',
         ]);
@@ -65,8 +69,12 @@ class DemandeController extends Controller
         return Inertia::render('Demandes/Show', [
             'demande' => $demande,
             'complement' => $complement,
-            'canEdit' => DemandeStatutWorkflow::isEditableByDemandeur($demande->statut),
-            'canDelete' => $demande->statut->code === 'brouillon',
+            // Estimation de la décision sur la timeline, tant que le dossier est en instruction
+            'delaiHabituel' => in_array($demande->statut->code, ['soumise', 'en_analyse'], true)
+                ? DelaiDecision::habituelParSite()($demande->site_id)
+                : null,
+            'canEdit' => Gate::allows('update', $demande),
+            'canDelete' => Gate::allows('delete', $demande),
         ]);
     }
 
@@ -75,19 +83,22 @@ class DemandeController extends Controller
         return Inertia::render('Demandes/Create', $this->formProps());
     }
 
-    public function store(Request $request)
+    public function store(DemandeRequest $request)
     {
-        $soumission = $request->input('action') !== 'brouillon';
-        [$validated, $typeDemande] = $this->validateDemande($request, null, $soumission);
+        $soumission = $request->estSoumission();
+        $validated = $request->validated();
+        $typeDemande = $request->typeDemande();
 
         $analyse = $this->analyse($validated, $soumission);
 
         // Si une période bloquante est détectée, on refuse catégoriquement la demande.
         if ($analyse['bloquant']) {
-            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur ce site.']);
+            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur cette aire protégée.']);
         }
 
         $demande = DB::transaction(function () use ($request, $validated, $typeDemande, $soumission, $analyse) {
+            $statutInitial = $this->statutId($soumission ? 'soumise' : 'brouillon');
+
             $demande = Demande::create([
                 'user_id' => Auth::id(),
                 'site_id' => $validated['site_id'],
@@ -96,12 +107,17 @@ class DemandeController extends Controller
                 'date_debut' => $validated['date_debut'] ?? null,
                 'date_fin' => $validated['date_fin'] ?? null,
                 'equipe_nombre' => $validated['equipe_nombre'] ?? 1,
-                'statut_id' => $this->statutId($soumission ? 'soumise' : 'brouillon'),
+                'statut_id' => $statutInitial,
                 'date_soumission' => $soumission ? now() : null,
                 'resultats_analyse' => $analyse['resultats'], // Fige les résultats dans un JSON
             ]);
 
-            DemandeDossier::syncDocuments($demande, $request, $typeDemande);
+            DemandeDossier::syncDocuments($demande, $request, $typeDemande, $request->piecesReprises());
+
+            // Un brouillon n'entre dans l'historique qu'au moment de sa soumission.
+            if ($soumission) {
+                $this->historiser($demande, null, $statutInitial);
+            }
 
             return $demande;
         });
@@ -110,18 +126,18 @@ class DemandeController extends Controller
             return redirect()->route('demandes.show', $demande)->with('message', 'Brouillon enregistré. Vous pourrez le compléter et le soumettre plus tard.');
         }
 
-        $this->notifySubmission($demande);
+        DemandeNotifications::soumission($demande);
 
         return redirect()->route('demandes.show', $demande)->with('message', 'Votre demande a été soumise avec succès.');
     }
 
     public function edit(Demande $demande)
     {
-        $this->assertEditable($demande);
+        Gate::authorize('update', $demande);
 
         $demande->load(['documents', 'statut']);
 
-        return Inertia::render('Demandes/Create', $this->formProps() + [
+        return Inertia::render('Demandes/Create', $this->formProps($demande) + [
             'demande' => $demande,
             'complement' => $demande->statut->code === 'a_completer'
                 ? $demande->historiqueStatuts()
@@ -132,24 +148,27 @@ class DemandeController extends Controller
         ]);
     }
 
-    public function update(Request $request, Demande $demande)
+    public function update(DemandeRequest $request, Demande $demande)
     {
-        $this->assertEditable($demande);
-
         $ancienStatut = $demande->statut;
         $renvoiComplement = $ancienStatut->code === 'a_completer';
-        // Un dossier à compléter ne peut pas repasser en brouillon : il est forcément renvoyé.
-        $soumission = $renvoiComplement || $request->input('action') !== 'brouillon';
-
-        [$validated, $typeDemande] = $this->validateDemande($request, $demande, $soumission);
+        $soumission = $request->estSoumission();
+        $validated = $request->validated();
+        $typeDemande = $request->typeDemande();
 
         $analyse = $this->analyse($validated, $soumission);
 
         if ($analyse['bloquant']) {
-            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur ce site.']);
+            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur cette aire protégée.']);
         }
 
-        DB::transaction(function () use ($request, $demande, $validated, $typeDemande, $soumission, $renvoiComplement, $ancienStatut, $analyse) {
+        $statutChange = DB::transaction(function () use ($request, $demande, $validated, $typeDemande, $soumission, $renvoiComplement, $ancienStatut, $analyse) {
+            // Verrou : une décision du validateur prise pendant la saisie ne doit pas être écrasée.
+            $statutActuel = Demande::whereKey($demande->id)->lockForUpdate()->value('statut_id');
+            if ((int) $statutActuel !== (int) $ancienStatut->id) {
+                return true;
+            }
+
             $champs = [
                 'site_id' => $validated['site_id'],
                 'type_demande_id' => $validated['type_demande_id'],
@@ -164,33 +183,36 @@ class DemandeController extends Controller
                 // Le dossier retourne directement en analyse chez le validateur.
                 $champs['statut_id'] = $this->statutId('en_analyse');
 
-                HistoriqueStatut::create([
-                    'demande_id' => $demande->id,
-                    'user_id' => Auth::id(),
-                    'ancien_statut_id' => $ancienStatut->id,
-                    'nouveau_statut_id' => $champs['statut_id'],
-                    'commentaire' => trim($validated['message_complement'] ?? '') ?: 'Compléments fournis par le demandeur.',
-                    'date_changement' => now(),
-                ]);
+                $this->historiser($demande, $ancienStatut->id, $champs['statut_id'],
+                    trim($validated['message_complement'] ?? '') ?: 'Compléments fournis par le demandeur.');
             } elseif ($soumission) {
                 $champs['statut_id'] = $this->statutId('soumise');
                 $champs['date_soumission'] = now();
+
+                $this->historiser($demande, $ancienStatut->id, $champs['statut_id']);
             }
 
             $demande->update($champs);
-            DemandeDossier::syncDocuments($demande, $request, $typeDemande);
+            DemandeDossier::syncDocuments($demande, $request, $typeDemande, $request->piecesReprises());
+
+            return false;
         });
+
+        if ($statutChange) {
+            return redirect()->route('demandes.show', $demande)
+                ->with('error', "Le statut de cette demande a changé entre-temps : vos modifications n'ont pas été enregistrées.");
+        }
 
         $demande->refresh();
 
         if ($renvoiComplement) {
-            $this->notifyComplement($demande);
+            DemandeNotifications::complementRenvoye($demande);
 
             return redirect()->route('demandes.show', $demande)->with('message', 'Votre dossier complété a été renvoyé pour examen.');
         }
 
         if ($soumission) {
-            $this->notifySubmission($demande);
+            DemandeNotifications::soumission($demande);
 
             return redirect()->route('demandes.show', $demande)->with('message', 'Votre demande a été soumise avec succès.');
         }
@@ -200,11 +222,7 @@ class DemandeController extends Controller
 
     public function destroy(Demande $demande)
     {
-        $this->assertOwner($demande);
-
-        if ($demande->statut?->code !== 'brouillon') {
-            abort(403, 'Seuls les brouillons peuvent être supprimés.');
-        }
+        Gate::authorize('delete', $demande);
 
         DemandeDossier::deleteDemande($demande);
 
@@ -214,11 +232,19 @@ class DemandeController extends Controller
     /**
      * Données communes aux formulaires de création et de modification.
      */
-    private function formProps(): array
+    private function formProps(?Demande $demande = null): array
     {
         return [
             'sites' => Site::all(),
-            'types' => TypeDemande::all(),
+            'types' => TypeDemande::with('documentsRequis:id,type_demande_id,libelle,reutilisable')->get(),
+            // Pièces réutilisables déjà déposées dans un autre dossier, reprises d'office (id de pièce requise => fichier)
+            'reutilisables' => DemandeDossier::piecesReutilisables(Auth::id(), $demande?->id)
+                ->map(fn (Document $document) => [
+                    'id' => $document->id,
+                    'nom_fichier' => $document->nom_fichier,
+                    'depose_le' => $document->created_at->toDateString(),
+                    'reference' => $document->demande->reference,
+                ]),
             // Périodes à venir, pour alerter le demandeur avant l'envoi
             'periodes' => PeriodeSensible::where('date_fin', '>=', now()->toDateString())
                 ->orderBy('date_debut')
@@ -232,49 +258,6 @@ class DemandeController extends Controller
                     'description' => $p->description,
                 ]),
         ];
-    }
-
-    /**
-     * Brouillon : seuls le site et le type sont obligatoires.
-     * Soumission : tous les champs et toutes les pièces (sauf celles déjà fournies).
-     *
-     * @return array{0: array<string, mixed>, 1: TypeDemande}
-     */
-    private function validateDemande(Request $request, ?Demande $demande, bool $soumission): array
-    {
-        $requis = $soumission ? 'required' : 'nullable';
-
-        $rules = [
-            'site_id' => 'required|exists:sites,id',
-            'type_demande_id' => 'required|exists:type_demandes,id',
-            'date_debut' => "$requis|date|after_or_equal:today",
-            'date_fin' => "$requis|date" . ($request->filled('date_debut') ? '|after_or_equal:date_debut' : ''),
-            'equipe_nombre' => "$requis|integer|min:1",
-            'description' => "$requis|string",
-            'message_complement' => 'nullable|string|max:1000',
-        ];
-        $messages = [
-            'date_debut.after_or_equal' => "La date de début ne peut pas être antérieure à aujourd'hui.",
-            'date_fin.after_or_equal' => 'La date de fin doit être postérieure ou égale à la date de début.',
-        ];
-
-        // Vérification automatique et dynamique des documents (Phase 5 - Point 6)
-        $typeDemande = TypeDemande::find($request->input('type_demande_id'));
-        $dejaFournis = $demande ? $demande->documents()->pluck('type_document')->all() : [];
-
-        foreach ($typeDemande?->documents_requis ?? [] as $index => $docName) {
-            $key = 'doc_' . $index;
-            $obligatoire = $soumission && ! in_array($docName, $dejaFournis, true);
-            $rules[$key] = ($obligatoire ? 'required' : 'nullable') . '|file|mimes:' . DemandeDossier::EXTENSIONS_AUTORISEES . '|max:20480'; // Limité à 20 Mo par fichier
-            $messages[$key.'.required'] = "Le document '$docName' est obligatoire.";
-            $messages[$key.'.file'] = "Le document '$docName' doit être un fichier valide.";
-            $messages[$key.'.mimes'] = "Le document '$docName' doit être au format PDF, image (JPG, PNG) ou Word/OpenDocument.";
-            $messages[$key.'.max'] = "Le fichier '$docName' ne doit pas dépasser 20 Mo.";
-        }
-
-        $validated = $request->validate($rules, $messages);
-
-        return [$validated, $typeDemande];
     }
 
     /**
@@ -293,76 +276,23 @@ class DemandeController extends Controller
         );
     }
 
-    private function notifySubmission(Demande $demande): void
-    {
-        $demande->load(['site', 'user', 'typeDemande']);
-
-        \App\Models\Notification::create([
-            'user_id' => $demande->user_id,
-            'demande_id' => $demande->id,
-            'contenu' => DemandeNotificationMessage::forSubmission($demande),
-            'lu' => false,
-            'date_envoi' => now(),
-        ]);
-
-        $this->notifyDeciders(
-            DemandeDecisionRules::notifiableDecidersForNewDemande($demande),
-            $demande,
-            DemandeNotificationMessage::forNewDemandeToValidateur($demande),
-        );
-    }
-
     /**
-     * Prévient les décideurs du site ainsi que la personne qui a demandé les compléments.
+     * RG09 : tout changement de statut est conservé, y compris la soumission par le demandeur.
      */
-    private function notifyComplement(Demande $demande): void
+    private function historiser(Demande $demande, ?int $ancienStatutId, int $nouveauStatutId, ?string $commentaire = null): void
     {
-        $demandeurDuComplement = $demande->historiqueStatuts()
-            ->whereHas('nouveauStatut', fn ($q) => $q->where('code', 'a_completer'))
-            ->latest('date_changement')
-            ->first()?->user;
-
-        $decideurs = DemandeDecisionRules::notifiableDecidersForNewDemande($demande)
-            ->when($demandeurDuComplement, fn ($c) => $c->push($demandeurDuComplement))
-            ->unique('id')
-            ->reject(fn (User $u) => (int) $u->id === (int) $demande->user_id);
-
-        $this->notifyDeciders($decideurs, $demande, DemandeNotificationMessage::forComplementToValidateur($demande));
-    }
-
-    private function notifyDeciders($decideurs, Demande $demande, string $message): void
-    {
-        $envoi = now();
-
-        $decideurs->each(function (User $decideur) use ($demande, $message, $envoi) {
-            \App\Models\Notification::create([
-                'user_id' => $decideur->id,
-                'demande_id' => $demande->id,
-                'contenu' => $message,
-                'lu' => false,
-                'date_envoi' => $envoi,
-            ]);
-        });
+        HistoriqueStatut::create([
+            'demande_id' => $demande->id,
+            'user_id' => Auth::id(),
+            'ancien_statut_id' => $ancienStatutId,
+            'nouveau_statut_id' => $nouveauStatutId,
+            'commentaire' => $commentaire,
+            'date_changement' => now(),
+        ]);
     }
 
     private function statutId(string $code): int
     {
         return Statut::where('code', $code)->value('id');
-    }
-
-    private function assertOwner(Demande $demande): void
-    {
-        if ((int) $demande->user_id !== (int) Auth::id()) {
-            abort(403, 'Accès non autorisé à cette demande.');
-        }
-    }
-
-    private function assertEditable(Demande $demande): void
-    {
-        $this->assertOwner($demande);
-
-        if (! DemandeStatutWorkflow::isEditableByDemandeur($demande->statut)) {
-            abort(403, 'Cette demande ne peut plus être modifiée.');
-        }
     }
 }

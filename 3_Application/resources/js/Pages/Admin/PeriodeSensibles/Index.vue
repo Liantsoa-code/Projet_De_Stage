@@ -27,7 +27,7 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
             <div class="ph-row">
                 <div>
                     <div class="page-title">Périodes sensibles</div>
-                    <div class="page-sub">Restrictions temporaires sur les sites protégés</div>
+                    <div class="page-sub">Restrictions temporaires sur les aires protégées</div>
                 </div>
                 <Link :href="route('admin.periode-sensibles.create')" class="btn-accent">
                     <Icon name="plus" />
@@ -36,8 +36,8 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
             </div>
         </template>
         <div class="filter-bar">
-            <select v-model="filters.site_id" class="gf-select" aria-label="Site">
-                <option value="">Tous les sites</option>
+            <select v-model="filters.site_id" class="gf-select" aria-label="Aire protégée">
+                <option value="">Toutes les aires protégées</option>
                 <option v-for="s in sites" :key="s.id" :value="String(s.id)">{{ s.nom }}</option>
             </select>
             <label class="filter-field">
@@ -51,7 +51,7 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
             <table class="glass-table">
                 <thead>
                     <tr>
-                        <th>Site</th>
+                        <th>Aire protégée</th>
                         <th>Dates</th>
                         <th>Niveau</th>
                         <th>Description</th>

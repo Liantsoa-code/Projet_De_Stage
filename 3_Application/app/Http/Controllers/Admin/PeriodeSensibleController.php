@@ -39,7 +39,7 @@ class PeriodeSensibleController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'site_id' => 'required|exists:sites,id',
+            'site_id' => 'required|exists:t_sites,id',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
             'description' => 'required|string|max:255',
@@ -59,7 +59,7 @@ class PeriodeSensibleController extends Controller
     public function update(Request $request, PeriodeSensible $periode_sensible)
     {
         $validated = $request->validate([
-            'site_id' => 'required|exists:sites,id',
+            'site_id' => 'required|exists:t_sites,id',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
             'description' => 'required|string|max:255',

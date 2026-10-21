@@ -1,10 +1,12 @@
 <script setup>
+import CompteurAnime from '@/Components/CompteurAnime.vue';
 import Icon from '@/Components/Icon.vue';
 import CarteSites from '@/Pages/Dashboard/Partials/CarteSites.vue';
 import LigneDossier from '@/Pages/Dashboard/Partials/LigneDossier.vue';
+import StatsPrincipales from '@/Pages/Dashboard/Partials/StatsPrincipales.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { refDemande, formatDate } from '@/utils/statut.js';
+import { formatDate } from '@/utils/statut.js';
 
 // Espace admin : qualité du service, organisation, fréquentation des aires protégées
 const page = usePage();
@@ -21,7 +23,6 @@ const parMois = computed(() => page.props.par_mois || { courante: [], precedente
 const maxFrequentation = computed(() => Math.max(1, ...frequentation.value.map((s) => s.personnes_jours)));
 const maxParType = computed(() => Math.max(1, ...parType.value.map((t) => Number(t.total))));
 const maxValidateur = computed(() => Math.max(1, ...chargeValidateurs.value.map((v) => v.en_attente)));
-const nombre = (n) => Number(n).toLocaleString('fr-FR');
 
 const annee = new Date().getFullYear();
 const moisCourant = new Date().getMonth();
@@ -79,10 +80,12 @@ onUnmounted(() => chart?.destroy());
 
 <template>
     <div class="dash">
-        <div class="kpis">
+        <StatsPrincipales />
+
+        <div class="kpis kpis--sec">
             <div class="kpi" :class="{ 'kpi--warn': q.pct_objectif != null && q.pct_objectif < 80 }">
                 <span class="kpi__n">
-                    <template v-if="q.delai_median != null">{{ q.delai_median }}<small>&nbsp;j</small></template>
+                    <template v-if="q.delai_median != null"><CompteurAnime :valeur="q.delai_median" /><small>&nbsp;j</small></template>
                     <template v-else>—</template>
                 </span>
                 <span class="kpi__l">Délai médian de décision</span>
@@ -91,21 +94,21 @@ onUnmounted(() => chart?.destroy());
                     <template v-else>aucune décision pour le moment</template>
                 </span>
             </div>
-            <div class="kpi">
-                <span class="kpi__n">
-                    <template v-if="q.taux_validation != null">{{ q.taux_validation }}<small>&nbsp;%</small></template>
-                    <template v-else>—</template>
-                </span>
-                <span class="kpi__l">Taux de validation</span>
-                <span class="kpi__s">{{ q.decisions ?? 0 }} décisions<template v-if="q.pct_complement != null"> · {{ q.pct_complement }} % avec complément</template></span>
-            </div>
             <div class="kpi" :class="{ 'kpi--alert': c.imminents || c.retards }">
-                <span class="kpi__n">{{ c.en_attente ?? 0 }}</span>
-                <span class="kpi__l">Dossiers en attente</span>
+                <CompteurAnime class="kpi__n" :valeur="c.en_attente ?? 0" />
+                <span class="kpi__l">À traiter par les validateurs</span>
                 <span class="kpi__s">{{ c.imminents ?? 0 }} arrivées imminentes · {{ c.retards ?? 0 }} en retard</span>
             </div>
             <div class="kpi">
-                <span class="kpi__n">{{ terrain.personnes }}</span>
+                <span class="kpi__n">
+                    <template v-if="q.pct_complement != null"><CompteurAnime :valeur="q.pct_complement" /><small>&nbsp;%</small></template>
+                    <template v-else>—</template>
+                </span>
+                <span class="kpi__l">Passés par un complément</span>
+                <span class="kpi__s">sur {{ q.decisions ?? 0 }} dossiers décidés</span>
+            </div>
+            <div class="kpi">
+                <CompteurAnime class="kpi__n" :valeur="terrain.personnes" />
                 <span class="kpi__l">Personnes sur le terrain</span>
                 <span class="kpi__s">aujourd'hui, {{ terrain.sejours }} séjour{{ terrain.sejours > 1 ? 's' : '' }} en cours</span>
             </div>
@@ -120,7 +123,7 @@ onUnmounted(() => chart?.destroy());
                 <div v-if="sansValidateur.length" class="alerte-orga">
                     <Icon name="warning" />
                     <div>
-                        <strong>{{ sansValidateur.length }} site{{ sansValidateur.length > 1 ? 's' : '' }} sans validateur</strong>
+                        <strong>{{ sansValidateur.length }} {{ sansValidateur.length > 1 ? 'aires protégées' : 'aire protégée' }} sans validateur</strong>
                         <p>{{ sansValidateur.map((s) => s.nom).join(', ') }} : les nouvelles demandes n'y sont notifiées à personne.</p>
                         <Link :href="route('admin.users.index', { role: 'validateur' })" class="link">Affecter un validateur</Link>
                     </div>
@@ -130,7 +133,7 @@ onUnmounted(() => chart?.destroy());
                 </div>
                 <div v-else-if="!sansValidateur.length" class="empty">
                     <Icon name="check-circle" />
-                    <p>Aucun dossier urgent, en retard ou en conflit, et chaque site a son validateur.</p>
+                    <p>Aucun dossier urgent, en retard ou en conflit, et chaque aire protégée a son validateur.</p>
                 </div>
             </section>
 
@@ -159,7 +162,7 @@ onUnmounted(() => chart?.destroy());
                         <li v-for="s in frequentation" :key="s.nom">
                             <span class="bars__label site-label">{{ s.nom }}<small>{{ s.sejours }} séjour{{ s.sejours > 1 ? 's' : '' }} · {{ s.personnes }} pers.</small></span>
                             <span class="bars__track"><i :style="{ width: `${(s.personnes_jours / maxFrequentation) * 100}%` }"></i></span>
-                            <span class="bars__n mono">{{ nombre(s.personnes_jours) }}</span>
+                            <CompteurAnime class="bars__n mono" :valeur="s.personnes_jours" />
                         </li>
                     </ul>
                     <p v-else class="empty empty--small">Aucun séjour autorisé sur les 12 prochains mois.</p>
@@ -168,13 +171,13 @@ onUnmounted(() => chart?.destroy());
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Charge des validateurs</h2>
-                        <small>dossiers en attente sur leurs sites</small>
+                        <small>dossiers en attente sur leurs aires protégées</small>
                     </header>
                     <ul v-if="chargeValidateurs.length" class="bars">
                         <li v-for="v in chargeValidateurs" :key="v.id">
-                            <span class="bars__label">{{ v.nom }}<small>{{ v.sites }} site{{ v.sites > 1 ? 's' : '' }}</small></span>
+                            <span class="bars__label">{{ v.nom }}<small>{{ v.sites }} {{ v.sites > 1 ? 'aires protégées' : 'aire protégée' }}</small></span>
                             <span class="bars__track"><i :style="{ width: `${(v.en_attente / maxValidateur) * 100}%` }"></i></span>
-                            <span class="bars__n mono">{{ v.en_attente }}</span>
+                            <CompteurAnime class="bars__n mono" :valeur="v.en_attente" />
                         </li>
                     </ul>
                     <p v-else class="empty empty--small">Aucun validateur enregistré.</p>
@@ -190,7 +193,7 @@ onUnmounted(() => chart?.destroy());
                 </header>
                 <div v-if="terrain.liste.length" class="rows">
                     <Link v-for="s in terrain.liste" :key="s.id" :href="route('validateur.demandes.show', s.id)" class="row row--terrain">
-                        <span class="mono ref">{{ refDemande(s) }}</span>
+                        <span class="mono ref">{{ s.reference }}</span>
                         <span class="row__main">
                             <strong>{{ s.demandeur ?? 'Demandeur' }}</strong>
                             <span class="site-label">{{ s.site ?? '—' }}</span>
@@ -210,7 +213,7 @@ onUnmounted(() => chart?.destroy());
                     <li v-for="t in parType" :key="t.nom">
                         <span class="bars__label">{{ t.nom }}</span>
                         <span class="bars__track"><i :style="{ width: `${(Number(t.total) / maxParType) * 100}%` }"></i></span>
-                        <span class="bars__n mono">{{ t.total }}</span>
+                        <CompteurAnime class="bars__n mono" :valeur="t.total" />
                     </li>
                 </ul>
                 <p v-else class="empty empty--small">Aucune demande pour le moment.</p>

@@ -114,6 +114,8 @@ onMounted(async () => {
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // Crédits du fond de carte (exigés par les licences OpenStreetMap et CARTO)
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
     if (props.editable) {
         draw = new MapboxDraw({
@@ -177,7 +179,7 @@ const clearMap = () => {
         </button>
 
         <div v-if="editable && modelValue.length === 0" class="hint absolute bottom-4 left-4 z-[20] pointer-events-none">
-             Utilisez l'outil polygone en haut à gauche pour délimiter le site.
+             Utilisez l'outil polygone en haut à gauche pour délimiter l'aire protégée.
         </div>
 
         <div v-if="editable && modelValue.length > 0" class="hint-ok absolute bottom-4 left-4 z-[20] pointer-events-none">

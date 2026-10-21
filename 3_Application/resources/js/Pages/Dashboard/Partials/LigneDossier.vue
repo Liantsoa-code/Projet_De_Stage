@@ -2,9 +2,9 @@
 import Icon from '@/Components/Icon.vue';
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { refDemande, statutBadgeClass } from '@/utils/statut.js';
+import { statutBadgeClass } from '@/utils/statut.js';
 
-// Dossier en attente, tel que calculé par DashboardController::dossiersEnAttente
+// Dossier en attente, tel que calculé par StatsInstruction::dossiersEnAttente
 const props = defineProps({
     d: { type: Object, required: true },
 });
@@ -21,7 +21,7 @@ const arrivee = computed(() => {
 <template>
     <Link :href="route('validateur.demandes.show', d.id)" class="row ligne">
         <span class="row__main">
-            <span class="mono ref">{{ refDemande(d) }}</span>
+            <span class="mono ref">{{ d.reference }}</span>
             <span :class="statutBadgeClass(d.statut?.code)">{{ d.statut?.libelle }}</span>
         </span>
         <span class="row__main">

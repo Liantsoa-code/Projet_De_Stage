@@ -31,4 +31,14 @@ class NotificationController extends Controller
 
         return back();
     }
+
+    public function markAllAsRead()
+    {
+        // Seules les notifications de l'utilisateur connecté sont concernées
+        Notification::where('user_id', auth()->id())
+            ->where('lu', false)
+            ->update(['lu' => true]);
+
+        return back();
+    }
 }

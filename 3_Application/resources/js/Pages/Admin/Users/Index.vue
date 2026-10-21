@@ -53,7 +53,7 @@ const roleClass = (role) => ({
                         <th>Nom</th>
                         <th>Email</th>
                         <th>Rôle</th>
-                        <th>Sites assignés</th>
+                        <th>Aires protégées assignées</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
@@ -69,7 +69,7 @@ const roleClass = (role) => ({
                             <span v-if="user.role !== 'validateur'">—</span>
                             <span v-else>
                                 <span v-for="site in user.sites" :key="site.id" class="chip">{{ site.nom }}</span>
-                                <span v-if="user.sites.length === 0" class="warn-chip">Aucun site assigné</span>
+                                <span v-if="user.sites.length === 0" class="warn-chip">Aucune aire protégée assignée</span>
                             </span>
                         </td>
                         <td class="text-right">

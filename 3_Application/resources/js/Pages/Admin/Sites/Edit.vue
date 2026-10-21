@@ -53,7 +53,7 @@ const handleFileUpload = (event) => {
 </script>
 
 <template>
-    <Head title="Modifier le site" />
+    <Head title="Modifier l'aire protégée" />
     <AuthenticatedLayout>
         <template #header>
             <div style="display:flex;align-items:center;gap:12px">
@@ -68,7 +68,7 @@ const handleFileUpload = (event) => {
             <div class="glass-form-wrap">
                 <form @submit.prevent="submit" class="gf-body">
                     <div>
-                        <label class="gf-label">Nom du site *</label>
+                        <label class="gf-label">Nom de l'aire protégée *</label>
                         <input type="text" class="gf-input" v-model="form.nom" required />
                         <InputError class="gf-error" :message="form.errors.nom" />
                     </div>
