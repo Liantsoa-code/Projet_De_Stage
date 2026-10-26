@@ -1,20 +1,25 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import EtapeActivite from '@/Pages/Demandes/Partials/EtapeActivite.vue';
-import EtapeDates from '@/Pages/Demandes/Partials/EtapeDates.vue';
-import EtapeMission from '@/Pages/Demandes/Partials/EtapeMission.vue';
+import EtapeAirePeriode from '@/Pages/Demandes/Partials/EtapeAirePeriode.vue';
+import EtapeDemandeur from '@/Pages/Demandes/Partials/EtapeDemandeur.vue';
 import EtapePieces from '@/Pages/Demandes/Partials/EtapePieces.vue';
+import EtapeProjet from '@/Pages/Demandes/Partials/EtapeProjet.vue';
 import EtapeRecap from '@/Pages/Demandes/Partials/EtapeRecap.vue';
 import VerificationCalendrier from '@/Pages/Demandes/Partials/VerificationCalendrier.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { computed, nextTick, ref } from 'vue';
 
-// Formulaire en étapes : la page garde les données, la vérification et l'envoi ;
+// Formulaire en étapes, dans l'ordre du formulaire papier de Fanamby (I. demandeur, II. projet,
+// V. engagement) : la page garde les données, la vérification et l'envoi ;
 // chaque étape et la colonne du calendrier sont des composants de Partials/.
 const props = defineProps({
     sites: Array,
     types: Array,
+    // Compte connecté et ses coordonnées (sections I et V) : name, email, organisation, fonction, adresse, telephone, piece_identite
+    demandeur: { type: Object, required: true },
+    // Engagements du demandeur (section V), à accepter à chaque envoi
+    engagements: { type: Array, default: () => [] },
     periodes: { type: Array, default: () => [] },
     // Pièces réutilisables déjà déposées dans un autre dossier, par id de pièce requise ({ id, nom_fichier, depose_le, reference })
     reutilisables: { type: [Object, Array], default: () => ({}) },
@@ -32,12 +37,24 @@ const uploadedFiles = ref({});
 const ecartees = ref({});
 
 const form = useForm({
-    site_id: props.demande?.site_id ?? '',
+    // I. Informations sur le demandeur (enregistrées sur le compte)
+    organisation: props.demandeur.organisation ?? '',
+    fonction: props.demandeur.fonction ?? '',
+    adresse: props.demandeur.adresse ?? '',
+    telephone: props.demandeur.telephone ?? '',
+    // II. Informations sur le projet
+    titre: props.demande?.titre ?? '',
     type_demande_id: props.demande?.type_demande_id ?? '',
+    type_precision: props.demande?.type_precision ?? '',
+    description: props.demande?.description ?? '',
+    objectifs: props.demande?.objectifs ?? '',
+    site_id: props.demande?.site_id ?? '',
     date_debut: props.demande?.date_debut?.slice(0, 10) ?? '',
     date_fin: props.demande?.date_fin?.slice(0, 10) ?? '',
     equipe_nombre: String(props.demande?.equipe_nombre ?? '1'),
-    description: props.demande?.description ?? '',
+    // V. Engagement du demandeur : l'acceptation est renouvelée à chaque envoi
+    piece_identite: props.demandeur.piece_identite ?? '',
+    engagement: false,
     message_complement: '',
 });
 
@@ -143,36 +160,49 @@ const pieces = computed(() => piecesRequises.value.map((doc) => {
 }));
 
 // ── Parcours en étapes : chaque étape est vérifiée avant de passer à la suivante ──
+// titre : libellé court de la barre d'étapes ; entete : titre affiché au-dessus de l'étape
 const ETAPES = [
-    { id: 'activite', titre: 'Activité et aire protégée', champs: ['type_demande_id', 'site_id'] },
-    { id: 'dates', titre: 'Dates et équipe', champs: ['date_debut', 'date_fin', 'equipe_nombre'] },
-    { id: 'mission', titre: 'Objet de la mission', champs: ['description', 'message_complement'] },
-    { id: 'pieces', titre: 'Pièces à joindre', champs: [] },
-    { id: 'recap', titre: 'Récapitulatif', champs: [] },
+    { id: 'demandeur', titre: 'Demandeur', entete: 'I. Informations sur le demandeur', champs: ['organisation', 'fonction', 'adresse', 'telephone'] },
+    { id: 'projet', titre: 'Projet', entete: 'II. Informations sur le projet', champs: ['titre', 'type_demande_id', 'type_precision', 'description', 'objectifs'] },
+    { id: 'aire', titre: 'Aire et période', entete: 'Aire protégée et période prévue', champs: ['site_id', 'date_debut', 'date_fin', 'equipe_nombre'] },
+    { id: 'pieces', titre: 'Pièces', entete: 'Pièces à joindre', champs: [] },
+    { id: 'engagement', titre: 'Engagement', entete: 'Récapitulatif et engagement', champs: ['piece_identite', 'engagement', 'message_complement'] },
 ];
-// L'étape des pièces n'apparaît que si le type d'activité en exige (ou n'est pas encore choisi)
+// L'étape des pièces n'apparaît que si le type de projet en exige (ou n'est pas encore choisi)
 const etapes = computed(() => ETAPES.filter(e => e.id !== 'pieces' || !typeSelectionne.value || typeSelectionne.value.documents_requis?.length));
 const champsEtape = (id) => (id === 'pieces' ? piecesRequises.value.map(d => 'doc_' + d.id) : ETAPES.find(e => e.id === id).champs);
-const etapeDuChamp = (champ) => (champ.startsWith('doc_') ? 'pieces' : ETAPES.find(e => e.champs.includes(champ))?.id ?? 'activite');
+const etapeDuChamp = (champ) => (champ.startsWith('doc_') ? 'pieces' : ETAPES.find(e => e.champs.includes(champ))?.id ?? 'demandeur');
+const vide = (valeur) => !String(valeur ?? '').trim();
 
 // Mêmes exigences que le serveur pour une soumission (App\Http\Requests\DemandeRequest)
 function erreursEtape(id) {
     const err = {};
-    if (id === 'activite') {
-        if (!form.type_demande_id) err.type_demande_id = 'Choisissez un type d\'activité.';
+    if (id === 'demandeur') {
+        if (vide(form.organisation)) err.organisation = 'Indiquez votre institution, société de production ou organisation.';
+        if (vide(form.fonction)) err.fonction = 'Indiquez votre fonction.';
+        if (vide(form.adresse)) err.adresse = 'Indiquez votre adresse.';
+        if (vide(form.telephone)) err.telephone = 'Indiquez votre numéro de téléphone.';
+        else if (!/^[0-9 +().-]+$/.test(form.telephone.trim())) err.telephone = 'Le numéro de téléphone ne peut contenir que des chiffres, des espaces et les signes + ( ) - .';
+    } else if (id === 'projet') {
+        if (vide(form.titre)) err.titre = 'Donnez un titre au projet.';
+        if (!form.type_demande_id) err.type_demande_id = 'Choisissez un type de projet.';
+        else if (typeSelectionne.value?.precision_requise && vide(form.type_precision)) err.type_precision = 'Précisez le type de projet.';
+        if (vide(form.description)) err.description = 'Résumez le synopsis du projet.';
+        if (vide(form.objectifs)) err.objectifs = 'Indiquez le ou les objectifs principaux du projet.';
+    } else if (id === 'aire') {
         if (!form.site_id) err.site_id = 'Choisissez une aire protégée.';
-    } else if (id === 'dates') {
-        if (!form.date_debut) err.date_debut = 'Indiquez la date d\'arrivée.';
+        if (!form.date_debut) err.date_debut = 'Indiquez la date de début.';
         else if (form.date_debut < today) err.date_debut = 'La date de début ne peut pas être antérieure à aujourd\'hui.';
         else if (bloquant.value) err.date_debut = 'Ces dates chevauchent une période bloquante sur cette aire protégée : choisissez d\'autres dates.';
-        if (!form.date_fin) err.date_fin = 'Indiquez la date de départ.';
+        if (!form.date_fin) err.date_fin = 'Indiquez la date de fin.';
         else if (form.date_debut && form.date_fin < form.date_debut) err.date_fin = 'La date de fin doit être postérieure ou égale à la date de début.';
         const equipe = Number(form.equipe_nombre);
         if (!Number.isInteger(equipe) || equipe < 1) err.equipe_nombre = 'L\'équipe compte au moins une personne.';
-    } else if (id === 'mission') {
-        if (!String(form.description ?? '').trim()) err.description = 'Décrivez le projet : objectif, protocole, zones visitées.';
     } else if (id === 'pieces') {
         pieces.value.filter(p => !p.fourni).forEach((p) => { err['doc_' + p.id] = `Le document '${p.libelle}' est obligatoire.`; });
+    } else if (id === 'engagement') {
+        if (vide(form.piece_identite)) err.piece_identite = 'Indiquez le numéro de votre CIN ou de votre passeport.';
+        if (!form.engagement) err.engagement = 'Acceptez les engagements du demandeur pour envoyer la demande.';
     }
     return err;
 }
@@ -181,10 +211,11 @@ const etapeComplete = (id) => Object.keys(erreursEtape(id)).length === 0;
 const accessible = (i) => etapes.value.slice(0, i).every(e => etapeComplete(e.id));
 const etapeEnErreur = (id) => Object.keys(form.errors).some(k => etapeDuChamp(k) === id);
 
-// Création : première étape. Reprise d'un dossier : première étape incomplète, sinon le récapitulatif.
-const etape = ref(enEdition.value ? (etapes.value.find(e => !etapeComplete(e.id))?.id ?? 'recap') : 'activite');
+// Création : première étape. Reprise d'un dossier : première étape incomplète (au plus tard
+// l'engagement, qui n'est jamais pré-coché).
+const etape = ref(enEdition.value ? (etapes.value.find(e => !etapeComplete(e.id))?.id ?? 'engagement') : 'demandeur');
 const indexEtape = computed(() => Math.max(0, etapes.value.findIndex(e => e.id === etape.value)));
-const titreEtape = computed(() => ETAPES.find(e => e.id === etape.value).titre);
+const titreEtape = computed(() => ETAPES.find(e => e.id === etape.value).entete);
 const derniere = computed(() => indexEtape.value === etapes.value.length - 1);
 const formEl = ref(null);
 
@@ -277,7 +308,7 @@ function allerAuxErreurs(errors) {
                                 class="stepper__btn"
                                 :class="{
                                     'is-current': e.id === etape,
-                                    'is-done': e.id !== etape && e.id !== 'recap' && etapeComplete(e.id) && accessible(i),
+                                    'is-done': e.id !== etape && etapeComplete(e.id) && accessible(i),
                                     'is-error': e.id !== etape && etapeEnErreur(e.id),
                                 }"
                                 :aria-current="e.id === etape ? 'step' : undefined"
@@ -285,7 +316,7 @@ function allerAuxErreurs(errors) {
                                 @click="allerA(e.id)"
                             >
                                 <span class="stepper__n">
-                                    <Icon v-if="e.id !== etape && e.id !== 'recap' && etapeComplete(e.id) && accessible(i)" name="check-fat" />
+                                    <Icon v-if="e.id !== etape && etapeComplete(e.id) && accessible(i)" name="check-fat" />
                                     <template v-else>{{ i + 1 }}</template>
                                 </span>
                                 <span class="stepper__label">{{ e.titre }}</span>
@@ -296,17 +327,21 @@ function allerAuxErreurs(errors) {
 
                 <section class="fs">
                     <header class="fs__head"><span class="fs__n">{{ indexEtape + 1 }}</span><h2 tabindex="-1">{{ titreEtape }}</h2></header>
-                    <EtapeActivite v-if="etape === 'activite'" :form="form" :types="types" :sites="sites" @type-change="onTypeChange" />
-                    <EtapeDates v-else-if="etape === 'dates'" :form="form" :today="today" />
-                    <EtapeMission v-else-if="etape === 'mission'" :form="form" :a-completer="aCompleter" />
-                    <EtapePieces v-else-if="etape === 'pieces'" :form="form" :type-activite="typeSelectionne" :pieces="pieces" @fichier="choisirFichier" @ecarter="ecarterReprise" />
+                    <EtapeDemandeur v-if="etape === 'demandeur'" :form="form" :demandeur="demandeur" />
+                    <EtapeProjet v-else-if="etape === 'projet'" :form="form" :types="types" :type-projet="typeSelectionne" @type-change="onTypeChange" />
+                    <EtapeAirePeriode v-else-if="etape === 'aire'" :form="form" :sites="sites" :today="today" />
+                    <EtapePieces v-else-if="etape === 'pieces'" :form="form" :type-projet="typeSelectionne" :pieces="pieces" @fichier="choisirFichier" @ecarter="ecarterReprise" />
                     <EtapeRecap
                         v-else
                         :form="form"
-                        :type-activite="typeSelectionne"
+                        :demandeur="demandeur"
+                        :engagements="engagements"
+                        :type-projet="typeSelectionne"
                         :site="siteSelectionne"
                         :calendrier="calendrier"
                         :pieces="pieces"
+                        :a-completer="aCompleter"
+                        :today="today"
                         @modifier="allerA"
                     />
                 </section>

@@ -74,7 +74,7 @@ const erreur = (champ) => form.errors[`${onglet.value}.${champ}`];
 
             <!-- Autorisation -->
             <article v-if="onglet === 'autorisation'" class="sheet">
-                <p class="sheet__org">FONDATION FANAMBY</p>
+                <p class="sheet__org">ASSOCIATION FANAMBY</p>
                 <h3 class="sheet__title">Autorisation officielle d'accès</h3>
 
                 <label class="field">
@@ -86,7 +86,7 @@ const erreur = (champ) => form.errors[`${onglet.value}.${champ}`];
                 <dl class="dossier">
                     <div><dt><Icon name="lock-simple" />Bénéficiaire</dt><dd>{{ demande.user.name }} ({{ demande.user.email }})</dd></div>
                     <div><dt><Icon name="lock-simple" />Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
-                    <div><dt><Icon name="lock-simple" />Activité</dt><dd>{{ demande.type_demande.libelle }}</dd></div>
+                    <div><dt><Icon name="lock-simple" />Type de projet</dt><dd>{{ demande.type_demande.libelle }}<template v-if="demande.type_precision"> ({{ demande.type_precision }})</template></dd></div>
                     <div><dt><Icon name="lock-simple" />Période</dt><dd>Du {{ formatDate(demande.date_debut) }} au {{ formatDate(demande.date_fin) }}</dd></div>
                     <div><dt><Icon name="lock-simple" />Équipe</dt><dd>{{ demande.equipe_nombre }} personne(s)</dd></div>
                 </dl>
@@ -118,7 +118,7 @@ const erreur = (champ) => form.errors[`${onglet.value}.${champ}`];
 
             <!-- Cahier des charges -->
             <article v-else class="sheet">
-                <p class="sheet__org">FONDATION FANAMBY</p>
+                <p class="sheet__org">ASSOCIATION FANAMBY</p>
                 <h3 class="sheet__title">Cahier des charges à respecter</h3>
 
                 <p class="fixed-text">

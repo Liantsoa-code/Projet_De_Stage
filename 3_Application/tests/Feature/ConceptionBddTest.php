@@ -50,7 +50,7 @@ class ConceptionBddTest extends TestCase
 
     private function payload(array $overrides = []): array
     {
-        return array_merge([
+        return array_merge($this->champsFormulaire(), [
             'site_id' => $this->site->id,
             'type_demande_id' => $this->type->id,
             'date_debut' => now()->addDays(5)->toDateString(),

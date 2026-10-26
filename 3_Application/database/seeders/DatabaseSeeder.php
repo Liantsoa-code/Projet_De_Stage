@@ -30,20 +30,26 @@ class DatabaseSeeder extends Seeder
             Statut::firstOrCreate(['code' => $statut['code']], $statut);
         }
 
-        // 2. Création des Types de Demande (pièces réutilisables d'une demande à l'autre)
-        $reutilisables = ['Carte d'identité', 'Attestation d'assurance'];
+        // 2. Types de projet du formulaire de demande (pièces réutilisables d'une demande à l'autre ;
+        //    « Autre » demande une précision au demandeur)
+        $reutilisables = ['Copie de la CIN ou du passeport', "Attestation d'assurance"];
+        $pieces = ['Synopsis / Brief du projet', 'Planning de tournage', 'Copie de la CIN ou du passeport'];
         $types = [
-            'Recherche scientifique' => [
-                'documents' => ['Protocole de recherche', 'Carte d\'identité'],
-                'regles' => ['Équipe limitée à 10 personnes'],
-            ],
-            'Tournage documentaire' => [
-                'documents' => ['Scénario', 'Plan de vol drone', 'Attestation d\'assurance'],
-                'regles' => ['Équipe limitée à 5 personnes'],
-            ],
+            'Long métrage' => ['documents' => [...$pieces, "Attestation d'assurance"], 'regles' => ['Équipe limitée à 25 personnes sur le site']],
+            'Court métrage' => ['documents' => $pieces, 'regles' => ['Équipe limitée à 10 personnes']],
+            'Documentaire' => ['documents' => $pieces, 'regles' => ['Drone interdit au-dessus des zones de nidification']],
+            'Émission télé' => ['documents' => [...$pieces, "Attestation d'assurance"], 'regles' => ['Équipe limitée à 15 personnes']],
+            'Projet étudiant' => ['documents' => [...$pieces, "Attestation de l'établissement"], 'regles' => ['Encadrement par un enseignant ou un guide agréé']],
+            'Publicité' => ['documents' => [...$pieces, "Attestation d'assurance"], 'regles' => ["Mention de l'aire protégée dans les crédits"]],
+            'Corporatif' => ['documents' => $pieces, 'regles' => []],
+            'Clip musical' => ['documents' => [...$pieces, "Attestation d'assurance"], 'regles' => ["Musique amplifiée interdite dans l'aire protégée"]],
+            'Reportage' => ['documents' => $pieces, 'regles' => []],
+            'Téléfilm' => ['documents' => [...$pieces, "Attestation d'assurance"], 'regles' => ['Équipe limitée à 25 personnes sur le site']],
+            'Photographie institutionnelle' => ['documents' => ['Synopsis / Brief du projet', 'Planning des prises de vue', 'Copie de la CIN ou du passeport'], 'regles' => []],
+            'Autre' => ['documents' => ['Synopsis / Brief du projet', 'Planning des prises de vue', 'Copie de la CIN ou du passeport'], 'regles' => [], 'precision_requise' => true],
         ];
         foreach ($types as $libelle => $listes) {
-            $type = TypeDemande::create(['libelle' => $libelle]);
+            $type = TypeDemande::create(['libelle' => $libelle, 'precision_requise' => $listes['precision_requise'] ?? false]);
             foreach ($listes['documents'] as $document) {
                 $type->documentsRequis()->create(['libelle' => $document, 'reutilisable' => in_array($document, $reutilisables, true)]);
             }
@@ -80,6 +86,8 @@ class DatabaseSeeder extends Seeder
             'email' => 'validateur@fanamby.org',
             'password' => Hash::make('password'),
             'role' => 'validateur',
+            'organisation' => 'Association Fanamby',
+            'fonction' => 'Responsable des autorisations', // figure dans la section VI du formulaire
         ]);
         // On assigne le validateur à la Réserve de Lokobe
         $validateur->sites()->attach($siteLokobe->id);

@@ -10,7 +10,9 @@ class TypeDemande extends Model
 {
     protected $table = 't_type_demandes';
 
-    protected $fillable = ['libelle'];
+    protected $fillable = ['libelle', 'precision_requise'];
+
+    protected $casts = ['precision_requise' => 'boolean'];
 
     public function demandes()
     {

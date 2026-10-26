@@ -71,7 +71,7 @@ class ValidationDocumentsTest extends TestCase
     {
         return [
             'autorisation' => [
-                'introduction' => 'La Fondation FANAMBY autorise :',
+                'introduction' => "L'Association FANAMBY autorise :",
                 'objet' => 'Inventaire nocturne des lémuriens',
                 'conditions' => "Guide local obligatoire\nPas de feu",
                 'reserve' => 'Sous réserve du cahier des charges.',

@@ -88,7 +88,7 @@ const formatTaille = (octets) => (octets < 1024 * 1024
             <div>
                 <div class="page-title">Références</div>
                 <p class="page-sub">
-                    Modèles des documents officiels de la Fondation et documents partagés par l'équipe d'instruction.
+                    Modèles des documents officiels de l'Association et documents partagés par l'équipe d'instruction.
                 </p>
             </div>
         </template>

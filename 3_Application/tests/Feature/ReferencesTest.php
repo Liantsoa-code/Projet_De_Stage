@@ -79,7 +79,7 @@ class ReferencesTest extends TestCase
             'usage' => null,
             'icone' => 'film-slate',
             'automatique' => false,
-            'contenu' => "# Convention de tournage\n\nEntre la Fondation FANAMBY et [société de production].",
+            'contenu' => "# Convention de tournage\n\nEntre l'Association FANAMBY et [société de production].",
         ];
     }
 

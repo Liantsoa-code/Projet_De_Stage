@@ -12,9 +12,11 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * Création et modification d'une demande : brouillon, soumission ou renvoi d'un complément.
+ * Les champs suivent le formulaire papier de Fanamby : I. demandeur, II. projet, V. engagement.
  *
- * Brouillon : seuls le site et le type sont obligatoires.
- * Soumission : tous les champs et toutes les pièces (sauf celles déjà fournies ou reprises d'un autre dossier).
+ * Brouillon : seuls l'aire protégée et le type de projet sont obligatoires.
+ * Soumission : tous les champs, l'acceptation des engagements et toutes les pièces
+ * (sauf celles déjà fournies ou reprises d'un autre dossier).
  */
 class DemandeRequest extends FormRequest
 {
@@ -37,16 +39,28 @@ class DemandeRequest extends FormRequest
         $rules = [
             'site_id' => 'required|exists:t_sites,id',
             'type_demande_id' => 'required|exists:t_type_demandes,id',
+            // I. Informations sur le demandeur (enregistrées sur son compte)
+            'organisation' => "$requis|string|max:150",
+            'fonction' => "$requis|string|max:100",
+            'adresse' => "$requis|string|max:255",
+            'telephone' => "$requis|string|max:30|regex:/^[0-9 +().-]+$/",
+            // II. Informations sur le projet
+            'titre' => "$requis|string|max:200",
+            'type_precision' => ($this->estSoumission() && $this->precisionRequise() ? 'required' : 'nullable') . '|string|max:150',
+            'description' => "$requis|string",
+            'objectifs' => "$requis|string",
             'date_debut' => "$requis|date|after_or_equal:today",
             'date_fin' => "$requis|date" . ($this->filled('date_debut') ? '|after_or_equal:date_debut' : ''),
             'equipe_nombre' => "$requis|integer|min:1",
-            'description' => "$requis|string",
+            // V. Engagement du demandeur, renouvelé à chaque envoi
+            'piece_identite' => "$requis|string|max:50",
+            'engagement' => $this->estSoumission() ? 'accepted' : 'nullable',
             'message_complement' => 'nullable|string|max:1000',
             'reprendre' => 'nullable|array',
             'reprendre.*' => 'integer',
         ];
 
-        // Pièces exigées par le type d'activité choisi, hors celles déjà jointes ou reprises d'un autre dossier
+        // Pièces exigées par le type de projet choisi, hors celles déjà jointes ou reprises d'un autre dossier
         $dejaFournies = [
             ...$this->demande()?->documents()->pluck('document_requis_id')->all() ?? [],
             ...$this->piecesReprises()->keys()->all(),
@@ -63,8 +77,19 @@ class DemandeRequest extends FormRequest
     public function messages(): array
     {
         $messages = [
+            'organisation.required' => 'Indiquez votre institution, société de production ou organisation.',
+            'fonction.required' => 'Indiquez votre fonction.',
+            'adresse.required' => 'Indiquez votre adresse.',
+            'telephone.required' => 'Indiquez votre numéro de téléphone.',
+            'telephone.regex' => 'Le numéro de téléphone ne peut contenir que des chiffres, des espaces et les signes + ( ) - .',
+            'titre.required' => 'Donnez un titre au projet.',
+            'type_precision.required' => 'Précisez le type de projet.',
+            'description.required' => 'Résumez le synopsis du projet.',
+            'objectifs.required' => 'Indiquez le ou les objectifs principaux du projet.',
             'date_debut.after_or_equal' => "La date de début ne peut pas être antérieure à aujourd'hui.",
             'date_fin.after_or_equal' => 'La date de fin doit être postérieure ou égale à la date de début.',
+            'piece_identite.required' => 'Indiquez le numéro de votre CIN ou de votre passeport.',
+            'engagement.accepted' => 'Acceptez les engagements du demandeur pour envoyer la demande.',
         ];
 
         foreach ($this->typeDemande()?->documentsRequis ?? [] as $docRequis) {
@@ -89,11 +114,19 @@ class DemandeRequest extends FormRequest
     }
 
     /**
-     * Type d'activité choisi, avec ses pièces requises.
+     * Type de projet choisi, avec ses pièces requises.
      */
     public function typeDemande(): ?TypeDemande
     {
         return $this->typeDemande ??= TypeDemande::with('documentsRequis')->find($this->input('type_demande_id'));
+    }
+
+    /**
+     * Le type choisi demande-t-il une précision (« Autre (précisez) ») ?
+     */
+    public function precisionRequise(): bool
+    {
+        return (bool) $this->typeDemande()?->precision_requise;
     }
 
     /**

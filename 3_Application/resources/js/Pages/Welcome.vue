@@ -37,7 +37,7 @@ const carte = ref(null);
 
         <main class="hero">
             <div class="hero__text">
-                <span class="eyebrow">Fondation FANAMBY · Madagascar</span>
+                <span class="eyebrow">Association FANAMBY · Madagascar</span>
                 <h1>Demandes d'accès aux aires protégées</h1>
                 <p class="hero__lead">
                     Chercheurs, équipes de tournage et partenaires déposent ici leurs demandes d'accès.
@@ -56,7 +56,7 @@ const carte = ref(null);
                         <span class="steps__n">1</span>
                         <div>
                             <strong>Déposer la demande</strong>
-                            <p>Aire protégée, dates, équipe et pièces exigées pour le type d'activité. Un brouillon peut être repris à tout moment.</p>
+                            <p>Coordonnées, projet, aire protégée, période et pièces exigées pour le type de projet. Un brouillon peut être repris à tout moment.</p>
                         </div>
                     </li>
                     <li>
@@ -95,7 +95,7 @@ const carte = ref(null);
             </aside>
         </main>
 
-        <footer class="foot">Fondation FANAMBY · Antananarivo, Madagascar</footer>
+        <footer class="foot">Association FANAMBY · Antananarivo, Madagascar</footer>
     </div>
 </template>
 

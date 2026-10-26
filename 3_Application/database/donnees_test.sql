@@ -54,14 +54,14 @@ INSERT INTO t_statuts (id, code, libelle, description, created_at, updated_at) V
 (6, 'rejetee', 'Rejetée', 'Demande refusée', NOW(), NOW());
 
 -- ── Comptes ──
-INSERT INTO t_users (id, name, email, email_verified_at, password, role, created_at, updated_at) VALUES
-(1, 'Admin Fanamby', 'admin@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'admin', NOW() - INTERVAL 420 DAY, NOW()),
-(2, 'Jean Validateur', 'validateur@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'validateur', NOW() - INTERVAL 420 DAY, NOW()),
-(3, 'Alice Demandeur', 'alice@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', NOW() - INTERVAL 420 DAY, NOW()),
-(4, 'Hery Rasolofo', 'hery@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'validateur', NOW() - INTERVAL 420 DAY, NOW()),
-(5, 'Rado Rakotomalala', 'rado@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', NOW() - INTERVAL 420 DAY, NOW()),
-(6, 'Sarah Martin', 'sarah@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', NOW() - INTERVAL 420 DAY, NOW()),
-(7, 'Tiana Randria', 'tiana@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', NOW() - INTERVAL 420 DAY, NOW());
+INSERT INTO t_users (id, name, email, email_verified_at, password, role, organisation, fonction, adresse, telephone, piece_identite, created_at, updated_at) VALUES
+(1, 'Admin Fanamby', 'admin@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'admin', 'Association Fanamby', 'Directeur technique', 'Lot II Y 49 J Ampasanimalo, Antananarivo', '+261 20 22 288 78', '101 241 000 101', NOW() - INTERVAL 420 DAY, NOW()),
+(2, 'Jean Validateur', 'validateur@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'validateur', 'Association Fanamby', 'Responsable des autorisations', 'Lot II Y 49 J Ampasanimalo, Antananarivo', '+261 34 05 112 23', '101 241 000 202', NOW() - INTERVAL 420 DAY, NOW()),
+(3, 'Alice Demandeur', 'alice@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Wild Lens Productions', 'Réalisatrice', 'Lot II M 85 Analakely, Antananarivo', '+261 34 12 345 67', '101 211 045 678', NOW() - INTERVAL 420 DAY, NOW()),
+(4, 'Hery Rasolofo', 'hery@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'validateur', 'Association Fanamby', 'Gestionnaire d''aires protégées', 'Lot II Y 49 J Ampasanimalo, Antananarivo', '+261 34 05 112 45', '101 241 000 404', NOW() - INTERVAL 420 DAY, NOW()),
+(5, 'Rado Rakotomalala', 'rado@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Studio Fandrika', 'Journaliste reporter d''images', 'Lot IV G 12 Ambohijatovo, Antananarivo', '+261 33 21 456 78', '102 251 078 432', NOW() - INTERVAL 420 DAY, NOW()),
+(6, 'Sarah Martin', 'sarah@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Lumière Australe Films', 'Réalisatrice', '12 rue des Lilas, 13001 Marseille, France', '+33 6 12 34 56 78', '19FR45821', NOW() - INTERVAL 420 DAY, NOW()),
+(7, 'Tiana Randria', 'tiana@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Tsara Sary', 'Photographe', 'Lot 45 Tanambao, Morondava', '+261 32 45 678 90', '501 012 345 678', NOW() - INTERVAL 420 DAY, NOW());
 
 -- ── Aires protégées (contours réels simplifiés à ~100 m) ──
 INSERT INTO t_sites (id, nom, description, polygone_coordonnees, created_at, updated_at) VALUES
@@ -88,38 +88,90 @@ INSERT INTO t_sites (id, nom, description, polygone_coordonnees, created_at, upd
 -- ── Affectation des validateurs ──
 INSERT INTO t_site_user (user_id, site_id) VALUES (2, 1), (2, 2), (2, 3), (4, 2), (4, 4);
 
--- ── Types d'activité ──
-INSERT INTO t_type_demandes (id, libelle, created_at, updated_at) VALUES
-(1, 'Recherche scientifique', NOW() - INTERVAL 420 DAY, NOW()),
-(2, 'Tournage documentaire', NOW() - INTERVAL 420 DAY, NOW()),
-(3, 'Écotourisme', NOW() - INTERVAL 420 DAY, NOW()),
-(4, 'Suivi écologique (ONG partenaire)', NOW() - INTERVAL 420 DAY, NOW());
+-- ── Types de projet (liste du formulaire de demande ; « Autre » demande une précision) ──
+INSERT INTO t_type_demandes (id, libelle, precision_requise, created_at, updated_at) VALUES
+(1, 'Long métrage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(2, 'Court métrage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(3, 'Documentaire', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(4, 'Émission télé', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(5, 'Projet étudiant', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(6, 'Publicité', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(7, 'Corporatif', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(8, 'Clip musical', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(9, 'Reportage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(10, 'Téléfilm', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(11, 'Photographie institutionnelle', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(12, 'Autre', 1, NOW() - INTERVAL 420 DAY, NOW());
 
 -- ── Pièces exigées par type (une ligne par pièce) ──
 INSERT INTO t_documents_requis (id, type_demande_id, libelle, reutilisable, created_at, updated_at) VALUES
-(1, 1, 'Protocole de recherche', 0, NOW() - INTERVAL 420 DAY, NOW()),
-(2, 1, 'Carte d''identité', 1, NOW() - INTERVAL 420 DAY, NOW()),
-(3, 2, 'Scénario', 0, NOW() - INTERVAL 420 DAY, NOW()),
-(4, 2, 'Plan de vol drone', 0, NOW() - INTERVAL 420 DAY, NOW()),
-(5, 2, 'Attestation d''assurance', 1, NOW() - INTERVAL 420 DAY, NOW()),
-(6, 3, 'Programme de visite', 0, NOW() - INTERVAL 420 DAY, NOW()),
-(7, 3, 'Pièce d''identité du responsable', 1, NOW() - INTERVAL 420 DAY, NOW()),
-(8, 4, 'Lettre de mission', 0, NOW() - INTERVAL 420 DAY, NOW()),
-(9, 4, 'Protocole de suivi', 0, NOW() - INTERVAL 420 DAY, NOW());
+(1, 1, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(2, 1, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(3, 1, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(4, 1, 'Attestation d''assurance', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(5, 2, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(6, 2, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(7, 2, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(8, 3, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(9, 3, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(10, 3, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(11, 4, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(12, 4, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(13, 4, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(14, 4, 'Attestation d''assurance', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(15, 5, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(16, 5, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(17, 5, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(18, 5, 'Attestation de l''établissement', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(19, 6, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(20, 6, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(21, 6, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(22, 6, 'Attestation d''assurance', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(23, 7, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(24, 7, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(25, 7, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(26, 8, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(27, 8, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(28, 8, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(29, 8, 'Attestation d''assurance', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(30, 9, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(31, 9, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(32, 9, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(33, 10, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(34, 10, 'Planning de tournage', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(35, 10, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(36, 10, 'Attestation d''assurance', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(37, 11, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(38, 11, 'Planning des prises de vue', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(39, 11, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW()),
+(40, 12, 'Synopsis / Brief du projet', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(41, 12, 'Planning des prises de vue', 0, NOW() - INTERVAL 420 DAY, NOW()),
+(42, 12, 'Copie de la CIN ou du passeport', 1, NOW() - INTERVAL 420 DAY, NOW());
 
 -- ── Règles du cahier des charges par type (une ligne par règle) ──
 INSERT INTO t_regles_specifiques (id, type_demande_id, libelle, created_at, updated_at) VALUES
-(1, 1, 'Équipe limitée à 10 personnes', NOW() - INTERVAL 420 DAY, NOW()),
-(2, 1, 'Accompagnement obligatoire par un guide agréé', NOW() - INTERVAL 420 DAY, NOW()),
-(3, 1, 'Aucun prélèvement sans autorisation du ministère', NOW() - INTERVAL 420 DAY, NOW()),
-(4, 2, 'Équipe limitée à 5 personnes', NOW() - INTERVAL 420 DAY, NOW()),
-(5, 2, 'Drone interdit au-dessus des zones de nidification', NOW() - INTERVAL 420 DAY, NOW()),
-(6, 2, 'Copie des images remise à la Fondation', NOW() - INTERVAL 420 DAY, NOW()),
-(7, 3, 'Groupes de 15 personnes au maximum', NOW() - INTERVAL 420 DAY, NOW()),
-(8, 3, 'Circulation sur les sentiers balisés uniquement', NOW() - INTERVAL 420 DAY, NOW()),
-(9, 3, 'Déchets rapportés hors du site', NOW() - INTERVAL 420 DAY, NOW()),
-(10, 4, 'Rapport de mission remis sous 30 jours', NOW() - INTERVAL 420 DAY, NOW()),
-(11, 4, 'Données brutes partagées avec la Fondation', NOW() - INTERVAL 420 DAY, NOW());
+(1, 1, 'Équipe limitée à 25 personnes sur le site', NOW() - INTERVAL 420 DAY, NOW()),
+(2, 1, 'Décors démontés et site remis en état après le tournage', NOW() - INTERVAL 420 DAY, NOW()),
+(3, 1, 'Drone soumis à l''autorisation de l''Aviation civile de Madagascar', NOW() - INTERVAL 420 DAY, NOW()),
+(4, 2, 'Équipe limitée à 10 personnes', NOW() - INTERVAL 420 DAY, NOW()),
+(5, 2, 'Drone soumis à l''autorisation de l''Aviation civile de Madagascar', NOW() - INTERVAL 420 DAY, NOW()),
+(6, 3, 'Aucune approche de la faune à moins de 10 m', NOW() - INTERVAL 420 DAY, NOW()),
+(7, 3, 'Drone interdit au-dessus des zones de nidification', NOW() - INTERVAL 420 DAY, NOW()),
+(8, 4, 'Équipe limitée à 15 personnes', NOW() - INTERVAL 420 DAY, NOW()),
+(9, 4, 'Pas d''éclairage artificiel la nuit en forêt', NOW() - INTERVAL 420 DAY, NOW()),
+(10, 5, 'Encadrement par un enseignant ou un guide agréé', NOW() - INTERVAL 420 DAY, NOW()),
+(11, 5, 'Équipe limitée à 8 personnes', NOW() - INTERVAL 420 DAY, NOW()),
+(12, 6, 'Aucun produit mis en scène au contact de la faune ou de la flore', NOW() - INTERVAL 420 DAY, NOW()),
+(13, 6, 'Mention de l''aire protégée dans les crédits', NOW() - INTERVAL 420 DAY, NOW()),
+(14, 6, 'Drone soumis à l''autorisation de l''Aviation civile de Madagascar', NOW() - INTERVAL 420 DAY, NOW()),
+(15, 7, 'Prises de vue sur les sentiers balisés uniquement', NOW() - INTERVAL 420 DAY, NOW()),
+(16, 8, 'Musique amplifiée interdite dans l''aire protégée', NOW() - INTERVAL 420 DAY, NOW()),
+(17, 8, 'Équipe limitée à 10 personnes', NOW() - INTERVAL 420 DAY, NOW()),
+(18, 9, 'Interviews des communautés avec leur consentement préalable', NOW() - INTERVAL 420 DAY, NOW()),
+(19, 10, 'Équipe limitée à 25 personnes sur le site', NOW() - INTERVAL 420 DAY, NOW()),
+(20, 10, 'Décors démontés et site remis en état après le tournage', NOW() - INTERVAL 420 DAY, NOW()),
+(21, 11, 'Prises de vue sur les sentiers balisés uniquement', NOW() - INTERVAL 420 DAY, NOW()),
+(22, 12, 'Accompagnement par un agent de l''Association', NOW() - INTERVAL 420 DAY, NOW());
 
 -- ── Périodes sensibles ──
 INSERT INTO t_periode_sensibles (id, site_id, date_debut, date_fin, description, niveau_restriction, created_at, updated_at) VALUES
@@ -133,120 +185,141 @@ INSERT INTO t_periode_sensibles (id, site_id, date_debut, date_fin, description,
 (8, 1, CURDATE() + INTERVAL 150 DAY, CURDATE() + INTERVAL 165 DAY, 'Brûlis contrôlés de prévention', 'bloquant', NOW() - INTERVAL 60 DAY, NOW());
 
 -- ── Demandes (22 dossiers couvrant tous les statuts et cas particuliers) ──
+-- titre, type de projet (et sa précision pour « Autre »), résumé du synopsis (description) et objectifs :
+-- section II du formulaire de demande.
 -- #1 · brouillon · Alice Demandeur · Andrafiamena - Andavakoera
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(1, 3, 1, 1, 'Inventaire des reptiles de la forêt sèche, pièges photographiques et transects nocturnes.', CURDATE() + INTERVAL 80 DAY, CURDATE() + INTERVAL 88 DAY, 3, 1, NULL, '[]', NOW() - INTERVAL 2 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 2 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(1, 3, 1, 3, 'Les reptiles de la forêt sèche', NULL, 'Caméléons, geckos et serpents de la forêt sèche filmés de nuit le long des sentiers, avec des pièges photographiques.', 'Produire un documentaire de 26 minutes pour une chaîne éducative.', CURDATE() + INTERVAL 80 DAY, CURDATE() + INTERVAL 88 DAY, 3, 1, NULL, '[]', NOW() - INTERVAL 2 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 2 DAY);
 -- #2 · brouillon · Alice Demandeur · Loky - Manambato
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(2, 3, 3, 3, 'Visite guidée pour un groupe d''étudiants en biologie (dates à confirmer).', NULL, NULL, 4, 1, NULL, '[]', NOW() - INTERVAL 1 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 1 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(2, 3, 3, 5, 'Court film des étudiants en biologie', NULL, 'Un groupe d''étudiants filme sa première sortie de terrain et les espèces observées (dates à confirmer).', 'Réaliser un court film pédagogique présenté à l''université.', NULL, NULL, 4, 1, NULL, '[]', NOW() - INTERVAL 1 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 1 DAY);
 -- #3 · soumise · Alice Demandeur · Andrafiamena - Andavakoera
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(3, 3, 1, 1, 'Comptage des populations de propithèques de Perrier sur trois transects.', CURDATE() + INTERVAL 5 DAY, CURDATE() + INTERVAL 9 DAY, 2, 2, NOW() - INTERVAL 2 DAY, '[]', NOW() - INTERVAL 3 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 2 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(3, 3, 1, 3, 'Sur les traces du propithèque de Perrier', NULL, 'Trois jours de suivi des groupes de propithèques de Perrier, de leur réveil à leurs sites de repos.', 'Documenter le comportement d''une espèce en danger critique pour sensibiliser le public.', CURDATE() + INTERVAL 5 DAY, CURDATE() + INTERVAL 9 DAY, 2, 2, NOW() - INTERVAL 2 DAY, '[]', NOW() - INTERVAL 3 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 2 DAY);
 -- #4 · a_completer · Alice Demandeur · Loky - Manambato
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(4, 3, 3, 1, 'Capture-recapture de micromammifères en lisière de forêt humide.', CURDATE() + INTERVAL 30 DAY, CURDATE() + INTERVAL 35 DAY, 3, 4, NOW() - INTERVAL 8 DAY, '[]', NOW() - INTERVAL 9 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 4 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(4, 3, 3, 3, 'La lisière de la forêt humide', NULL, 'Les micromammifères de la lisière forestière, filmés au crépuscule et de nuit en caméra thermique.', 'Montrer le rôle de la lisière pour la petite faune dans un film de 52 minutes.', CURDATE() + INTERVAL 30 DAY, CURDATE() + INTERVAL 35 DAY, 3, 4, NOW() - INTERVAL 8 DAY, '[]', NOW() - INTERVAL 9 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 4 DAY);
 -- #5 · validee · Alice Demandeur · Loky - Manambato
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(5, 3, 3, 1, 'Étude du régime alimentaire du propithèque à couronne dorée.', CURDATE() + INTERVAL 20 DAY, CURDATE() + INTERVAL 25 DAY, 4, 5, NOW() - INTERVAL 20 DAY, '[]', NOW() - INTERVAL 21 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 14 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(5, 3, 3, 3, 'Le propithèque à couronne dorée', NULL, 'Une saison avec le propithèque à couronne dorée : alimentation, déplacements et vie de groupe.', 'Réaliser un documentaire animalier diffusé à la télévision nationale.', CURDATE() + INTERVAL 20 DAY, CURDATE() + INTERVAL 25 DAY, 4, 5, NOW() - INTERVAL 20 DAY, '[]', NOW() - INTERVAL 21 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 14 DAY);
 -- #6 · validee · Alice Demandeur · Andrafiamena - Andavakoera
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(6, 3, 1, 1, 'Relevés botaniques des espèces endémiques de la forêt sèche.', CURDATE() - INTERVAL 120 DAY, CURDATE() - INTERVAL 115 DAY, 2, 5, NOW() - INTERVAL 148 DAY, '[]', NOW() - INTERVAL 150 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 143 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(6, 3, 1, 11, 'La flore endémique de la forêt sèche', NULL, 'Série de photographies des plantes endémiques en floraison, au sol et en plan rapproché.', 'Illustrer un ouvrage sur la flore du Nord de Madagascar.', CURDATE() - INTERVAL 120 DAY, CURDATE() - INTERVAL 115 DAY, 2, 5, NOW() - INTERVAL 148 DAY, '[]', NOW() - INTERVAL 150 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 143 DAY);
 -- #7 · en_analyse · Rado Rakotomalala · Andrafiamena - Andavakoera
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(7, 5, 1, 1, 'Suivi acoustique des chauves-souris dans les grottes calcaires.', CURDATE() + INTERVAL 45 DAY, CURDATE() + INTERVAL 60 DAY, 6, 3, NOW() - INTERVAL 12 DAY, JSON_ARRAY(JSON_OBJECT('type', 'avertissement', 'message', CONCAT('Attention : Chevauchement avec la période sensible ''Reproduction des lémuriens : groupes réduits, pas de bruit'' (du ', DATE_FORMAT(CURDATE() + INTERVAL 40 DAY, '%d/%m/%Y'), ' au ', DATE_FORMAT(CURDATE() + INTERVAL 70 DAY, '%d/%m/%Y'), ').'))), NOW() - INTERVAL 13 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 10 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(7, 5, 1, 9, 'Les chauves-souris des grottes calcaires', NULL, 'Reportage dans les grottes calcaires avec l''équipe de suivi acoustique des chauves-souris.', 'Produire un reportage de 13 minutes sur la protection des grottes.', CURDATE() + INTERVAL 45 DAY, CURDATE() + INTERVAL 60 DAY, 6, 3, NOW() - INTERVAL 12 DAY, JSON_ARRAY(JSON_OBJECT('type', 'avertissement', 'message', CONCAT('Attention : Chevauchement avec la période sensible ''Reproduction des lémuriens : groupes réduits, pas de bruit'' (du ', DATE_FORMAT(CURDATE() + INTERVAL 40 DAY, '%d/%m/%Y'), ' au ', DATE_FORMAT(CURDATE() + INTERVAL 70 DAY, '%d/%m/%Y'), ').'))), NOW() - INTERVAL 13 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 10 DAY);
 -- #8 · soumise · Rado Rakotomalala · Menabe Antimena
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(8, 5, 4, 1, 'Cartographie des lacs temporaires et de leur faune aquatique.', CURDATE() + INTERVAL 12 DAY, CURDATE() + INTERVAL 16 DAY, 3, 2, NOW() - INTERVAL 1 DAY, JSON_ARRAY(JSON_OBJECT('type', 'avertissement', 'message', CONCAT('Attention : Chevauchement avec la période sensible ''Surveillance renforcée des feux de brousse'' (du ', DATE_FORMAT(CURDATE() + INTERVAL 8 DAY, '%d/%m/%Y'), ' au ', DATE_FORMAT(CURDATE() + INTERVAL 20 DAY, '%d/%m/%Y'), ').'))), NOW() - INTERVAL 1 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 1 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(8, 5, 4, 9, 'Les lacs temporaires du Menabe', NULL, 'Les lacs temporaires et leur faune aquatique, filmés au moment de la remise en eau.', 'Montrer l''importance des zones humides du Menabe dans un magazine d''information.', CURDATE() + INTERVAL 12 DAY, CURDATE() + INTERVAL 16 DAY, 3, 2, NOW() - INTERVAL 1 DAY, JSON_ARRAY(JSON_OBJECT('type', 'avertissement', 'message', CONCAT('Attention : Chevauchement avec la période sensible ''Surveillance renforcée des feux de brousse'' (du ', DATE_FORMAT(CURDATE() + INTERVAL 8 DAY, '%d/%m/%Y'), ' au ', DATE_FORMAT(CURDATE() + INTERVAL 20 DAY, '%d/%m/%Y'), ').'))), NOW() - INTERVAL 1 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 1 DAY);
 -- #9 · validee · Rado Rakotomalala · Anjozorobe - Angavo
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(9, 5, 2, 1, 'Prélèvements d''eau pour l''analyse de la qualité des sources du corridor.', CURDATE() - INTERVAL 2 DAY, CURDATE() + INTERVAL 4 DAY, 5, 5, NOW() - INTERVAL 30 DAY, '[]', NOW() - INTERVAL 31 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 22 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(9, 5, 2, 9, 'L''eau d''Antananarivo naît à Anjozorobe', NULL, 'Des sources du corridor forestier jusqu''au robinet : un reportage sur le captage d''eau de la capitale.', 'Sensibiliser les habitants d''Antananarivo à la protection du corridor.', CURDATE() - INTERVAL 2 DAY, CURDATE() + INTERVAL 4 DAY, 5, 5, NOW() - INTERVAL 30 DAY, '[]', NOW() - INTERVAL 31 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 22 DAY);
 -- #10 · rejetee · Rado Rakotomalala · Allée des Baobabs
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(10, 5, 5, 1, 'Mesure de la croissance des baobabs et état sanitaire des troncs.', CURDATE() - INTERVAL 150 DAY, CURDATE() - INTERVAL 145 DAY, 8, 6, NOW() - INTERVAL 198 DAY, '[]', NOW() - INTERVAL 200 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 178 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(10, 5, 5, 8, 'Clip « Renala »', NULL, 'Un groupe de musique traditionnelle joue au pied des baobabs, au lever du soleil.', 'Tourner le clip du premier single du groupe.', CURDATE() - INTERVAL 150 DAY, CURDATE() - INTERVAL 145 DAY, 8, 6, NOW() - INTERVAL 198 DAY, '[]', NOW() - INTERVAL 200 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 178 DAY);
 -- #11 · soumise · Sarah Martin · Allée des Baobabs
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(11, 6, 5, 2, 'Tournage d''un documentaire sur les baobabs au coucher du soleil.', CURDATE() + INTERVAL 25 DAY, CURDATE() + INTERVAL 28 DAY, 4, 2, NOW(), '[]', NOW() - INTERVAL 2 HOUR, NOW());
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(11, 6, 5, 2, 'Le dernier baobab', NULL, 'Court métrage de fiction : un enfant de Morondava veille sur un baobab menacé.', 'Réaliser un court métrage présenté en festival.', CURDATE() + INTERVAL 25 DAY, CURDATE() + INTERVAL 28 DAY, 4, 2, NOW(), '[]', NOW() - INTERVAL 2 HOUR, NOW());
 -- #12 · en_analyse · Sarah Martin · Andrafiamena - Andavakoera
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(12, 6, 1, 2, 'Reportage sur les tsingy et la vie des lémuriens.', CURDATE() - INTERVAL 1 DAY, CURDATE() + INTERVAL 3 DAY, 3, 3, NOW() - INTERVAL 9 DAY, '[]', NOW() - INTERVAL 10 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 6 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(12, 6, 1, 4, 'Les tsingy et les lémuriens', NULL, 'Une émission de découverte suit un guide local à travers les tsingy et à la rencontre des lémuriens.', 'Tourner un épisode d''une série télévisée sur les aires protégées.', CURDATE() - INTERVAL 1 DAY, CURDATE() + INTERVAL 3 DAY, 3, 3, NOW() - INTERVAL 9 DAY, '[]', NOW() - INTERVAL 10 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 6 DAY);
 -- #13 · validee · Sarah Martin · Loky - Manambato
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(13, 6, 3, 2, 'Documentaire animalier sur la colonie de frégates du littoral.', CURDATE() - INTERVAL 1 DAY, CURDATE() + INTERVAL 6 DAY, 5, 5, NOW() - INTERVAL 25 DAY, JSON_ARRAY(JSON_OBJECT('type', 'avertissement', 'message', CONCAT('Attention : Chevauchement avec la période sensible ''Nidification des oiseaux marins sur le littoral'' (du ', DATE_FORMAT(CURDATE() - INTERVAL 5 DAY, '%d/%m/%Y'), ' au ', DATE_FORMAT(CURDATE() + INTERVAL 10 DAY, '%d/%m/%Y'), ').'))), NOW() - INTERVAL 26 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 19 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(13, 6, 3, 3, 'La colonie de frégates du littoral', NULL, 'La colonie de frégates du littoral pendant la nidification, filmée depuis des affûts.', 'Réaliser un documentaire animalier sur les oiseaux marins du Nord-Est.', CURDATE() - INTERVAL 1 DAY, CURDATE() + INTERVAL 6 DAY, 5, 5, NOW() - INTERVAL 25 DAY, JSON_ARRAY(JSON_OBJECT('type', 'avertissement', 'message', CONCAT('Attention : Chevauchement avec la période sensible ''Nidification des oiseaux marins sur le littoral'' (du ', DATE_FORMAT(CURDATE() - INTERVAL 5 DAY, '%d/%m/%Y'), ' au ', DATE_FORMAT(CURDATE() + INTERVAL 10 DAY, '%d/%m/%Y'), ').'))), NOW() - INTERVAL 26 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 19 DAY);
 -- #14 · a_completer · Sarah Martin · Menabe Antimena
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(14, 6, 4, 2, 'Prises de vue aériennes des mangroves et des lacs.', CURDATE() + INTERVAL 40 DAY, CURDATE() + INTERVAL 44 DAY, 4, 4, NOW() - INTERVAL 15 DAY, '[]', NOW() - INTERVAL 16 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 10 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(14, 6, 4, 6, 'Campagne « Eau des mangroves »', NULL, 'Prises de vue aériennes des mangroves et des lacs pour la campagne d''une marque d''eau minérale.', 'Produire un film publicitaire de 30 secondes et des visuels pour l''affichage.', CURDATE() + INTERVAL 40 DAY, CURDATE() + INTERVAL 44 DAY, 4, 4, NOW() - INTERVAL 15 DAY, '[]', NOW() - INTERVAL 16 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 10 DAY);
 -- #15 · validee · Tiana Randria · Allée des Baobabs
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(15, 7, 5, 3, 'Circuit écotouristique avec une agence locale de Morondava.', CURDATE() + INTERVAL 60 DAY, CURDATE() + INTERVAL 62 DAY, 12, 5, NOW() - INTERVAL 40 DAY, '[]', NOW() - INTERVAL 41 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 37 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(15, 7, 5, 7, 'Film de présentation d''une agence écotouristique', NULL, 'Le circuit d''une agence de Morondava, des pirogues aux baobabs, filmé avec ses guides.', 'Présenter l''offre de l''agence sur son site et dans les salons du tourisme.', CURDATE() + INTERVAL 60 DAY, CURDATE() + INTERVAL 62 DAY, 6, 5, NOW() - INTERVAL 40 DAY, '[]', NOW() - INTERVAL 41 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 37 DAY);
 -- #16 · soumise · Tiana Randria · Anjozorobe - Angavo
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(16, 7, 2, 3, 'Randonnée de découverte du corridor forestier.', CURDATE() + INTERVAL 90 DAY, CURDATE() + INTERVAL 92 DAY, 10, 2, NOW() - INTERVAL 3 DAY, '[]', NOW() - INTERVAL 3 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 3 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(16, 7, 2, 11, 'Le corridor forestier en images', NULL, 'Reportage photographique sur les sentiers du corridor et les actions de reboisement.', 'Illustrer le rapport annuel d''une ONG partenaire.', CURDATE() + INTERVAL 90 DAY, CURDATE() + INTERVAL 92 DAY, 3, 2, NOW() - INTERVAL 3 DAY, '[]', NOW() - INTERVAL 3 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 3 DAY);
 -- #17 · validee · Tiana Randria · Menabe Antimena
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(17, 7, 4, 3, 'Séjour éco-volontaire avec les communautés riveraines.', CURDATE() + INTERVAL 100 DAY, CURDATE() + INTERVAL 105 DAY, 15, 5, NOW() - INTERVAL 35 DAY, '[]', NOW() - INTERVAL 36 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 31 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(17, 7, 4, 12, 'Regards des communautés riveraines', 'Atelier photo participatif', 'Des habitants des villages riverains photographient leur quotidien et la forêt avec l''aide d''un photographe.', 'Organiser une exposition photographique avec les communautés.', CURDATE() + INTERVAL 100 DAY, CURDATE() + INTERVAL 105 DAY, 10, 5, NOW() - INTERVAL 35 DAY, '[]', NOW() - INTERVAL 36 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 31 DAY);
 -- #18 · rejetee · Tiana Randria · Andrafiamena - Andavakoera
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(18, 7, 1, 3, 'Excursion d''un grand groupe scolaire.', CURDATE() - INTERVAL 200 DAY, CURDATE() - INTERVAL 198 DAY, 20, 6, NOW() - INTERVAL 248 DAY, '[]', NOW() - INTERVAL 250 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 238 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(18, 7, 1, 5, 'Tournage d''un grand groupe scolaire', NULL, 'Les élèves d''un lycée filment la forêt sèche pour un concours de courts métrages.', 'Participer au concours national des jeunes réalisateurs.', CURDATE() - INTERVAL 200 DAY, CURDATE() - INTERVAL 198 DAY, 20, 6, NOW() - INTERVAL 248 DAY, '[]', NOW() - INTERVAL 250 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 238 DAY);
 -- #19 · soumise · Admin Fanamby · Loky - Manambato
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(19, 1, 3, 4, 'Mission de suivi des patrouilles communautaires (demande de l''administration).', CURDATE() + INTERVAL 50 DAY, CURDATE() + INTERVAL 55 DAY, 2, 2, NOW() - INTERVAL 4 DAY, '[]', NOW() - INTERVAL 4 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 4 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(19, 1, 3, 11, 'Les patrouilles communautaires', NULL, 'Suivi photographique des patrouilles communautaires pendant une semaine (demande de l''administration).', 'Illustrer la communication de l''Association sur la surveillance participative.', CURDATE() + INTERVAL 50 DAY, CURDATE() + INTERVAL 55 DAY, 2, 2, NOW() - INTERVAL 4 DAY, '[]', NOW() - INTERVAL 4 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 4 DAY);
 -- #20 · en_analyse · Jean Validateur · Anjozorobe - Angavo
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(20, 2, 2, 4, 'Suivi des placettes de régénération forestière (demande d''un validateur).', CURDATE() + INTERVAL 70 DAY, CURDATE() + INTERVAL 75 DAY, 2, 3, NOW() - INTERVAL 6 DAY, '[]', NOW() - INTERVAL 6 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 5 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(20, 2, 2, 9, 'La régénération forestière', NULL, 'Reportage sur les placettes de régénération forestière du corridor (demande d''un validateur).', 'Documenter les résultats du reboisement pour les partenaires.', CURDATE() + INTERVAL 70 DAY, CURDATE() + INTERVAL 75 DAY, 2, 3, NOW() - INTERVAL 6 DAY, '[]', NOW() - INTERVAL 6 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 5 DAY);
 -- #21 · validee · Rado Rakotomalala · Andrafiamena - Andavakoera
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(21, 5, 1, 1, 'Inventaire des amphibiens en saison des pluies (année précédente).', CURDATE() - INTERVAL 380 DAY, CURDATE() - INTERVAL 372 DAY, 4, 5, NOW() - INTERVAL 400 DAY, '[]', NOW() - INTERVAL 400 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 393 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(21, 5, 1, 9, 'Les amphibiens en saison des pluies', NULL, 'Reportage nocturne sur les grenouilles de la forêt sèche après les premières pluies (année précédente).', 'Produire un reportage pour un magazine de nature.', CURDATE() - INTERVAL 380 DAY, CURDATE() - INTERVAL 372 DAY, 4, 5, NOW() - INTERVAL 400 DAY, '[]', NOW() - INTERVAL 400 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 393 DAY);
 -- #22 · validee · Sarah Martin · Loky - Manambato
-INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, description, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
-(22, 6, 3, 2, 'Repérages pour une série documentaire (année précédente).', CURDATE() - INTERVAL 330 DAY, CURDATE() - INTERVAL 325 DAY, 2, 5, NOW() - INTERVAL 350 DAY, '[]', NOW() - INTERVAL 352 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 341 DAY);
+INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
+(22, 6, 3, 3, 'Repérages pour une série documentaire', NULL, 'Repérages des lieux de tournage du littoral et de la forêt humide (année précédente).', 'Préparer le tournage d''une série documentaire en trois épisodes.', CURDATE() - INTERVAL 330 DAY, CURDATE() - INTERVAL 325 DAY, 2, 5, NOW() - INTERVAL 350 DAY, '[]', NOW() - INTERVAL 352 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 341 DAY);
 
 -- ── Pièces jointes ──
 INSERT INTO t_documents (demande_id, document_requis_id, nom_fichier, chemin, type_document, created_at, updated_at) VALUES
-(1, 1, 'protocole_de_recherche.pdf', 'demandes/1/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR),
-(3, 1, 'protocole_de_recherche.pdf', 'demandes/3/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(3, 2, 'carte_d_identite.pdf', 'demandes/3/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(4, 1, 'protocole_de_recherche.pdf', 'demandes/4/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
-(4, 2, 'carte_d_identite.pdf', 'demandes/4/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
-(5, 1, 'protocole_de_recherche.pdf', 'demandes/5/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
-(5, 2, 'carte_d_identite.pdf', 'demandes/5/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
-(6, 1, 'protocole_de_recherche.pdf', 'demandes/6/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
-(6, 2, 'carte_d_identite.pdf', 'demandes/6/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
-(7, 1, 'protocole_de_recherche.pdf', 'demandes/7/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
-(7, 2, 'carte_d_identite.pdf', 'demandes/7/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
-(8, 1, 'protocole_de_recherche.pdf', 'demandes/8/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
-(8, 2, 'carte_d_identite.pdf', 'demandes/8/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
-(9, 1, 'protocole_de_recherche.pdf', 'demandes/9/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
-(9, 2, 'carte_d_identite.pdf', 'demandes/9/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
-(10, 1, 'protocole_de_recherche.pdf', 'demandes/10/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
-(10, 2, 'carte_d_identite.pdf', 'demandes/10/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
-(11, 3, 'scenario.pdf', 'demandes/11/scenario.pdf', 'Scénario', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
-(11, 4, 'plan_de_vol_drone.pdf', 'demandes/11/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
-(11, 5, 'attestation_d_assurance.pdf', 'demandes/11/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
-(12, 3, 'scenario.pdf', 'demandes/12/scenario.pdf', 'Scénario', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
-(12, 4, 'plan_de_vol_drone.pdf', 'demandes/12/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
-(12, 5, 'attestation_d_assurance.pdf', 'demandes/12/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
-(13, 3, 'scenario.pdf', 'demandes/13/scenario.pdf', 'Scénario', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
-(13, 4, 'plan_de_vol_drone.pdf', 'demandes/13/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
-(13, 5, 'attestation_d_assurance.pdf', 'demandes/13/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
-(14, 3, 'scenario.pdf', 'demandes/14/scenario.pdf', 'Scénario', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
-(14, 5, 'attestation_d_assurance.pdf', 'demandes/14/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
-(15, 6, 'programme_de_visite.pdf', 'demandes/15/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
-(15, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/15/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
-(16, 6, 'programme_de_visite.pdf', 'demandes/16/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(16, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/16/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
-(17, 6, 'programme_de_visite.pdf', 'demandes/17/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
-(17, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/17/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
-(18, 6, 'programme_de_visite.pdf', 'demandes/18/programme_de_visite.pdf', 'Programme de visite', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
-(18, 7, 'piece_d_identite_du_responsable.pdf', 'demandes/18/piece_d_identite_du_responsable.pdf', 'Pièce d''identité du responsable', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
-(19, 8, 'lettre_de_mission.pdf', 'demandes/19/lettre_de_mission.pdf', 'Lettre de mission', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
-(19, 9, 'protocole_de_suivi.pdf', 'demandes/19/protocole_de_suivi.pdf', 'Protocole de suivi', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
-(20, 8, 'lettre_de_mission.pdf', 'demandes/20/lettre_de_mission.pdf', 'Lettre de mission', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
-(20, 9, 'protocole_de_suivi.pdf', 'demandes/20/protocole_de_suivi.pdf', 'Protocole de suivi', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
-(21, 1, 'protocole_de_recherche.pdf', 'demandes/21/protocole_de_recherche.pdf', 'Protocole de recherche', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
-(21, 2, 'carte_d_identite.pdf', 'demandes/21/carte_d_identite.pdf', 'Carte d''identité', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
-(22, 3, 'scenario.pdf', 'demandes/22/scenario.pdf', 'Scénario', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
-(22, 4, 'plan_de_vol_drone.pdf', 'demandes/22/plan_de_vol_drone.pdf', 'Plan de vol drone', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
-(22, 5, 'attestation_d_assurance.pdf', 'demandes/22/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR);
+(1, 8, 'synopsis_brief_du_projet.pdf', 'demandes/1/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR),
+(3, 8, 'synopsis_brief_du_projet.pdf', 'demandes/3/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(3, 9, 'planning_de_tournage.pdf', 'demandes/3/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(3, 10, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/3/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(4, 8, 'synopsis_brief_du_projet.pdf', 'demandes/4/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
+(4, 9, 'planning_de_tournage.pdf', 'demandes/4/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
+(4, 10, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/4/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 9 DAY - INTERVAL 1 HOUR),
+(5, 8, 'synopsis_brief_du_projet.pdf', 'demandes/5/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
+(5, 9, 'planning_de_tournage.pdf', 'demandes/5/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
+(5, 10, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/5/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 21 DAY - INTERVAL 1 HOUR),
+(6, 37, 'synopsis_brief_du_projet.pdf', 'demandes/6/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
+(6, 38, 'planning_des_prises_de_vue.pdf', 'demandes/6/planning_des_prises_de_vue.pdf', 'Planning des prises de vue', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
+(6, 39, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/6/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 150 DAY - INTERVAL 1 HOUR),
+(7, 30, 'synopsis_brief_du_projet.pdf', 'demandes/7/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
+(7, 31, 'planning_de_tournage.pdf', 'demandes/7/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
+(7, 32, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/7/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 13 DAY - INTERVAL 1 HOUR),
+(8, 30, 'synopsis_brief_du_projet.pdf', 'demandes/8/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
+(8, 31, 'planning_de_tournage.pdf', 'demandes/8/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
+(8, 32, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/8/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 1 DAY - INTERVAL 1 HOUR),
+(9, 30, 'synopsis_brief_du_projet.pdf', 'demandes/9/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
+(9, 31, 'planning_de_tournage.pdf', 'demandes/9/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
+(9, 32, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/9/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 31 DAY - INTERVAL 1 HOUR),
+(10, 26, 'synopsis_brief_du_projet.pdf', 'demandes/10/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
+(10, 27, 'planning_de_tournage.pdf', 'demandes/10/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
+(10, 28, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/10/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
+(10, 29, 'attestation_d_assurance.pdf', 'demandes/10/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 200 DAY - INTERVAL 1 HOUR),
+(11, 5, 'synopsis_brief_du_projet.pdf', 'demandes/11/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
+(11, 6, 'planning_de_tournage.pdf', 'demandes/11/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
+(11, 7, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/11/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 1 HOUR, NOW() - INTERVAL 1 HOUR),
+(12, 11, 'synopsis_brief_du_projet.pdf', 'demandes/12/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
+(12, 12, 'planning_de_tournage.pdf', 'demandes/12/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
+(12, 13, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/12/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
+(12, 14, 'attestation_d_assurance.pdf', 'demandes/12/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 10 DAY - INTERVAL 1 HOUR),
+(13, 8, 'synopsis_brief_du_projet.pdf', 'demandes/13/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
+(13, 9, 'planning_de_tournage.pdf', 'demandes/13/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
+(13, 10, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/13/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 26 DAY - INTERVAL 1 HOUR),
+(14, 19, 'synopsis_brief_du_projet.pdf', 'demandes/14/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
+(14, 21, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/14/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
+(14, 22, 'attestation_d_assurance.pdf', 'demandes/14/attestation_d_assurance.pdf', 'Attestation d''assurance', NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 16 DAY - INTERVAL 1 HOUR),
+(15, 23, 'synopsis_brief_du_projet.pdf', 'demandes/15/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
+(15, 24, 'planning_de_tournage.pdf', 'demandes/15/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
+(15, 25, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/15/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 41 DAY - INTERVAL 1 HOUR),
+(16, 37, 'synopsis_brief_du_projet.pdf', 'demandes/16/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(16, 38, 'planning_des_prises_de_vue.pdf', 'demandes/16/planning_des_prises_de_vue.pdf', 'Planning des prises de vue', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(16, 39, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/16/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 3 DAY - INTERVAL 1 HOUR),
+(17, 40, 'synopsis_brief_du_projet.pdf', 'demandes/17/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
+(17, 41, 'planning_des_prises_de_vue.pdf', 'demandes/17/planning_des_prises_de_vue.pdf', 'Planning des prises de vue', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
+(17, 42, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/17/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 36 DAY - INTERVAL 1 HOUR),
+(18, 15, 'synopsis_brief_du_projet.pdf', 'demandes/18/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
+(18, 16, 'planning_de_tournage.pdf', 'demandes/18/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
+(18, 17, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/18/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
+(18, 18, 'attestation_de_l_etablissement.pdf', 'demandes/18/attestation_de_l_etablissement.pdf', 'Attestation de l''établissement', NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 250 DAY - INTERVAL 1 HOUR),
+(19, 37, 'synopsis_brief_du_projet.pdf', 'demandes/19/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
+(19, 38, 'planning_des_prises_de_vue.pdf', 'demandes/19/planning_des_prises_de_vue.pdf', 'Planning des prises de vue', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
+(19, 39, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/19/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 4 DAY - INTERVAL 1 HOUR),
+(20, 30, 'synopsis_brief_du_projet.pdf', 'demandes/20/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
+(20, 31, 'planning_de_tournage.pdf', 'demandes/20/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
+(20, 32, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/20/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 6 DAY - INTERVAL 1 HOUR),
+(21, 30, 'synopsis_brief_du_projet.pdf', 'demandes/21/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
+(21, 31, 'planning_de_tournage.pdf', 'demandes/21/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
+(21, 32, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/21/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 400 DAY - INTERVAL 1 HOUR),
+(22, 8, 'synopsis_brief_du_projet.pdf', 'demandes/22/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
+(22, 9, 'planning_de_tournage.pdf', 'demandes/22/planning_de_tournage.pdf', 'Planning de tournage', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR),
+(22, 10, 'copie_de_la_cin_ou_du_passeport.pdf', 'demandes/22/copie_de_la_cin_ou_du_passeport.pdf', 'Copie de la CIN ou du passeport', NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 352 DAY - INTERVAL 1 HOUR);
 
 -- ── Historique : soumission de chaque dossier envoyé (RG09), au nom du demandeur ──
 INSERT INTO t_historique_statuts (demande_id, user_id, ancien_statut_id, nouveau_statut_id, commentaire, date_changement, created_at, updated_at)
@@ -256,29 +329,29 @@ FROM t_demandes WHERE statut_id <> 1 AND date_soumission IS NOT NULL;
 -- ── Historique des décisions ──
 INSERT INTO t_historique_statuts (demande_id, user_id, ancien_statut_id, nouveau_statut_id, commentaire, date_changement, created_at, updated_at) VALUES
 (4, 2, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 7 DAY, NOW() - INTERVAL 7 DAY, NOW() - INTERVAL 7 DAY),
-(4, 2, 3, 4, 'Le protocole ne précise pas les zones de capture. Merci de joindre une version détaillée avec la carte des transects.', NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(4, 2, 3, 4, 'Le planning de tournage ne précise pas les zones de prise de vue. Merci de joindre une version détaillée avec la carte des emplacements.', NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
 (5, 2, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 18 DAY, NOW() - INTERVAL 18 DAY, NOW() - INTERVAL 18 DAY),
 (5, 2, 3, 5, 'Dossier complet. Bon séjour, pensez à présenter l''autorisation au poste d''entrée.', NOW() - INTERVAL 14 DAY, NOW() - INTERVAL 14 DAY, NOW() - INTERVAL 14 DAY),
 (6, 2, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 146 DAY, NOW() - INTERVAL 146 DAY, NOW() - INTERVAL 146 DAY),
 (6, 2, 3, 5, 'Validé.', NOW() - INTERVAL 143 DAY, NOW() - INTERVAL 143 DAY, NOW() - INTERVAL 143 DAY),
 (7, 2, 2, 3, 'Dossier pris en charge, vérification du chevauchement avec la période de reproduction.', NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY),
 (9, 4, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 27 DAY, NOW() - INTERVAL 27 DAY, NOW() - INTERVAL 27 DAY),
-(9, 4, 3, 5, 'Validé. Les prélèvements se feront avec l''agent du site.', NOW() - INTERVAL 22 DAY, NOW() - INTERVAL 22 DAY, NOW() - INTERVAL 22 DAY),
+(9, 4, 3, 5, 'Validé. Le tournage aux sources se fera avec l''agent du site.', NOW() - INTERVAL 22 DAY, NOW() - INTERVAL 22 DAY, NOW() - INTERVAL 22 DAY),
 (10, 1, 2, 3, 'Pris en charge par l''administration (site sans validateur).', NOW() - INTERVAL 190 DAY, NOW() - INTERVAL 190 DAY, NOW() - INTERVAL 190 DAY),
 (10, 1, 3, 6, 'Équipe trop nombreuse pour ce site fragile. Une nouvelle demande à 4 personnes maximum est possible.', NOW() - INTERVAL 178 DAY, NOW() - INTERVAL 178 DAY, NOW() - INTERVAL 178 DAY),
 (12, 2, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
 (13, 2, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 22 DAY, NOW() - INTERVAL 22 DAY, NOW() - INTERVAL 22 DAY),
 (13, 2, 3, 5, 'Validé sous réserve : aucun drone à moins de 300 m de la colonie pendant la nidification.', NOW() - INTERVAL 19 DAY, NOW() - INTERVAL 19 DAY, NOW() - INTERVAL 19 DAY),
 (14, 4, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 13 DAY, NOW() - INTERVAL 13 DAY, NOW() - INTERVAL 13 DAY),
-(14, 4, 3, 4, 'Le plan de vol drone est manquant. Merci de le joindre avec les altitudes prévues.', NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY),
+(14, 4, 3, 4, 'Le planning de tournage est manquant. Merci de le joindre avec les jours de prises de vue aériennes et les altitudes prévues.', NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY),
 (15, 1, 2, 3, 'Pris en charge par l''administration (site sans validateur).', NOW() - INTERVAL 39 DAY, NOW() - INTERVAL 39 DAY, NOW() - INTERVAL 39 DAY),
-(15, 1, 3, 5, 'Validé. Respectez le balisage autour des baobabs.', NOW() - INTERVAL 37 DAY, NOW() - INTERVAL 37 DAY, NOW() - INTERVAL 37 DAY),
+(15, 1, 3, 5, 'Validé. Respectez le balisage autour des baobabs pendant le tournage.', NOW() - INTERVAL 37 DAY, NOW() - INTERVAL 37 DAY, NOW() - INTERVAL 37 DAY),
 (17, 4, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 34 DAY, NOW() - INTERVAL 34 DAY, NOW() - INTERVAL 34 DAY),
-(17, 4, 3, 5, 'Validé. Bienvenue aux éco-volontaires.', NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY),
+(17, 4, 3, 5, 'Validé. Bienvenue aux participants de l''atelier.', NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY),
 (18, 2, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 246 DAY, NOW() - INTERVAL 246 DAY, NOW() - INTERVAL 246 DAY),
-(18, 2, 3, 4, 'Le programme de visite est incomplet : préciser l''encadrement du groupe.', NOW() - INTERVAL 244 DAY, NOW() - INTERVAL 244 DAY, NOW() - INTERVAL 244 DAY),
-(18, 7, 4, 3, 'Programme complété avec la liste des accompagnateurs.', NOW() - INTERVAL 241 DAY, NOW() - INTERVAL 241 DAY, NOW() - INTERVAL 241 DAY),
-(18, 2, 3, 6, 'Groupe de 20 personnes : au-delà de la capacité des sentiers. Merci de scinder la visite en deux groupes.', NOW() - INTERVAL 238 DAY, NOW() - INTERVAL 238 DAY, NOW() - INTERVAL 238 DAY),
+(18, 2, 3, 4, 'Le planning de tournage est incomplet : préciser l''encadrement du groupe.', NOW() - INTERVAL 244 DAY, NOW() - INTERVAL 244 DAY, NOW() - INTERVAL 244 DAY),
+(18, 7, 4, 3, 'Planning complété avec la liste des accompagnateurs.', NOW() - INTERVAL 241 DAY, NOW() - INTERVAL 241 DAY, NOW() - INTERVAL 241 DAY),
+(18, 2, 3, 6, 'Groupe de 20 personnes : au-delà de la capacité des sentiers. Merci de scinder le tournage en deux groupes.', NOW() - INTERVAL 238 DAY, NOW() - INTERVAL 238 DAY, NOW() - INTERVAL 238 DAY),
 (20, 4, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY),
 (21, 2, 2, 3, 'Dossier pris en charge.', NOW() - INTERVAL 397 DAY, NOW() - INTERVAL 397 DAY, NOW() - INTERVAL 397 DAY),
 (21, 2, 3, 5, 'Validé.', NOW() - INTERVAL 393 DAY, NOW() - INTERVAL 393 DAY, NOW() - INTERVAL 393 DAY),
@@ -287,28 +360,28 @@ INSERT INTO t_historique_statuts (demande_id, user_id, ancien_statut_id, nouveau
 
 -- ── Notifications ──
 INSERT INTO t_notifications (user_id, demande_id, contenu, lu, date_envoi, created_at, updated_at) VALUES
-(3, 4, 'Votre dossier pour « Loky - Manambato » doit être complété avant de poursuivre son examen. Ouvrez-le depuis Mes demandes pour fournir les éléments demandés. Message de l''équipe : « Le protocole ne précise pas les zones de capture. Merci de joindre une version détaillée avec la carte des transects. »', 0, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(3, 4, 'Votre dossier pour « Loky - Manambato » doit être complété avant de poursuivre son examen. Ouvrez-le depuis Mes demandes pour fournir les éléments demandés. Message de l''équipe : « Le planning de tournage ne précise pas les zones de prise de vue. Merci de joindre une version détaillée avec la carte des emplacements. »', 0, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
 (3, 5, 'Votre demande d''accès à « Loky - Manambato » a été acceptée. Retrouvez votre autorisation et votre cahier des charges dans Mes demandes. Message de l''équipe : « Dossier complet. Bon séjour, pensez à présenter l''autorisation au poste d''entrée. »', 1, NOW() - INTERVAL 14 DAY, NOW() - INTERVAL 14 DAY, NOW() - INTERVAL 14 DAY),
 (3, 3, 'Nous avons bien reçu votre demande d''accès à « Andrafiamena - Andavakoera ». Elle sera examinée prochainement ; vous recevrez une notification dès qu''il y aura du nouveau.', 0, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
-(2, 3, 'Nouvelle demande à traiter pour « Andrafiamena - Andavakoera » : Alice Demandeur (Recherche scientifique). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
-(2, 19, 'Nouvelle demande à traiter pour « Loky - Manambato » : Admin Fanamby (Suivi écologique (ONG partenaire)). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
-(4, 8, 'Nouvelle demande à traiter pour « Menabe Antimena » : Rado Rakotomalala (Recherche scientifique). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
-(4, 16, 'Nouvelle demande à traiter pour « Anjozorobe - Angavo » : Tiana Randria (Écotourisme). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY),
-(4, 20, 'Nouvelle demande à traiter pour « Anjozorobe - Angavo » : Jean Validateur (Suivi écologique (ONG partenaire)). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 1, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
-(1, 20, 'Nouvelle demande à traiter pour « Anjozorobe - Angavo » : Jean Validateur (Suivi écologique (ONG partenaire)). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
+(2, 3, 'Nouvelle demande à traiter pour « Andrafiamena - Andavakoera » : Alice Demandeur (Documentaire). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY),
+(2, 19, 'Nouvelle demande à traiter pour « Loky - Manambato » : Admin Fanamby (Photographie institutionnelle). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY, NOW() - INTERVAL 4 DAY),
+(4, 8, 'Nouvelle demande à traiter pour « Menabe Antimena » : Rado Rakotomalala (Reportage). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 1 DAY),
+(4, 16, 'Nouvelle demande à traiter pour « Anjozorobe - Angavo » : Tiana Randria (Photographie institutionnelle). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY),
+(4, 20, 'Nouvelle demande à traiter pour « Anjozorobe - Angavo » : Jean Validateur (Reportage). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 1, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
+(1, 20, 'Nouvelle demande à traiter pour « Anjozorobe - Angavo » : Jean Validateur (Reportage). Ouvrez le dossier pour examiner les pièces et rendre une décision.', 0, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY, NOW() - INTERVAL 6 DAY),
 (5, 7, 'Votre dossier pour « Andrafiamena - Andavakoera » est en cours d''examen. Vous serez prévenu dès qu''une décision sera prise. Message de l''équipe : « Dossier pris en charge, vérification du chevauchement avec la période de reproduction. »', 0, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY),
 (5, 10, 'Votre demande d''accès à « Allée des Baobabs » n''a pas été retenue cette fois. Le détail de la décision est disponible dans votre dossier. Message de l''équipe : « Équipe trop nombreuse pour ce site fragile. Une nouvelle demande à 4 personnes maximum est possible. » (Décision prise par l''administration.)', 1, NOW() - INTERVAL 178 DAY, NOW() - INTERVAL 178 DAY, NOW() - INTERVAL 178 DAY),
-(6, 14, 'Votre dossier pour « Menabe Antimena » doit être complété avant de poursuivre son examen. Ouvrez-le depuis Mes demandes pour fournir les éléments demandés. Message de l''équipe : « Le plan de vol drone est manquant. Merci de le joindre avec les altitudes prévues. »', 0, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY),
+(6, 14, 'Votre dossier pour « Menabe Antimena » doit être complété avant de poursuivre son examen. Ouvrez-le depuis Mes demandes pour fournir les éléments demandés. Message de l''équipe : « Le planning de tournage est manquant. Merci de le joindre avec les jours de prises de vue aériennes et les altitudes prévues. »', 0, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY, NOW() - INTERVAL 10 DAY),
 (6, 11, 'Nous avons bien reçu votre demande d''accès à « Allée des Baobabs ». Elle sera examinée prochainement ; vous recevrez une notification dès qu''il y aura du nouveau.', 0, NOW(), NOW(), NOW()),
 (7, 16, 'Nous avons bien reçu votre demande d''accès à « Anjozorobe - Angavo ». Elle sera examinée prochainement ; vous recevrez une notification dès qu''il y aura du nouveau.', 0, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 3 DAY),
-(7, 17, 'Votre demande d''accès à « Menabe Antimena » a été acceptée. Retrouvez votre autorisation et votre cahier des charges dans Mes demandes. Message de l''équipe : « Validé. Bienvenue aux éco-volontaires. »', 0, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY);
+(7, 17, 'Votre demande d''accès à « Menabe Antimena » a été acceptée. Retrouvez votre autorisation et votre cahier des charges dans Mes demandes. Message de l''équipe : « Validé. Bienvenue aux participants de l''atelier. »', 0, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY);
 
 -- Repartir des identifiants suivants pour les prochaines créations
 ALTER TABLE t_users AUTO_INCREMENT = 8;
 ALTER TABLE t_sites AUTO_INCREMENT = 6;
-ALTER TABLE t_type_demandes AUTO_INCREMENT = 5;
-ALTER TABLE t_documents_requis AUTO_INCREMENT = 10;
-ALTER TABLE t_regles_specifiques AUTO_INCREMENT = 12;
+ALTER TABLE t_type_demandes AUTO_INCREMENT = 13;
+ALTER TABLE t_documents_requis AUTO_INCREMENT = 43;
+ALTER TABLE t_regles_specifiques AUTO_INCREMENT = 23;
 ALTER TABLE t_periode_sensibles AUTO_INCREMENT = 9;
 ALTER TABLE t_demandes AUTO_INCREMENT = 23;
 ALTER TABLE t_statuts AUTO_INCREMENT = 7;

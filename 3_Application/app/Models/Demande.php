@@ -11,10 +11,24 @@ class Demande extends Model
     protected $table = 't_demandes';
 
     protected $fillable = [
-        'user_id', 'site_id', 'type_demande_id', 'description',
-        'date_debut', 'date_fin', 'equipe_nombre', 'statut_id',
-        'date_soumission', 'resultats_analyse'
+        'user_id', 'site_id', 'type_demande_id', 'titre', 'type_precision',
+        'description', 'objectifs', 'date_debut', 'date_fin', 'equipe_nombre',
+        'statut_id', 'date_soumission', 'resultats_analyse'
     ];
+
+    /**
+     * Section V du formulaire : engagements que le demandeur accepte à chaque envoi du dossier.
+     * Repris dans le formulaire, son PDF et le cahier des charges.
+     */
+    public const ENGAGEMENTS = [
+        'Respecter les règles de conduite dans les aires protégées',
+        'Ne pas perturber la faune, la flore et les communautés locales',
+        'Ne pas diffuser d\'informations ou images sensibles sans accord préalable de Fanamby',
+        'Remettre à Fanamby une copie du produit final',
+    ];
+
+    /** Coordonnées du demandeur (sections I et V), enregistrées sur son compte. */
+    public const COORDONNEES = ['organisation', 'fonction', 'adresse', 'telephone', 'piece_identite'];
 
     protected $casts = [
         'date_debut' => 'date',
@@ -35,6 +49,16 @@ class Demande extends Model
         return Attribute::get(fn () => $this->id && $this->created_at
             ? sprintf('FAN-%s-%04d', $this->created_at->format('Y'), $this->id)
             : null);
+    }
+
+    /**
+     * Type de projet tel qu'affiché : « Autre (Photographie commerciale) » quand le demandeur l'a précisé.
+     */
+    public function typeProjet(): string
+    {
+        $libelle = (string) $this->typeDemande?->libelle;
+
+        return $this->type_precision ? "{$libelle} ({$this->type_precision})" : $libelle;
     }
 
     public function user() { return $this->belongsTo(User::class); }

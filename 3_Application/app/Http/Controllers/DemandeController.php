@@ -99,19 +99,14 @@ class DemandeController extends Controller
         $demande = DB::transaction(function () use ($request, $validated, $typeDemande, $soumission, $analyse) {
             $statutInitial = $this->statutId($soumission ? 'soumise' : 'brouillon');
 
-            $demande = Demande::create([
+            $demande = Demande::create($this->champsProjet($validated, $typeDemande) + [
                 'user_id' => Auth::id(),
-                'site_id' => $validated['site_id'],
-                'type_demande_id' => $validated['type_demande_id'],
-                'description' => $validated['description'] ?? null,
-                'date_debut' => $validated['date_debut'] ?? null,
-                'date_fin' => $validated['date_fin'] ?? null,
-                'equipe_nombre' => $validated['equipe_nombre'] ?? 1,
                 'statut_id' => $statutInitial,
                 'date_soumission' => $soumission ? now() : null,
                 'resultats_analyse' => $analyse['resultats'], // Fige les résultats dans un JSON
             ]);
 
+            $this->enregistrerCoordonnees($validated);
             DemandeDossier::syncDocuments($demande, $request, $typeDemande, $request->piecesReprises());
 
             // Un brouillon n'entre dans l'historique qu'au moment de sa soumission.
@@ -169,15 +164,7 @@ class DemandeController extends Controller
                 return true;
             }
 
-            $champs = [
-                'site_id' => $validated['site_id'],
-                'type_demande_id' => $validated['type_demande_id'],
-                'description' => $validated['description'] ?? null,
-                'date_debut' => $validated['date_debut'] ?? null,
-                'date_fin' => $validated['date_fin'] ?? null,
-                'equipe_nombre' => $validated['equipe_nombre'] ?? 1,
-                'resultats_analyse' => $analyse['resultats'],
-            ];
+            $champs = $this->champsProjet($validated, $typeDemande) + ['resultats_analyse' => $analyse['resultats']];
 
             if ($renvoiComplement) {
                 // Le dossier retourne directement en analyse chez le validateur.
@@ -193,6 +180,7 @@ class DemandeController extends Controller
             }
 
             $demande->update($champs);
+            $this->enregistrerCoordonnees($validated);
             DemandeDossier::syncDocuments($demande, $request, $typeDemande, $request->piecesReprises());
 
             return false;
@@ -230,6 +218,38 @@ class DemandeController extends Controller
     }
 
     /**
+     * Champs de la demande saisis dans le formulaire (section II). La précision du type
+     * n'est gardée que si le type de projet la demande (« Autre »).
+     */
+    private function champsProjet(array $validated, TypeDemande $typeDemande): array
+    {
+        return [
+            'site_id' => $validated['site_id'],
+            'type_demande_id' => $validated['type_demande_id'],
+            'titre' => $validated['titre'] ?? null,
+            'type_precision' => $typeDemande->precision_requise ? ($validated['type_precision'] ?? null) : null,
+            'description' => $validated['description'] ?? null,
+            'objectifs' => $validated['objectifs'] ?? null,
+            'date_debut' => $validated['date_debut'] ?? null,
+            'date_fin' => $validated['date_fin'] ?? null,
+            'equipe_nombre' => $validated['equipe_nombre'] ?? 1,
+        ];
+    }
+
+    /**
+     * Sections I et V : les coordonnées saisies sont enregistrées sur le compte du demandeur
+     * et reprises dans ses demandes suivantes.
+     */
+    private function enregistrerCoordonnees(array $validated): void
+    {
+        $coordonnees = array_intersect_key($validated, array_flip(Demande::COORDONNEES));
+
+        if ($coordonnees) {
+            Auth::user()->update($coordonnees);
+        }
+    }
+
+    /**
      * Données communes aux formulaires de création et de modification.
      */
     private function formProps(?Demande $demande = null): array
@@ -237,6 +257,9 @@ class DemandeController extends Controller
         return [
             'sites' => Site::all(),
             'types' => TypeDemande::with('documentsRequis:id,type_demande_id,libelle,reutilisable')->get(),
+            // Section I pré-remplie avec le compte ; section V : engagements à accepter
+            'demandeur' => Auth::user()->only(['name', 'email', ...Demande::COORDONNEES]),
+            'engagements' => Demande::ENGAGEMENTS,
             // Pièces réutilisables déjà déposées dans un autre dossier, reprises d'office (id de pièce requise => fichier)
             'reutilisables' => DemandeDossier::piecesReutilisables(Auth::id(), $demande?->id)
                 ->map(fn (Document $document) => [

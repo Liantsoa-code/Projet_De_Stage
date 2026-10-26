@@ -10,21 +10,20 @@
 | remettre true suffit pour la retrouver.
 |
 */
-
 return [
 
     // Tableau de bord complet de l'admin et du validateur.
     // false : seules les 3 statistiques principales sont affichées.
-    'tableau_de_bord_complet' => true,
+    'tableau_de_bord_complet' => false,
 
     // Mon espace
     'mes_demandes' => true,
-    'nouvelle_demande' => true,
+    'nouvelle_demande' => false,
     'profil' => true,
 
     // Instruction (validateur et admin)
-    'dossiers_a_valider' => true, // « Toutes les demandes » pour l'admin
-    'references' => true,
+    'dossiers_a_valider' => false, // « Toutes les demandes » pour l'admin
+    'references' => false,
 
     // Administration
     'aires_protegees' => true,

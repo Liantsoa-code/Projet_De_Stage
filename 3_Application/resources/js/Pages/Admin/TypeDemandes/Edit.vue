@@ -8,6 +8,7 @@ import ListeEditable from '@/Components/ListeEditable.vue';
 const props = defineProps({ type: Object });
 const form = useForm({
     libelle: props.type.libelle,
+    precision_requise: Boolean(props.type.precision_requise),
     documents_requis: (props.type.documents_requis ?? []).map(({ id, libelle, reutilisable }) => ({ id, libelle, reutilisable: Boolean(reutilisable) })),
     regles_specifiques: (props.type.regles_specifiques ?? []).map(({ id, libelle }) => ({ id, libelle })),
 });
@@ -36,6 +37,13 @@ const submit = () => form.put(route('admin.type-demandes.update', props.type.id)
                         <InputLabel value="Libellé *" class="field-label" />
                         <input type="text" class="field-input" v-model="form.libelle" required />
                     </div>
+                    <label class="field-check">
+                        <input v-model="form.precision_requise" type="checkbox" />
+                        <span>
+                            Le demandeur précise son projet
+                            <small>Pour le choix « Autre (précisez) » du formulaire de demande : un champ de précision devient obligatoire.</small>
+                        </span>
+                    </label>
                     <div class="field-group">
                         <InputLabel value="Documents requis" class="field-label" />
                         <ListeEditable
@@ -115,6 +123,9 @@ const submit = () => form.put(route('admin.type-demandes.update', props.type.id)
 .field-textarea { resize: vertical; line-height: 1.5; }
 .field-error { font-size: 11px; color: var(--signal); }
 .field-hint { font-size: 11.5px; color: var(--c-muted); margin: 0; line-height: 1.4; }
+.field-check { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; font-weight: 600; color: var(--c-text); cursor: pointer; }
+.field-check input { margin-top: 2px; accent-color: var(--forest); }
+.field-check small { display: block; font-size: 11.5px; font-weight: 400; color: var(--c-muted); line-height: 1.4; }
 
 .form-footer {
     display: flex; justify-content: flex-end; align-items: center;

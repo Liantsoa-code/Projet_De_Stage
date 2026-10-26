@@ -42,7 +42,10 @@ const deleteType = (id) => {
                 <TableSkeleton v-if="navLoading && samePage" :cols="3" />
                 <tbody v-else>
                     <tr v-for="type in types" :key="type.id">
-                        <td class="fw-strong">{{ type.libelle }}</td>
+                        <td class="fw-strong">
+                            {{ type.libelle }}
+                            <small v-if="type.precision_requise" class="text-dim text-sm" style="display:block;font-weight:400">Précision demandée</small>
+                        </td>
                         <td>
                             <div style="display:flex;flex-wrap:wrap;gap:5px;">
                                 <span v-for="doc in type.documents_requis" :key="doc.id" style="padding:3px 10px;background:var(--sunk);border:1px solid var(--rule);border-radius: var(--r-sm);font-size:11.5px;color:var(--ink-2);font-weight:500;">

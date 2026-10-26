@@ -22,12 +22,13 @@ const props = defineProps({
 const CHOIX = {
     en_analyse: { label: 'Prendre en charge', sub: 'Passe le dossier en analyse et prévient le demandeur', icon: 'stamp' },
     a_completer: { label: 'Demander un complément', sub: 'Le dossier retourne au demandeur avec votre commentaire', icon: 'pencil-simple-line' },
-    validee: { label: 'Générer les documents', sub: 'Prépare l\'autorisation et le cahier des charges à relire, puis vous signez pour valider', icon: 'seal-check' },
-    rejetee: { label: 'Rejeter la demande', sub: 'Décision définitive, le dossier est clos', icon: 'prohibit' },
+    validee: { label: 'Avis favorable', sub: 'Génère l\'autorisation et le cahier des charges à relire, puis vous signez pour valider', icon: 'seal-check' },
+    rejetee: { label: 'Avis défavorable', sub: 'La demande est rejetée : décision définitive, le dossier est clos', icon: 'prohibit' },
     soumise: { label: 'Remettre en file', sub: 'Le dossier repasse au statut soumis', icon: 'arrow-left' },
 };
 
 const nomValidateur = computed(() => usePage().props.auth.user.name);
+const fonctionValidateur = computed(() => usePage().props.auth.user.fonction);
 const idValidee = computed(() => props.statuts.find((s) => s.code === 'validee')?.id);
 
 // Documents déjà générés : la décision en cours est la validation.
@@ -83,10 +84,16 @@ const boutonLabel = computed(() => {
     if (statutChoisi.value === 'validee') return props.documentsGeneres ? 'Signer et valider le dossier' : 'Générer les documents';
     return {
         a_completer: 'Envoyer la demande de complément',
-        rejetee: 'Rejeter la demande',
+        rejetee: 'Émettre l\'avis défavorable',
         en_analyse: 'Prendre en charge',
         soumise: 'Remettre en file',
     }[statutChoisi.value] ?? 'Choisissez une décision';
+});
+// Section VI du formulaire : un avis favorable (validation) ou défavorable (rejet) s'accompagne d'observations
+const avis = computed(() => ['validee', 'rejetee'].includes(statutChoisi.value));
+const libelleCommentaire = computed(() => {
+    if (statutChoisi.value === 'a_completer') return 'Compléments attendus';
+    return avis.value ? 'Observations' : 'Commentaire pour le demandeur';
 });
 const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-danger' }[statutChoisi.value] ?? 'btn-accent'));
 </script>
@@ -109,7 +116,7 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
         </template>
 
         <div class="intro">
-            <h1 class="intro__title">{{ demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
+            <h1 class="intro__title">{{ demande.titre || demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
             <StatutSteps :code="code" large />
         </div>
 
@@ -125,6 +132,10 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 
                 <dl class="meta">
                     <div><dt>Demandeur</dt><dd>{{ demande.user.name }}<small>{{ demande.user.email }}</small></dd></div>
+                    <div><dt>Organisation</dt><dd>{{ demande.user.organisation || '—' }}<small>{{ demande.user.fonction }}</small></dd></div>
+                    <div><dt>Contact</dt><dd>{{ demande.user.telephone || '—' }}<small>{{ demande.user.adresse }}</small></dd></div>
+                    <div><dt>CIN / Passeport</dt><dd class="mono">{{ demande.user.piece_identite || '—' }}</dd></div>
+                    <div><dt>Type de projet</dt><dd>{{ demande.type_demande.libelle }}<small v-if="demande.type_precision">{{ demande.type_precision }}</small></dd></div>
                     <div><dt>Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
                     <div><dt>Séjour</dt><dd class="mono">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }}</dd></div>
                     <div><dt>Équipe</dt><dd>{{ demande.equipe_nombre }} personne{{ demande.equipe_nombre > 1 ? 's' : '' }}</dd></div>
@@ -146,8 +157,15 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                 </div>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Description du projet</h2></header>
-                    <p class="panel__text">{{ demande.description }}</p>
+                    <header class="panel__head">
+                        <h2>Projet</h2>
+                        <button type="button" class="link link-btn" @click="openPdf(route('demandes.pdf.formulaire', demande.id), `formulaire_demande_${demande.id}.pdf`)">Formulaire de demande (PDF)</button>
+                    </header>
+                    <dl class="projet">
+                        <div><dt>Titre du projet</dt><dd>{{ demande.titre || '—' }}</dd></div>
+                        <div><dt>Résumé du synopsis</dt><dd>{{ demande.description || '—' }}</dd></div>
+                        <div><dt>Objectif(s) principal(aux)</dt><dd>{{ demande.objectifs || '—' }}</dd></div>
+                    </dl>
                 </section>
 
                 <section class="panel">
@@ -243,8 +261,9 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 
                         <template v-if="statutChoisi !== 'validee' || documentsGeneres">
                             <div>
-                                <label class="gf-label" for="commentaire">{{ statutChoisi === 'a_completer' ? 'Compléments attendus' : 'Commentaire pour le demandeur' }}</label>
+                                <label class="gf-label" for="commentaire">{{ libelleCommentaire }}</label>
                                 <textarea id="commentaire" v-model="form.commentaire" rows="4" class="gf-textarea" required :placeholder="statutChoisi === 'a_completer' ? 'Pièces ou précisions à fournir' : 'Motif de la décision'"></textarea>
+                                <p v-if="avis" class="hint">Reprises dans la section VI « Décision de Fanamby » du formulaire de demande, avec votre nom{{ fonctionValidateur ? ` et votre fonction (${fonctionValidateur})` : '' }}.</p>
                                 <p v-if="form.errors.commentaire" class="gf-error">{{ form.errors.commentaire }}</p>
                             </div>
 
@@ -296,6 +315,10 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .panel__text { padding: 16px 24px; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; }
 .panel__body { display: grid; gap: 14px; padding: 16px 24px; font-size: 14px; color: var(--ink-2); }
 .muted { color: var(--ink-3); }
+.link-btn { padding: 0; background: none; border: 0; cursor: pointer; }
+.projet { display: grid; gap: 12px; margin: 0; padding: 8px 24px 18px; }
+.projet dt { font: 600 10.5px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
+.projet dd { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; overflow-wrap: anywhere; }
 .link { font-size: 13px; font-weight: 600; color: var(--water); text-decoration: none; }
 .link:hover { text-decoration: underline; }
 

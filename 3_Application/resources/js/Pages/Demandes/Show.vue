@@ -56,7 +56,7 @@ const openPdf = async (url, filename) => {
         </template>
 
         <div class="intro">
-            <h1 class="intro__title">{{ demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
+            <h1 class="intro__title">{{ demande.titre || demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
             <StatutSteps :code="code" large />
         </div>
 
@@ -98,7 +98,7 @@ const openPdf = async (url, filename) => {
             <div class="stack">
                 <dl class="meta">
                     <div><dt>Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
-                    <div><dt>Activité</dt><dd>{{ demande.type_demande.libelle }}</dd></div>
+                    <div><dt>Type de projet</dt><dd>{{ demande.type_demande.libelle }}<template v-if="demande.type_precision"> ({{ demande.type_precision }})</template></dd></div>
                     <div>
                         <dt>Séjour</dt>
                         <dd class="mono">
@@ -111,8 +111,13 @@ const openPdf = async (url, filename) => {
                 </dl>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Description du projet</h2></header>
+                    <header class="panel__head"><h2>Résumé du synopsis</h2></header>
                     <p class="panel__text">{{ demande.description || '—' }}</p>
+                </section>
+
+                <section class="panel">
+                    <header class="panel__head"><h2>Objectif(s) principal(aux) du projet</h2></header>
+                    <p class="panel__text">{{ demande.objectifs || '—' }}</p>
                 </section>
 
                 <div v-for="(a, i) in demande.resultats_analyse || []" :key="i" class="conflict">
@@ -156,9 +161,13 @@ const openPdf = async (url, filename) => {
                     <TimelineDemande :demande="demande" vue-demandeur :delai-habituel="delaiHabituel" />
                 </section>
 
-                <section v-if="canEdit || canDelete" class="panel">
+                <section v-if="canEdit || canDelete || code !== 'brouillon'" class="panel">
                     <header class="panel__head"><h2>Actions</h2></header>
                     <div class="side-actions">
+                        <button v-if="code !== 'brouillon'" type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.formulaire', demande.id), `formulaire_demande_${demande.id}.pdf`)">
+                            <Icon name="file-pdf" />
+                            Formulaire de demande
+                        </button>
                         <Link v-if="canEdit" :href="route('demandes.edit', demande.id)" class="btn-ghost">
                             <Icon name="pencil-simple" />
                             {{ code === 'a_completer' ? 'Compléter le dossier' : 'Modifier le brouillon' }}

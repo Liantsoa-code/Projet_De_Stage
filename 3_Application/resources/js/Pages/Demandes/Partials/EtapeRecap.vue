@@ -1,17 +1,25 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
+import InputError from '@/Components/InputError.vue';
 import { computed } from 'vue';
 import { formatDate } from '@/utils/statut.js';
 
-// Étape « Récapitulatif » : tout le dossier avant l'envoi, avec un lien « Modifier » par partie
+// Dernière étape : récapitulatif du dossier, avec un lien « Modifier » par partie,
+// puis « V. Engagement du demandeur » (pièce d'identité et acceptation, renouvelée à chaque envoi).
+// Lors d'un complément, le demandeur peut aussi écrire au validateur.
 const props = defineProps({
     form: { type: Object, required: true },
-    typeActivite: { type: Object, default: null },
+    // Compte connecté : name, email
+    demandeur: { type: Object, required: true },
+    engagements: { type: Array, required: true },
+    typeProjet: { type: Object, default: null },
     site: { type: Object, default: null },
     // État du calendrier sur les dates choisies : aucun (pas de dates), ouvert, sensible ou bloquant
     calendrier: { type: String, required: true },
     // Pièces exigées par le type, avec le fichier choisi (fichier), déjà envoyé (existant) ou repris d'un autre dossier (reprise)
     pieces: { type: Array, required: true },
+    aCompleter: { type: Boolean, default: false },
+    today: { type: String, required: true },
 });
 
 defineEmits(['modifier']);
@@ -19,17 +27,29 @@ defineEmits(['modifier']);
 const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin && props.form.date_fin >= props.form.date_debut
     ? Math.round((new Date(props.form.date_fin) - new Date(props.form.date_debut)) / 86400000) + 1
     : null));
+const coordonnees = computed(() => [props.form.fonction, props.form.adresse, props.form.telephone].filter(Boolean).join(' · '));
 </script>
 
 <template>
-    <p class="hint">Vérifiez votre dossier avant de l'envoyer. Chaque partie peut encore être modifiée.</p>
+    <p class="hint">Vérifiez votre dossier, puis signez l'engagement pour l'envoyer. Chaque partie peut encore être modifiée.</p>
     <dl class="recap">
         <div class="recap__bloc">
-            <dt>Activité et aire protégée <button type="button" class="recap__edit" @click="$emit('modifier', 'activite')">Modifier</button></dt>
-            <dd><strong>{{ typeActivite?.libelle ?? '—' }}</strong> · {{ site?.nom ?? '—' }}</dd>
+            <dt>I. Demandeur <button type="button" class="recap__edit" @click="$emit('modifier', 'demandeur')">Modifier</button></dt>
+            <dd><strong>{{ demandeur.name }}</strong> · {{ form.organisation || '—' }}</dd>
+            <dd class="recap__sub">{{ coordonnees || '—' }} · {{ demandeur.email }}</dd>
         </div>
         <div class="recap__bloc">
-            <dt>Séjour <button type="button" class="recap__edit" @click="$emit('modifier', 'dates')">Modifier</button></dt>
+            <dt>II. Projet <button type="button" class="recap__edit" @click="$emit('modifier', 'projet')">Modifier</button></dt>
+            <dd><strong>{{ form.titre || '—' }}</strong></dd>
+            <dd class="recap__sub">
+                {{ typeProjet?.libelle ?? '—' }}<template v-if="typeProjet?.precision_requise && form.type_precision"> ({{ form.type_precision }})</template>
+            </dd>
+            <dd class="recap__texte"><em>Synopsis :</em> {{ form.description || '—' }}</dd>
+            <dd class="recap__texte"><em>Objectifs :</em> {{ form.objectifs || '—' }}</dd>
+        </div>
+        <div class="recap__bloc">
+            <dt>Aire protégée et période <button type="button" class="recap__edit" @click="$emit('modifier', 'aire')">Modifier</button></dt>
+            <dd><strong>{{ site?.nom ?? '—' }}</strong></dd>
             <dd>
                 <span class="mono">{{ formatDate(form.date_debut) }} → {{ formatDate(form.date_fin) }}</span>
                 <template v-if="joursSejour"> · {{ joursSejour }} jour{{ joursSejour > 1 ? 's' : '' }}</template>
@@ -38,11 +58,6 @@ const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin
             <dd v-if="calendrier === 'bloquant'" class="recap__res recap__res--block"><Icon name="prohibit" />Période bloquante sur ces dates : envoi impossible.</dd>
             <dd v-else-if="calendrier === 'sensible'" class="recap__res recap__res--warn"><Icon name="warning" />Période sensible sur ces dates : la demande sera signalée au validateur.</dd>
             <dd v-else-if="calendrier === 'ouvert'" class="recap__res recap__res--ok"><Icon name="check-circle" />Aucune période sensible sur ces dates.</dd>
-        </div>
-        <div class="recap__bloc">
-            <dt>Objet de la mission <button type="button" class="recap__edit" @click="$emit('modifier', 'mission')">Modifier</button></dt>
-            <dd class="recap__texte">{{ form.description || '—' }}</dd>
-            <dd v-if="form.message_complement" class="recap__texte"><em>Message au validateur :</em> {{ form.message_complement }}</dd>
         </div>
         <div v-if="pieces.length" class="recap__bloc">
             <dt>Pièces jointes <button type="button" class="recap__edit" @click="$emit('modifier', 'pieces')">Modifier</button></dt>
@@ -59,6 +74,34 @@ const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin
             </dd>
         </div>
     </dl>
+
+    <section class="engagement" aria-labelledby="titre-engagement">
+        <h3 id="titre-engagement">V. Engagement du demandeur</h3>
+        <p>Je soussigné(e) <strong>{{ demandeur.name }}</strong>,</p>
+        <div class="engagement__piece">
+            <label class="gf-label" for="piece_identite">CIN / Passeport N°</label>
+            <input id="piece_identite" v-model="form.piece_identite" type="text" class="gf-input" maxlength="50" autocomplete="off" required />
+            <InputError class="gf-error" :message="form.errors.piece_identite" />
+        </div>
+        <p>m'engage à :</p>
+        <ul class="engagement__liste">
+            <li v-for="(e, i) in engagements" :key="i">{{ e }}{{ i === engagements.length - 1 ? '.' : ' ;' }}</li>
+        </ul>
+        <label class="engagement__case">
+            <input id="engagement" v-model="form.engagement" type="checkbox" />
+            <span>
+                J'accepte ces engagements.
+                <small>Cocher cette case vaut signature du demandeur, datée de l'envoi du dossier (aujourd'hui : {{ formatDate(today) }}).</small>
+            </span>
+        </label>
+        <InputError class="gf-error" :message="form.errors.engagement" />
+    </section>
+
+    <div v-if="aCompleter">
+        <label class="gf-label" for="message_complement">Message au validateur (facultatif)</label>
+        <textarea id="message_complement" v-model="form.message_complement" class="gf-textarea" rows="3" placeholder="Précisez ce que vous avez modifié ou ajouté"></textarea>
+        <InputError class="gf-error" :message="form.errors.message_complement" />
+    </div>
 </template>
 
 <style scoped>
@@ -69,6 +112,7 @@ const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin
 .recap__bloc:first-child { border-top: 0; padding-top: 0; }
 .recap dt { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font: 600 10.5px/1.3 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
 .recap dd { margin: 0; font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+.recap__sub { color: var(--ink-2); font-size: 13.5px; }
 .recap__edit { padding: 0; background: none; border: 0; font: 600 12.5px var(--f-body); text-transform: none; letter-spacing: 0; color: var(--water); cursor: pointer; }
 .recap__edit:hover { text-decoration: underline; }
 .recap__texte { white-space: pre-line; color: var(--ink-2); max-width: 75ch; }
@@ -82,4 +126,15 @@ const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin
 .recap__pieces svg { width: 18px; height: 18px; color: var(--forest); }
 .recap__pieces small { display: block; font-size: 12.5px; color: var(--ink-3); }
 .recap__pieces .is-missing svg, .recap__pieces .is-missing small { color: var(--ochre); }
+
+.engagement { display: grid; gap: 10px; padding: 16px 18px; background: var(--sunk); border: 1px solid var(--rule); border-radius: var(--r-sm); font-size: 14px; color: var(--ink-2); }
+.engagement h3 { font-size: 15px; font-weight: 700; color: var(--ink); }
+.engagement strong { color: var(--ink); }
+.engagement__piece { max-width: 320px; }
+.engagement__liste { margin: 0; padding-left: 20px; display: grid; gap: 3px; list-style: disc; }
+.engagement__case { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-sm); font-weight: 600; color: var(--ink); cursor: pointer; }
+.engagement__case:has(input:checked) { border-color: var(--forest); }
+.engagement__case:has(input:focus-visible) { outline: 2px solid var(--water); outline-offset: 2px; }
+.engagement__case input { margin-top: 3px; accent-color: var(--forest); flex-shrink: 0; }
+.engagement__case small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--ink-3); }
 </style>

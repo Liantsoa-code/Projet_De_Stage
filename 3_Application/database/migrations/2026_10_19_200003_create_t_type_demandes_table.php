@@ -5,7 +5,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Types d'activité et leurs deux listes (1NF : une ligne par élément, pas de liste JSON) :
+ * Types de projet (« Type de projet » du formulaire de demande). precision_requise : le demandeur
+ * doit préciser son projet (choix « Autre (précisez) »).
+ * Chaque type a deux listes (1NF : une ligne par élément, pas de liste JSON) :
  * - t_documents_requis : pièces à joindre, libellé unique par type ; une pièce « réutilisable »
  *   (pièce d'identité, assurance…) déjà déposée par le demandeur est reprise dans ses demandes suivantes ;
  * - t_regles_specifiques : règles reprises dans le cahier des charges.
@@ -17,6 +19,7 @@ return new class extends Migration
         Schema::create('t_type_demandes', function (Blueprint $table) {
             $table->id();
             $table->string('libelle', 100);
+            $table->boolean('precision_requise')->default(false);
             $table->timestamps();
         });
 

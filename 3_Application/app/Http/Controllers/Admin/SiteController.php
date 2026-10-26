@@ -75,4 +75,6 @@ class SiteController extends Controller
         $site->delete();
         return redirect()->route('admin.sites.index')->with('message', 'Aire protégée supprimée avec succès.');
     }
+
+
 }

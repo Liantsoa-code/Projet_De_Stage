@@ -207,7 +207,7 @@ function bindLayerEvents() {
     });
 }
 
-// Marqueur HTML avec animation pulse, présent pour TOUS les sites
+// Marqueur HTML avec animation pulse
 function ajouterMarqueur(id, centre) {
     const container = document.createElement('div');
     container.style.width  = '0px';

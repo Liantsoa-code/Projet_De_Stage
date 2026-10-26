@@ -29,7 +29,7 @@ defineProps({
                 <slot />
             </main>
 
-            <footer class="guest__foot">Fondation FANAMBY · Antananarivo, Madagascar</footer>
+            <footer class="guest__foot">Association FANAMBY · Antananarivo, Madagascar</footer>
         </div>
 
         <figure class="guest__visual">
@@ -43,7 +43,7 @@ defineProps({
             <figcaption class="guest__caption">
                 <slot name="caption">
                     <span class="eyebrow">Demandes d'accès</span>
-                    <p>Recherche scientifique et tournage dans les aires protégées gérées par la Fondation, avec vérification du calendrier de chaque site.</p>
+                    <p>Recherche scientifique et tournage dans les aires protégées gérées par l'Association, avec vérification du calendrier de chaque site.</p>
                 </slot>
                 <span class="guest__credit">Indri (Indri indri)</span>
             </figcaption>

@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Demandes d'accès. Les dates sont facultatives tant que la demande est un brouillon ;
+ * Demandes d'accès : section II du formulaire (titre, type de projet et sa précision, résumé du
+ * synopsis dans description, objectifs, aire protégée, période). Les champs du projet et les dates
+ * sont facultatifs tant que la demande est un brouillon ;
  * statut_id est toujours le dernier statut historisé (ou « brouillon » sans historique).
  * - RESTRICT : un site, un type ou un statut encore utilisé ne peut pas être supprimé ;
  * - CHECK : fin après début, équipe d'au moins une personne (un NULL les satisfait : brouillon).
@@ -20,7 +22,10 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('t_users')->cascadeOnDelete();
             $table->foreignId('site_id')->constrained('t_sites')->restrictOnDelete();
             $table->foreignId('type_demande_id')->constrained('t_type_demandes')->restrictOnDelete();
-            $table->text('description')->nullable();
+            $table->string('titre', 200)->nullable();
+            $table->string('type_precision', 150)->nullable(); // « Autre (précisez) »
+            $table->text('description')->nullable(); // résumé du synopsis
+            $table->text('objectifs')->nullable();
             $table->date('date_debut')->nullable();
             $table->date('date_fin')->nullable();
             $table->integer('equipe_nombre')->default(1);

@@ -208,7 +208,7 @@ onUnmounted(() => chart?.destroy());
             </section>
 
             <section class="panel">
-                <header class="panel__head"><h2>Par type d'activité</h2></header>
+                <header class="panel__head"><h2>Par type de projet</h2></header>
                 <ul v-if="parType.length" class="bars">
                     <li v-for="t in parType" :key="t.nom">
                         <span class="bars__label">{{ t.nom }}</span>

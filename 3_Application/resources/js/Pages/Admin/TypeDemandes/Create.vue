@@ -7,6 +7,7 @@ import ListeEditable from '@/Components/ListeEditable.vue';
 
 const form = useForm({
     libelle: '',
+    precision_requise: false,
     documents_requis: [],
     regles_specifiques: [],
 });
@@ -33,8 +34,15 @@ const submit = () => form.post(route('admin.type-demandes.store'));
                 <form @submit.prevent="submit" class="form-body">
                     <div class="field-group">
                         <InputLabel value="Libellé *" class="field-label" />
-                        <input type="text" class="field-input" v-model="form.libelle" required placeholder="Ex : Recherche scientifique" />
+                        <input type="text" class="field-input" v-model="form.libelle" required placeholder="Ex : Documentaire" />
                     </div>
+                    <label class="field-check">
+                        <input v-model="form.precision_requise" type="checkbox" />
+                        <span>
+                            Le demandeur précise son projet
+                            <small>Pour le choix « Autre (précisez) » du formulaire de demande : un champ de précision devient obligatoire.</small>
+                        </span>
+                    </label>
                     <div class="field-group">
                         <InputLabel value="Documents requis" class="field-label" />
                         <ListeEditable
@@ -114,6 +122,9 @@ const submit = () => form.post(route('admin.type-demandes.store'));
 .field-textarea { resize: vertical; line-height: 1.5; }
 .field-error { font-size: 11px; color: var(--signal); }
 .field-hint { font-size: 11.5px; color: var(--c-muted); margin: 0; line-height: 1.4; }
+.field-check { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; font-weight: 600; color: var(--c-text); cursor: pointer; }
+.field-check input { margin-top: 2px; accent-color: var(--forest); }
+.field-check small { display: block; font-size: 11.5px; font-weight: 400; color: var(--c-muted); line-height: 1.4; }
 
 .form-footer {
     display: flex; justify-content: flex-end; align-items: center;

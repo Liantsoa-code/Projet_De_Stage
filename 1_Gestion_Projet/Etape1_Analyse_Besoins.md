@@ -32,18 +32,27 @@ Le dictionnaire des données recense de manière exhaustive toutes les informati
 | **email_utilisateur**| Texte | Adresse email (sert d'identifiant de connexion) |
 | **mot_de_passe** | Texte | Mot de passe chiffré |
 | **role_utilisateur** | Texte court | Niveau de privilège (demandeur, validateur, admin) |
+| **organisation_utilisateur** | Texte | Institution, société de production ou organisation (formulaire de demande, section I) |
+| **fonction_utilisateur** | Texte | Fonction du demandeur ; pour un décideur, reprise dans la décision de Fanamby (section VI) |
+| **adresse_utilisateur** | Texte | Adresse postale du demandeur |
+| **telephone_utilisateur** | Texte court | Numéro de téléphone du demandeur |
+| **piece_identite** | Texte court | N° de CIN ou de passeport du demandeur (section V, engagement) |
 | **id_site** | Entier | Identifiant unique de l'aire protégée |
 | **nom_site** | Texte | Nom de l'aire protégée (ex: Lokobe) |
 | **description_site** | Texte long | Informations générales sur le site |
 | **coordonnees_site** | JSON | Tracé du polygone géographique pour la carte interactive |
 | **id_type_demande** | Entier | Identifiant du type de demande |
-| **libelle_type** | Texte | Catégorie (Tournage par drone, Recherche...) |
+| **libelle_type** | Texte | Type de projet du formulaire de demande (Long métrage, Documentaire, Publicité, Autre...) |
+| **precision_requise** | Booléen | Le demandeur doit préciser son projet (choix « Autre (précisez) ») |
 | **id_document_requis** | Entier | Identifiant d'une pièce exigée pour un type |
 | **libelle_document_requis** | Texte | Nom de la pièce exigée (ex : Plan de vol drone) |
 | **id_regle** | Entier | Identifiant d'une règle spécifique |
 | **libelle_regle** | Texte | Règle à respecter, reprise dans le cahier des charges (ex : Équipe limitée à 5 personnes) |
 | **id_demande** | Entier | Identifiant unique de la demande |
-| **description_demande**| Texte long | Détail des activités prévues sur le site |
+| **titre_projet** | Texte | Titre du projet (section II) |
+| **precision_type** | Texte | Précision du type de projet lorsque le type la demande (« Autre ») |
+| **description_demande**| Texte long | Résumé du synopsis du projet |
+| **objectifs_projet** | Texte long | Objectif(s) principal(aux) du projet |
 | **date_debut_activite**| Date | Date prévue de début de l'accès au site |
 | **date_fin_activite**| Date | Date prévue de fin de l'accès au site |
 | **nombre_personnes** | Entier | Taille de l'équipe prévue sur le terrain |

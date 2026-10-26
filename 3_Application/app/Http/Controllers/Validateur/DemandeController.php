@@ -62,7 +62,7 @@ class DemandeController extends Controller
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF"); // BOM : Excel détecte l'UTF-8 (accents)
             fputcsv($out, [
-                'N°', 'Demandeur', 'Email', 'Aire protégée', "Type d'activité", 'Début', 'Fin', 'Équipe',
+                'N°', 'Demandeur', 'Email', 'Aire protégée', 'Titre du projet', 'Type de projet', 'Début', 'Fin', 'Équipe',
                 'Statut', 'Soumise le', 'Décision le', 'Délai (jours)', 'Chevauchements',
             ], ';');
 
@@ -74,7 +74,8 @@ class DemandeController extends Controller
                         $d->user?->name,
                         $d->user?->email,
                         $d->site?->nom,
-                        $d->typeDemande?->libelle,
+                        $d->titre,
+                        $d->typeProjet(),
                         $d->date_debut?->format('d/m/Y'),
                         $d->date_fin?->format('d/m/Y'),
                         $d->equipe_nombre,
@@ -139,7 +140,8 @@ class DemandeController extends Controller
         Gate::authorize('instruire', $demande);
 
         $demande->load([
-            'site:id,nom', 'typeDemande.documentsRequis', 'statut', 'user:id,name,email', 'documents',
+            'site:id,nom', 'typeDemande.documentsRequis', 'statut', 'documents',
+            'user:id,name,email,organisation,fonction,adresse,telephone,piece_identite',
             'historiqueStatuts' => fn ($q) => $q->orderBy('date_changement')->orderBy('id'),
             'historiqueStatuts.user:id,name,role',
             'historiqueStatuts.nouveauStatut',
@@ -210,7 +212,7 @@ class DemandeController extends Controller
                 'date_changement' => now(),
             ]);
 
-            // Notification du demandeur (Phase 6.3)
+            // Notification (cloche + email) du demandeur et de l'équipe du site (Phase 6.3)
             DemandeNotifications::decision($demande, $nouveauStatut, $user, $validated['commentaire']);
 
             return null;

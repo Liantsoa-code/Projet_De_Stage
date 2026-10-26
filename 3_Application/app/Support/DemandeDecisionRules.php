@@ -43,4 +43,26 @@ class DemandeDecisionRules
             })
             ->get();
     }
+
+    /**
+     * Équipe à tenir informée d'un changement de statut : validateurs du site et admins,
+     * hors auteur de la décision et hors demandeur (prévenu par son propre message).
+     *
+     * @return Collection<int, User>
+     */
+    public static function notifiableTeamForDecision(Demande $demande, User $decideur): Collection
+    {
+        $siteId = $demande->site_id;
+
+        return User::query()
+            ->whereNotIn('id', [$decideur->id, $demande->user_id])
+            ->where(function ($q) use ($siteId) {
+                $q->where('role', 'admin')
+                    ->orWhere(function ($q2) use ($siteId) {
+                        $q2->where('role', 'validateur')
+                            ->whereHas('sites', fn ($q3) => $q3->where('t_sites.id', $siteId));
+                    });
+            })
+            ->get();
+    }
 }

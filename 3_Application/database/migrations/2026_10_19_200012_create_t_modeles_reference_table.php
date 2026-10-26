@@ -52,13 +52,13 @@ N° [numéro]/FANAMBY/[année]
 
 [Monsieur / Madame],
 
-La Fondation FANAMBY, gestionnaire délégué de l'aire protégée de [aire protégée], a examiné la demande présentée par [nom du bénéficiaire], [fonction] au sein de [organisme].
+L'Association FANAMBY, gestionnaire délégué de l'aire protégée de [aire protégée], a examiné la demande présentée par [nom du bénéficiaire], [fonction] au sein de [organisme].
 
 Cette demande porte sur la réalisation de l'activité suivante : [activité], du [date de début] au [date de fin], avec une équipe de [nombre] personne(s).
 
 **Objet de la mission :** [description du projet]
 
-Après analyse du dossier, la Fondation FANAMBY émet un **AVIS FAVORABLE** à cette demande, sous réserve :
+Après analyse du dossier, l'Association FANAMBY émet un **AVIS FAVORABLE** à cette demande, sous réserve :
 - de l'obtention des autorisations délivrées par l'autorité compétente ;
 - du strict respect du cahier des charges de l'aire protégée et des périodes sensibles en vigueur ;
 - de la présence d'un agent ou d'un guide désigné par le gestionnaire pendant toute la durée du séjour ;
@@ -66,7 +66,7 @@ Après analyse du dossier, la Fondation FANAMBY émet un **AVIS FAVORABLE** à c
 
 Veuillez agréer, [Monsieur / Madame], l'expression de notre considération distinguée.
 
-> **Pour la Fondation FANAMBY,**
+> **Pour l'Association FANAMBY,**
 > [nom et fonction du signataire]
 >
 > Signature et cachet
@@ -81,13 +81,13 @@ TXT,
                 'contenu' => <<<'TXT'
 # Autorisation officielle d'accès
 
-Nous soussignés, la Fondation FANAMBY, autorisons par la présente :
+Nous soussignés, l'Association FANAMBY, autorisons par la présente :
 
 **Monsieur / Madame :** [nom du bénéficiaire] ([adresse e-mail])
 
 À accéder à l'aire protégée de : **[aire protégée]**
 
-Dans le cadre de l'activité suivante : **[activité]**
+Dans le cadre du projet suivant : **[type de projet]** — « [titre du projet] »
 
 **Période autorisée :** du [date de début] au [date de fin]
 
@@ -109,24 +109,30 @@ TXT,
             [
                 'titre' => 'Cahier des charges',
                 'description' => "Annexe obligatoire de l'autorisation : règles à respecter sur le site et engagement signé du demandeur.",
-                'usage' => "Produit avec l'autorisation à la validation d'un dossier ; les règles viennent du type d'activité.",
+                'usage' => "Produit avec l'autorisation à la validation d'un dossier ; les règles viennent du type de projet, l'engagement du formulaire de demande.",
                 'icone' => 'file-text',
                 'automatique' => true,
                 'contenu' => <<<'TXT'
 # Cahier des charges à respecter
 
-Ce document est une annexe obligatoire à l'autorisation d'accès pour **[nom du bénéficiaire]** dans l'aire protégée de **[aire protégée]**, pour l'activité **[activité]**.
+Ce document est une annexe obligatoire à l'autorisation d'accès pour **[nom du bénéficiaire]** dans l'aire protégée de **[aire protégée]**, pour le projet **[type de projet]**.
 
-## Règles spécifiques liées à l'activité
-- [règle du type d'activité, une par ligne]
+## Règles spécifiques liées au type de projet
+- [règle du type de projet, une par ligne]
 
 ## Avertissements lors de l'analyse
 [périodes sensibles qui chevauchent le séjour, le cas échéant]
 
 ## Engagement du demandeur
-Le demandeur certifie avoir pris connaissance des règlements internes de l'aire protégée et s'engage à respecter la faune, la flore et les communautés locales. Tout non-respect de ce cahier des charges entraînera des poursuites.
+Le demandeur s'engage à :
+- respecter les règles de conduite dans les aires protégées ;
+- ne pas perturber la faune, la flore et les communautés locales ;
+- ne pas diffuser d'informations ou images sensibles sans accord préalable de Fanamby ;
+- remettre à Fanamby une copie du produit final.
 
-**Signature du demandeur :** ___________________________
+Tout non-respect de ce cahier des charges entraînera des poursuites.
+
+**Signature du demandeur :** engagements acceptés en ligne le [date d'envoi du dossier]
 TXT,
             ],
             [
@@ -152,14 +158,14 @@ N° [numéro]/FANAMBY/[année]
 
 Par votre demande déposée le [date de dépôt], vous avez sollicité l'accès à l'aire protégée de [aire protégée] pour l'activité suivante : [activité], du [date de début] au [date de fin].
 
-Après examen de votre dossier, nous avons le regret de vous informer que la Fondation FANAMBY émet un **AVIS DÉFAVORABLE** à cette demande, pour le(s) motif(s) suivant(s) :
+Après examen de votre dossier, nous avons le regret de vous informer que l'Association FANAMBY émet un **AVIS DÉFAVORABLE** à cette demande, pour le(s) motif(s) suivant(s) :
 - [motif du refus]
 
 Vous pouvez déposer une nouvelle demande sur la plateforme lorsque les conditions ci-dessus seront réunies. Nos équipes restent à votre disposition pour toute information complémentaire.
 
 Veuillez agréer, [Monsieur / Madame], l'expression de nos salutations distinguées.
 
-> **Pour la Fondation FANAMBY,**
+> **Pour l'Association FANAMBY,**
 > [nom et fonction du signataire]
 >
 > Signature et cachet
@@ -200,7 +206,7 @@ Merci de compléter votre dossier directement sur la plateforme (bouton « Compl
 
 Veuillez agréer, [Monsieur / Madame], l'expression de nos salutations distinguées.
 
-> **Pour la Fondation FANAMBY,**
+> **Pour l'Association FANAMBY,**
 > [nom et fonction du signataire]
 TXT,
             ],

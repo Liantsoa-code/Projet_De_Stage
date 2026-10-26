@@ -23,7 +23,7 @@ const CONTENU_VIDE = `N° [numéro]/FANAMBY/[année]
 
 Texte du document…
 
-> **Pour la Fondation FANAMBY,**
+> **Pour l'Association FANAMBY,**
 > [nom et fonction du signataire]`;
 
 const form = useForm({

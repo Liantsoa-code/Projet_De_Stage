@@ -79,7 +79,7 @@ class RepriseDocumentsTest extends TestCase
 
     private function payload(TypeDemande $type, array $overrides = []): array
     {
-        return array_merge([
+        return array_merge($this->champsFormulaire(), [
             'site_id' => $this->site->id,
             'type_demande_id' => $type->id,
             'date_debut' => now()->addDays(5)->toDateString(),

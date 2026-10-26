@@ -5,7 +5,7 @@
 
 Project projet_stage {
   database_type: 'MySQL'
-  Note: 'Plateforme d\'accès aux aires protégées — Fondation FANAMBY'
+  Note: 'Plateforme d\'accès aux aires protégées — Association FANAMBY'
 }
 
 Enum role_utilisateur {
@@ -26,6 +26,11 @@ Table t_users {
   email_verified_at timestamp
   password varchar(255) [not null]
   role role_utilisateur [not null, default: 'demandeur']
+  organisation varchar(150) [note: 'Formulaire de demande, section I']
+  fonction varchar(100) [note: 'Section I ; pour un décideur, reprise dans la section VI']
+  adresse varchar(255)
+  telephone varchar(30)
+  piece_identite varchar(50) [note: 'N° de CIN ou de passeport (section V)']
   remember_token varchar(100)
   created_at timestamp
   updated_at timestamp
@@ -62,7 +67,8 @@ Table t_statuts {
 
 Table t_type_demandes {
   id bigint [pk, increment]
-  libelle varchar(100) [not null]
+  libelle varchar(100) [not null, note: 'Type de projet du formulaire de demande']
+  precision_requise boolean [not null, default: false, note: 'Le demandeur précise son projet (« Autre »)']
   created_at timestamp
   updated_at timestamp
 }
@@ -97,7 +103,10 @@ Table t_demandes {
   user_id bigint [not null]
   site_id bigint [not null]
   type_demande_id bigint [not null]
-  description text
+  titre varchar(200) [note: 'Titre du projet (section II)']
+  type_precision varchar(150) [note: 'Précision du type « Autre »']
+  description text [note: 'Résumé du synopsis']
+  objectifs text [note: 'Objectif(s) principal(aux) du projet']
   date_debut date [note: 'Facultative tant que la demande est un brouillon']
   date_fin date [note: 'Facultative tant que la demande est un brouillon']
   equipe_nombre int [not null, default: 1, note: 'CHECK (equipe_nombre >= 1)']

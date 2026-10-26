@@ -45,7 +45,7 @@ const openPdf = async (url, filename) => {
             <Icon name="pencil-simple-line" class="callout__icon" />
             <div class="callout__body">
                 <span class="callout__tag">Complément demandé · <span class="mono">{{ d.reference }}</span></span>
-                <h2>{{ d.type_demande?.libelle }} · {{ d.site?.nom }}</h2>
+                <h2>{{ d.titre || d.type_demande?.libelle }} · {{ d.site?.nom }}</h2>
                 <q v-if="d.dernier_commentaire">{{ d.dernier_commentaire }}</q>
                 <small v-if="d.commentaire_par">{{ d.commentaire_par }}, le {{ formatDate(d.commentaire_le) }}</small>
             </div>
@@ -62,7 +62,7 @@ const openPdf = async (url, filename) => {
                     <Link v-for="d in enCours" :key="d.id" :href="route('demandes.show', d.id)" class="row row--mine">
                         <span class="row__main">
                             <span class="mono ref">{{ d.reference }}</span>
-                            <strong>{{ d.type_demande?.libelle }}</strong>
+                            <strong>{{ d.titre || d.type_demande?.libelle }}</strong>
                         </span>
                         <span class="row__main">
                             <span class="site-label">{{ d.site?.nom }}</span>
@@ -96,7 +96,7 @@ const openPdf = async (url, filename) => {
                         </div>
                         <div class="stay__body">
                             <span class="site-label">{{ d.site?.nom }}</span>
-                            <strong>{{ d.type_demande?.libelle }}</strong>
+                            <strong>{{ d.titre || d.type_demande?.libelle }}</strong>
                             <span class="mono dates">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</span>
                             <span v-if="d.resultats_analyse?.length" class="note-hatch"><span class="hatch"></span>Période sensible : précautions au cahier des charges</span>
                             <div class="btn-row">

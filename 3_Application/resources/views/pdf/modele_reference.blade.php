@@ -22,7 +22,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="logo">FONDATION FANAMBY</div>
+        <div class="logo">ASSOCIATION FANAMBY</div>
         <p>Gestionnaire des Aires Protégées</p>
     </div>
 

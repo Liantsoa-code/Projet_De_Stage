@@ -112,6 +112,23 @@ class DemandePolicy
             : Response::deny('Les documents officiels ne peuvent être générés que si la demande est validée.');
     }
 
+    /**
+     * Formulaire de demande rempli (PDF) : les mêmes personnes que pour les pièces jointes,
+     * une fois la demande envoyée (l'engagement du demandeur est pris à l'envoi).
+     */
+    public function telechargerFormulaire(User $user, Demande $demande): Response
+    {
+        $acces = $this->consulterFichiers($user, $demande);
+
+        if ($acces->denied()) {
+            return $acces;
+        }
+
+        return $demande->statut?->code !== 'brouillon'
+            ? Response::allow()
+            : Response::deny('Le formulaire est disponible une fois la demande envoyée.');
+    }
+
     private function estAuteur(User $user, Demande $demande): bool
     {
         return (int) $demande->user_id === (int) $user->id;

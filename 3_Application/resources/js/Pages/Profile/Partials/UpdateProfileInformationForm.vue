@@ -19,7 +19,21 @@ const user = usePage().props.auth.user;
 const form = useForm({
     name: user.name,
     email: user.email,
+    organisation: user.organisation ?? '',
+    fonction: user.fonction ?? '',
+    adresse: user.adresse ?? '',
+    telephone: user.telephone ?? '',
+    piece_identite: user.piece_identite ?? '',
 });
+
+// Coordonnées du formulaire de demande (sections I et V), reprises à chaque nouvelle demande
+const coordonnees = [
+    { cle: 'organisation', label: 'Institution / Société de production / Organisation', autocomplete: 'organization' },
+    { cle: 'fonction', label: 'Fonction', autocomplete: 'organization-title' },
+    { cle: 'adresse', label: 'Adresse', autocomplete: 'street-address' },
+    { cle: 'telephone', label: 'Téléphone', autocomplete: 'tel', type: 'tel' },
+    { cle: 'piece_identite', label: 'N° de CIN ou de passeport', autocomplete: 'off' },
+];
 </script>
 
 <template>
@@ -31,6 +45,7 @@ const form = useForm({
 
             <p class="section-text">
                 Votre nom apparaît sur les autorisations délivrées. L'adresse e-mail reçoit les notifications.
+                Les coordonnées sont reprises dans le formulaire de demande (et, pour un validateur, la fonction figure sur la décision).
             </p>
         </header>
 
@@ -67,6 +82,20 @@ const form = useForm({
                 />
 
                 <InputError class="mt-2" :message="form.errors.email" />
+            </div>
+
+            <div v-for="c in coordonnees" :key="c.cle">
+                <InputLabel :for="c.cle" :value="c.label" />
+
+                <TextInput
+                    :id="c.cle"
+                    :type="c.type ?? 'text'"
+                    class="mt-1 block w-full"
+                    v-model="form[c.cle]"
+                    :autocomplete="c.autocomplete"
+                />
+
+                <InputError class="mt-2" :message="form.errors[c.cle]" />
             </div>
 
             <div v-if="mustVerifyEmail && user.email_verified_at === null">

@@ -1,6 +1,6 @@
 # Conception de la base de données
 
-Plateforme d'accès aux aires protégées — Fondation FANAMBY
+Plateforme d'accès aux aires protégées — Association FANAMBY
 
 Ce document suit la démarche de [Demarche_conception_bdd.docx](Demarche_conception_bdd.docx). On y descend du sens (les besoins, le MCD) vers la technique (le MLD, le MPD), une étape après l'autre :
 
@@ -36,13 +36,13 @@ Les attributs sont ceux du dictionnaire des données.
 
 | Entité | Identifiant | Attributs |
 |---|---|---|
-| UTILISATEUR | id_utilisateur | nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur |
+| UTILISATEUR | id_utilisateur | nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur, organisation_utilisateur, fonction_utilisateur, adresse_utilisateur, telephone_utilisateur, piece_identite |
 | SITE | id_site | nom_site, description_site, coordonnees_site |
 | STATUT | id_statut | code_statut, libelle_statut, description_statut |
-| TYPE_DEMANDE | id_type_demande | libelle_type |
+| TYPE_DEMANDE | id_type_demande | libelle_type, precision_requise |
 | DOCUMENT_REQUIS | id_document_requis | libelle_document_requis |
 | REGLE_SPECIFIQUE | id_regle | libelle_regle |
-| DEMANDE | id_demande | description_demande, date_debut_activite, date_fin_activite, nombre_personnes, date_soumission, resultats_analyse |
+| DEMANDE | id_demande | titre_projet, precision_type, description_demande, objectifs_projet, date_debut_activite, date_fin_activite, nombre_personnes, date_soumission, resultats_analyse |
 | DOCUMENT | id_document | nom_fichier, chemin_fichier, type_document |
 | HISTORIQUE_STATUT | id_historique | commentaire_statut, date_changement |
 | PERIODE_SENSIBLE | id_periode | date_debut_periode, date_fin_periode, description_periode, niveau_restriction |
@@ -85,14 +85,14 @@ On applique les règles de passage du cours :
 
 Les noms sont ceux du schéma réel. **Convention de nommage** : chaque table porte le préfixe `t_` (table), suivi du nom de l'entité au pluriel ; les noms d'index et de contraintes reprennent le nom de la table (`t_demandes_user_id_foreign`, `chk_t_demandes_dates`). La clé primaire est soulignée, et le symbole # marque une clé étrangère ; un (*) signale une clé étrangère qui peut être vide.
 
-- **t_users** (<u>id</u>, name, email, password, role, …)
+- **t_users** (<u>id</u>, name, email, password, role, organisation, fonction, adresse, telephone, piece_identite, …)
 - **t_sites** (<u>id</u>, nom, description, polygone_coordonnees)
 - **t_site_user** (<u>#user_id, #site_id</u>)
 - **t_statuts** (<u>id</u>, code, libelle, description)
-- **t_type_demandes** (<u>id</u>, libelle)
+- **t_type_demandes** (<u>id</u>, libelle, precision_requise)
 - **t_documents_requis** (<u>id</u>, #type_demande_id, libelle, reutilisable)
 - **t_regles_specifiques** (<u>id</u>, #type_demande_id, libelle)
-- **t_demandes** (<u>id</u>, #user_id, #site_id, #type_demande_id, #statut_id, description, date_debut, date_fin, equipe_nombre, date_soumission, resultats_analyse)
+- **t_demandes** (<u>id</u>, #user_id, #site_id, #type_demande_id, #statut_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, date_soumission, resultats_analyse)
 - **t_documents** (<u>id</u>, #demande_id, #document_requis_id (*), nom_fichier, chemin, type_document)
 - **t_historique_statuts** (<u>id</u>, #demande_id, #user_id (*), #ancien_statut_id (*), #nouveau_statut_id, commentaire, date_changement)
 - **t_periode_sensibles** (<u>id</u>, #site_id, date_debut, date_fin, description, niveau_restriction)
@@ -131,7 +131,7 @@ La 2NF ne peut être violée que par une table à clé primaire composée. Il n'
 
 On a cherché, table par table, un attribut non-clé qui dépendrait d'un autre attribut non-clé :
 
-- `t_demandes` : description, dates, effectif, date de soumission et analyse dépendent tous de la demande. Le site, le type et l'auteur sont des clés étrangères, et leurs propres attributs (nom du site, libellé du type…) restent dans leurs tables.
+- `t_demandes` : titre, précision du type, synopsis (description), objectifs, dates, effectif, date de soumission et analyse dépendent tous de la demande. Le site, le type et l'auteur sont des clés étrangères, et leurs propres attributs (nom du site, libellé du type…) restent dans leurs tables.
 - `t_notifications` : `user_id` ne se déduit pas de `demande_id`, car le destinataire peut être le demandeur, un validateur du site ou un administrateur.
 - `t_historique_statuts` : l'auteur, les statuts et la date décrivent un événement, et non la demande.
 - `t_documents` : `type_document` dépend de `document_requis_id`, ce qui est une dépendance transitive. Elle est **volontaire** : le libellé est figé au jour du dépôt (section 6).
@@ -154,9 +154,10 @@ Le framework impose quelques noms anglais pour les comptes. Les autres noms repr
 | Dictionnaire | Colonne |
 |---|---|
 | id_utilisateur, nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur | t_users.id, name, email, password, role |
+| organisation_utilisateur, fonction_utilisateur, adresse_utilisateur, telephone_utilisateur, piece_identite | t_users.organisation, fonction, adresse, telephone, piece_identite |
 | nom_site, description_site, coordonnees_site | t_sites.nom, description, polygone_coordonnees |
-| libelle_type | t_type_demandes.libelle |
-| description_demande, date_debut_activite, date_fin_activite, nombre_personnes | t_demandes.description, date_debut, date_fin, equipe_nombre |
+| libelle_type, precision_requise | t_type_demandes.libelle, precision_requise |
+| titre_projet, precision_type, description_demande, objectifs_projet, date_debut_activite, date_fin_activite, nombre_personnes | t_demandes.titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre |
 | code_statut, libelle_statut, description_statut | t_statuts.code, libelle, description |
 | libelle_document_requis / libelle_regle | t_documents_requis.libelle / t_regles_specifiques.libelle |
 | chemin_fichier | t_documents.chemin |

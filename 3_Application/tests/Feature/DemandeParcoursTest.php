@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\DemandeNotificationMail;
 use App\Models\Demande;
 use App\Models\Document;
 use App\Models\HistoriqueStatut;
@@ -13,6 +14,7 @@ use App\Models\TypeDemande;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -50,7 +52,7 @@ class DemandeParcoursTest extends TestCase
 
     private function payload(array $overrides = []): array
     {
-        return array_merge([
+        return array_merge($this->champsFormulaire(), [
             'site_id' => $this->site->id,
             'type_demande_id' => $this->type->id,
             'date_debut' => now()->addDays(5)->toDateString(),
@@ -221,6 +223,33 @@ class DemandeParcoursTest extends TestCase
             ->where('commentaire', 'Protocole signé ajouté.')
             ->exists());
         $this->assertTrue(Notification::where('user_id', $this->validateur->id)->where('contenu', 'like', '%a complété son dossier%')->exists());
+    }
+
+    public function test_status_change_emails_demandeur_and_team_but_not_decider(): void
+    {
+        Mail::fake();
+        $collegue = User::factory()->create(['role' => 'validateur']);
+        $collegue->sites()->attach($this->site);
+        $autreSite = User::factory()->create(['role' => 'validateur']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $demande = $this->makeDemande('soumise');
+
+        $this->actingAs($this->validateur)
+            ->post(route('validateur.demandes.update-statut', $demande), [
+                'statut_id' => Statut::where('code', 'en_analyse')->value('id'),
+                'commentaire' => 'Pièces reçues, examen en cours.',
+            ])
+            ->assertSessionHasNoErrors();
+
+        Mail::assertQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($this->demandeur->email)
+            && $mail->lien === route('demandes.show', $demande));
+        Mail::assertQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($collegue->email)
+            && $mail->lien === route('validateur.demandes.show', $demande)
+            && str_contains($mail->contenu, '#'.$demande->id));
+        Mail::assertQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($admin->email));
+        Mail::assertNotQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($this->validateur->email));
+        Mail::assertNotQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($autreSite->email));
+        $this->assertTrue(Notification::where('user_id', $collegue->id)->where('demande_id', $demande->id)->exists());
     }
 
     // ── Analyse des périodes sensibles ──

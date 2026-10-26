@@ -7,7 +7,7 @@ import { formatDate } from '@/utils/statut.js';
 // Une pièce réutilisable déjà déposée dans un autre dossier est reprise d'office ; le demandeur peut l'écarter.
 defineProps({
     form: { type: Object, required: true },
-    typeActivite: { type: Object, default: null },
+    typeProjet: { type: Object, default: null },
     // Pièces exigées par le type, avec le fichier choisi (fichier), déjà envoyé (existant)
     // ou repris d'un autre dossier (reprise, parmi les pièces réutilisables : reutilisable)
     pieces: { type: Array, required: true },
@@ -17,8 +17,8 @@ defineEmits(['fichier', 'ecarter']);
 </script>
 
 <template>
-    <p v-if="!typeActivite" class="hint">Choisissez d'abord un type d'activité : la liste des pièces obligatoires en dépend.</p>
-    <p v-else-if="!pieces.length" class="hint">Aucune pièce n'est exigée pour ce type d'activité.</p>
+    <p v-if="!typeProjet" class="hint">Choisissez d'abord un type de projet : la liste des pièces obligatoires en dépend.</p>
+    <p v-else-if="!pieces.length" class="hint">Aucune pièce n'est exigée pour ce type de projet.</p>
     <div v-else class="docs">
         <div v-for="p in pieces" :key="p.id" class="doc" :class="{ 'doc--ok': p.fourni }">
             <Icon :name="p.fourni ? 'file-pdf' : 'file-dashed'" class="doc__icon" />

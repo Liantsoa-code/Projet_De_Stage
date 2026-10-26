@@ -16,8 +16,8 @@
 </head>
 <body>
     <div class="header">
-        <div class="logo">FONDATION FANAMBY</div>
-        <p>Cahier des Charges - {{ $demande->typeDemande->libelle }}</p>
+        <div class="logo">ASSOCIATION FANAMBY</div>
+        <p>Cahier des Charges - {{ $demande->typeProjet() }}</p>
     </div>
 
     @if($projet)
@@ -29,7 +29,7 @@
     <div class="content">
         <p>Ce document est une annexe obligatoire à l'autorisation d'accès pour <strong>{{ $demande->user->name }}</strong> dans l'aire protégée de <strong>{{ $demande->site->nom }}</strong>.</p>
 
-        <h3>Règles spécifiques liées à l'activité :</h3>
+        <h3>Règles spécifiques liées au type de projet :</h3>
         <ul>
             @forelse(\App\Support\DocumentsOfficiels::lignes($contenu['regles']) as $regle)
                 <li>{{ $regle }}</li>
@@ -52,7 +52,11 @@
         <h3>Engagement du demandeur</h3>
         <p>{!! nl2br(e($contenu['engagement'])) !!}</p>
         <br><br>
-        <p><strong>Signature du demandeur :</strong> ___________________________</p>
+        @if($demande->date_soumission)
+            <p><strong>Signature du demandeur :</strong> engagements acceptés en ligne par {{ $demande->user->name }} lors de l'envoi du dossier, le {{ $demande->date_soumission->format('d/m/Y') }}.</p>
+        @else
+            <p><strong>Signature du demandeur :</strong> ___________________________</p>
+        @endif
     </div>
 
     <div class="footer">

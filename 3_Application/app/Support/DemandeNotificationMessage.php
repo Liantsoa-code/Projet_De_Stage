@@ -50,6 +50,28 @@ class DemandeNotificationMessage
     }
 
     /**
+     * Informe les autres validateurs du site et les admins d'une décision prise par un collègue.
+     */
+    public static function forStatutChangeToEquipe(
+        Demande $demande,
+        Statut $nouveauStatut,
+        User $decideur,
+        string $commentaire
+    ): string {
+        $demande->loadMissing('user', 'site');
+        $commentaire = trim($commentaire);
+
+        $message = "Le dossier #{$demande->id} de {$demande->user->name} pour « {$demande->site->nom} » "
+            . "est passé au statut « {$nouveauStatut->libelle} » (décision de {$decideur->name}).";
+
+        if ($commentaire !== '') {
+            $message .= ' Commentaire : « '.$commentaire.' »';
+        }
+
+        return $message;
+    }
+
+    /**
      * Accusé de réception après soumission d'une nouvelle demande.
      */
     public static function forSubmission(Demande $demande): string
@@ -80,9 +102,9 @@ class DemandeNotificationMessage
 
         $site = $demande->site->nom;
         $demandeur = $demande->user->name;
-        $activite = $demande->typeDemande->libelle;
+        $projet = $demande->typeProjet();
 
-        return "Nouvelle demande à traiter pour « {$site} » : {$demandeur} ({$activite}). "
+        return "Nouvelle demande à traiter pour « {$site} » : {$demandeur} ({$projet}). "
             . 'Ouvrez le dossier pour examiner les pièces et rendre une décision.';
     }
 }

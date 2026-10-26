@@ -46,14 +46,14 @@ class DocumentsOfficiels
 
     /** Textes fixes proposés à la génération. */
     public const TEXTES = [
-        'introduction' => 'Nous soussignés, la Fondation FANAMBY, autorisons par la présente :',
+        'introduction' => "Nous soussignés, l'Association FANAMBY, autorisons par la présente :",
         'reserve' => "Cette autorisation est délivrée sous réserve du strict respect du cahier des charges qui l'accompagne. Toute infraction entraînera une annulation immédiate.",
         'signataire' => 'La Direction FANAMBY',
-        'engagement' => "Le demandeur certifie avoir pris connaissance des règlements internes de l'aire protégée et s'engage à respecter la faune, la flore et les communautés locales. Tout non-respect de ce cahier des charges entraînera des poursuites.",
     ];
 
     /**
-     * Texte proposé à la génération, repris du dossier et du type d'activité.
+     * Texte proposé à la génération, repris du dossier et du type de projet : l'objet de la mission
+     * reprend les objectifs du projet (à défaut le synopsis), l'engagement ceux du formulaire de demande.
      *
      * @return array<string, string>
      */
@@ -62,7 +62,7 @@ class DocumentsOfficiels
         if ($type === 'autorisation') {
             return [
                 'introduction' => self::TEXTES['introduction'],
-                'objet' => (string) $demande->description,
+                'objet' => (string) ($demande->objectifs ?: $demande->description),
                 'conditions' => '',
                 'reserve' => self::TEXTES['reserve'],
                 'signataire' => self::TEXTES['signataire'],
@@ -73,8 +73,19 @@ class DocumentsOfficiels
 
         return [
             'regles' => $demande->typeDemande->reglesSpecifiques->pluck('libelle')->implode("\n"),
-            'engagement' => self::TEXTES['engagement'],
+            'engagement' => self::engagement(),
         ];
+    }
+
+    /**
+     * Engagement du cahier des charges : les engagements acceptés dans le formulaire de demande (section V).
+     */
+    public static function engagement(): string
+    {
+        $lignes = array_map(fn (string $e) => '- ' . lcfirst($e), Demande::ENGAGEMENTS);
+
+        return "Le demandeur s'engage à :\n" . implode(" ;\n", $lignes) . ".\n"
+            . 'Tout non-respect de ce cahier des charges entraînera des poursuites.';
     }
 
     /**

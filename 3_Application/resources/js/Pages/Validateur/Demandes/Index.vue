@@ -94,7 +94,7 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
                         <td class="mono text-sm nowrap">{{ d.reference }}</td>
                         <td>
                             <div class="fw-strong">{{ d.user.name }}</div>
-                            <div class="text-dim text-sm">{{ d.type_demande?.libelle }}</div>
+                            <div class="text-dim text-sm">{{ d.titre ? `${d.titre} · ` : '' }}{{ d.type_demande?.libelle }}</div>
                         </td>
                         <td><span class="site-label">{{ d.site.nom }}</span></td>
                         <td class="mono text-sm nowrap">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</td>

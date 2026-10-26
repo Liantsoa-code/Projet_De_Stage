@@ -4,7 +4,7 @@ DOCUMENT: id_document, nom_fichier, chemin_fichier, type_document
 FOURNIR, 0N DOCUMENT_REQUIS, 01 DOCUMENT
 DOCUMENT_REQUIS: id_document_requis, libelle_document_requis
 EXIGER, 0N TYPE_DEMANDE, 11 DOCUMENT_REQUIS
-TYPE_DEMANDE: id_type_demande, libelle_type
+TYPE_DEMANDE: id_type_demande, libelle_type, precision_requise
 REGLE_SPECIFIQUE: id_regle, libelle_regle
 
 CONTENIR, 0N DEMANDE, 11 DOCUMENT
@@ -14,11 +14,11 @@ CONCERNER, 0N SITE, 11 DEMANDE
 SITE: id_site, nom_site, description_site, coordonnees_site
 IMPOSER, 0N TYPE_DEMANDE, 11 REGLE_SPECIFIQUE
 
-DEMANDE: id_demande, description_demande, date_debut_activite, date_fin_activite, nombre_personnes, date_soumission, resultats_analyse
+DEMANDE: id_demande, titre_projet, precision_type, description_demande, objectifs_projet, date_debut_activite, date_fin_activite, nombre_personnes, date_soumission, resultats_analyse
 PORTER SUR, 0N DEMANDE, 01 NOTIFICATION
 NOTIFICATION: id_notification, contenu_notification, lu_notification, date_envoi
 GÉRER, 0N UTILISATEUR, 0N SITE
-UTILISATEUR: id_utilisateur, nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur
+UTILISATEUR: id_utilisateur, nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur, organisation_utilisateur, fonction_utilisateur, adresse_utilisateur, telephone_utilisateur, piece_identite
 :
 
 :

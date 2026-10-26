@@ -26,6 +26,12 @@ CREATE TABLE t_users (
     email_verified_at TIMESTAMP NULL,
     password          VARCHAR(255) NOT NULL,
     role              ENUM('demandeur', 'validateur', 'admin') NOT NULL DEFAULT 'demandeur',
+    -- Coordonnées du formulaire de demande (sections I et V), exigées à la soumission d'une demande
+    organisation      VARCHAR(150) NULL,
+    fonction          VARCHAR(100) NULL,        -- pour un décideur : reprise dans la section VI
+    adresse           VARCHAR(255) NULL,
+    telephone         VARCHAR(30) NULL,
+    piece_identite    VARCHAR(50) NULL,         -- N° de CIN ou de passeport
     remember_token    VARCHAR(100) NULL,
     created_at        TIMESTAMP NULL,
     updated_at        TIMESTAMP NULL,
@@ -66,10 +72,11 @@ CREATE TABLE t_statuts (
     UNIQUE KEY t_statuts_code_unique (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── Types d'activité (RG05) ──
+-- ── Types de projet du formulaire de demande (RG05) ──
 CREATE TABLE t_type_demandes (
-    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    libelle    VARCHAR(100) NOT NULL,
+    id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    libelle           VARCHAR(100) NOT NULL,
+    precision_requise TINYINT(1) NOT NULL DEFAULT 0,  -- le demandeur précise son projet (« Autre »)
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL,
     PRIMARY KEY (id)
@@ -106,7 +113,11 @@ CREATE TABLE t_demandes (
     user_id           BIGINT UNSIGNED NOT NULL,
     site_id           BIGINT UNSIGNED NOT NULL,
     type_demande_id   BIGINT UNSIGNED NOT NULL,
-    description       TEXT NULL,
+    -- Section II du formulaire de demande (facultative tant que la demande est un brouillon)
+    titre             VARCHAR(200) NULL,
+    type_precision    VARCHAR(150) NULL,        -- précision du type « Autre »
+    description       TEXT NULL,                -- résumé du synopsis
+    objectifs         TEXT NULL,
     date_debut        DATE NULL,                -- facultative tant que la demande est un brouillon
     date_fin          DATE NULL,
     equipe_nombre     INT NOT NULL DEFAULT 1,

@@ -27,7 +27,7 @@ class TypeDemandeController extends Controller
         $validated = $this->validateType($request);
 
         DB::transaction(function () use ($validated) {
-            $type = TypeDemande::create(['libelle' => $validated['libelle']]);
+            $type = TypeDemande::create($this->champsType($validated));
             $this->syncListes($type, $validated);
         });
 
@@ -46,7 +46,7 @@ class TypeDemandeController extends Controller
         $validated = $this->validateType($request);
 
         DB::transaction(function () use ($validated, $type_demande) {
-            $type_demande->update(['libelle' => $validated['libelle']]);
+            $type_demande->update($this->champsType($validated));
             $this->syncListes($type_demande, $validated);
         });
 
@@ -62,6 +62,7 @@ class TypeDemandeController extends Controller
     {
         return $request->validate([
             'libelle' => 'required|string|max:100',
+            'precision_requise' => 'boolean',
             'documents_requis' => 'array',
             'documents_requis.*.id' => 'nullable|integer',
             'documents_requis.*.libelle' => 'required|string|max:150|distinct:ignore_case',
@@ -74,6 +75,17 @@ class TypeDemandeController extends Controller
             'documents_requis.*.libelle.distinct' => 'Cette pièce figure déjà dans la liste.',
             'regles_specifiques.*.libelle.required' => 'Chaque règle doit avoir un texte.',
         ]);
+    }
+
+    /**
+     * precision_requise : le demandeur précise son projet (choix « Autre (précisez) » du formulaire).
+     */
+    private function champsType(array $validated): array
+    {
+        return [
+            'libelle' => $validated['libelle'],
+            'precision_requise' => $validated['precision_requise'] ?? false,
+        ];
     }
 
     private function syncListes(TypeDemande $type, array $validated): void

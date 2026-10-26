@@ -35,6 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::get('/demandes/{demande}/pdf/autorisation', [PdfController::class, 'autorisation'])->name('demandes.pdf.autorisation');
     Route::get('/demandes/{demande}/pdf/cahier-charges', [PdfController::class, 'cahierDesCharges'])->name('demandes.pdf.cahier-charges');
+    Route::get('/demandes/{demande}/pdf/formulaire', [PdfController::class, 'formulaire'])->name('demandes.pdf.formulaire');
 });
 
 require __DIR__.'/auth.php';
