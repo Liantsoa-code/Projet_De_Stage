@@ -1,17 +1,28 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import EtapeAirePeriode from '@/Pages/Demandes/Partials/EtapeAirePeriode.vue';
+import EtapeDemandeur from '@/Pages/Demandes/Partials/EtapeDemandeur.vue';
+import EtapePieces from '@/Pages/Demandes/Partials/EtapePieces.vue';
+import EtapeProjet from '@/Pages/Demandes/Partials/EtapeProjet.vue';
+import EtapeRecap from '@/Pages/Demandes/Partials/EtapeRecap.vue';
+import VerificationCalendrier from '@/Pages/Demandes/Partials/VerificationCalendrier.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
-import InputError from '@/Components/InputError.vue';
-import DashboardMap from '@/Components/DashboardMap.vue';
-import { computed, ref } from 'vue';
-import { formatDate, refDemande } from '@/utils/statut.js';
-import { surfaceKm2, formatSurface } from '@/utils/carte.js';
+import { computed, nextTick, ref } from 'vue';
 
+// Formulaire en étapes, dans l'ordre du formulaire papier de Fanamby (I. demandeur, II. projet,
+// V. engagement) : la page garde les données, la vérification et l'envoi ;
+// chaque étape et la colonne du calendrier sont des composants de Partials/.
 const props = defineProps({
     sites: Array,
     types: Array,
+    // Compte connecté et ses coordonnées (sections I et V) : name, email, organisation, fonction, adresse, telephone, piece_identite
+    demandeur: { type: Object, required: true },
+    // Engagements du demandeur (section V), à accepter à chaque envoi
+    engagements: { type: Array, default: () => [] },
     periodes: { type: Array, default: () => [] },
+    // Pièces réutilisables déjà déposées dans un autre dossier, par id de pièce requise ({ id, nom_fichier, depose_le, reference })
+    reutilisables: { type: [Object, Array], default: () => ({}) },
     // Présent en modification (brouillon ou dossier à compléter)
     demande: { type: Object, default: null },
     complement: { type: String, default: null },
@@ -22,24 +33,36 @@ const aCompleter = computed(() => props.demande?.statut?.code === 'a_completer')
 
 // Stockage des fichiers uploades separement (avant transfert dans le form)
 const uploadedFiles = ref({});
+// Pièces réutilisables que le demandeur a choisi de ne pas reprendre, par id de pièce requise
+const ecartees = ref({});
 
 const form = useForm({
-    site_id: props.demande?.site_id ?? '',
+    // I. Informations sur le demandeur (enregistrées sur le compte)
+    organisation: props.demandeur.organisation ?? '',
+    fonction: props.demandeur.fonction ?? '',
+    adresse: props.demandeur.adresse ?? '',
+    telephone: props.demandeur.telephone ?? '',
+    // II. Informations sur le projet
+    titre: props.demande?.titre ?? '',
     type_demande_id: props.demande?.type_demande_id ?? '',
+    type_precision: props.demande?.type_precision ?? '',
+    description: props.demande?.description ?? '',
+    objectifs: props.demande?.objectifs ?? '',
+    site_id: props.demande?.site_id ?? '',
     date_debut: props.demande?.date_debut?.slice(0, 10) ?? '',
     date_fin: props.demande?.date_fin?.slice(0, 10) ?? '',
     equipe_nombre: String(props.demande?.equipe_nombre ?? '1'),
-    description: props.demande?.description ?? '',
+    // V. Engagement du demandeur : l'acceptation est renouvelée à chaque envoi
+    piece_identite: props.demandeur.piece_identite ?? '',
+    engagement: false,
     message_complement: '',
 });
 
 const typeSelectionne = computed(() => props.types.find(t => t.id === form.type_demande_id));
-const carte = ref(null);
 const siteSelectionne = computed(() => props.sites.find(s => s.id === form.site_id));
-const surfaceSite = computed(() => formatSurface(surfaceKm2(siteSelectionne.value?.polygone_coordonnees)));
 
-// Pièces déjà envoyées (modification), indexées par nom de document requis
-const docsExistants = computed(() => Object.fromEntries((props.demande?.documents ?? []).map(d => [d.type_document, d])));
+// Pièces déjà envoyées (modification), indexées par id de la pièce requise
+const docsExistants = computed(() => Object.fromEntries((props.demande?.documents ?? []).map(d => [d.document_requis_id, d])));
 
 // Date du jour au format AAAA-MM-JJ (heure locale) pour bloquer les dates passées
 const today = (() => {
@@ -62,19 +85,32 @@ const etatsSites = computed(() => {
     return etats;
 });
 const bloquant = computed(() => chevauchements.value.some(p => p.niveau_restriction === 'bloquant'));
-const chevauche = (p) => chevauchements.value.some(c => c.id === p.id);
+// État du calendrier du site choisi, affiché dans le récapitulatif et dans la colonne de vérification
+const calendrier = computed(() => {
+    if (!form.date_debut) return 'aucun';
+    if (bloquant.value) return 'bloquant';
+    return chevauchements.value.length ? 'sensible' : 'ouvert';
+});
 
 // Quand le type change, on vide les fichiers precedemment choisis
 function onTypeChange() {
     uploadedFiles.value = {};
+    ecartees.value = {};
 }
 
-function handleFileChange(index, event) {
-    const file = event.target.files[0];
+// Reprendre ou non une pièce déjà déposée dans un autre dossier
+function ecarterReprise(docId, ecarter) {
+    ecartees.value[docId] = ecarter;
+    if (!ecarter) form.clearErrors('doc_' + docId);
+}
+
+// Un fichier choisi efface le message « pièce obligatoire » de cette pièce
+function choisirFichier(docId, file) {
     if (file) {
-        uploadedFiles.value['doc_' + index] = file;
+        uploadedFiles.value['doc_' + docId] = file;
+        form.clearErrors('doc_' + docId);
     } else {
-        delete uploadedFiles.value['doc_' + index];
+        delete uploadedFiles.value['doc_' + docId];
     }
 }
 
@@ -82,33 +118,162 @@ function handleFileChange(index, event) {
 function envoyer(action) {
     const docsRequis = typeSelectionne.value?.documents_requis ?? [];
     const docs = {};
-    docsRequis.forEach((_, index) => {
-        const key = 'doc_' + index;
+    docsRequis.forEach((doc) => {
+        const key = 'doc_' + doc.id;
         if (uploadedFiles.value[key]) {
             docs[key] = uploadedFiles.value[key];
         }
     });
 
-    // Laravel attend doc_0, doc_1… à la racine du multipart, pas sous documents[].
+    // Laravel attend doc_{id de la pièce requise} à la racine du multipart, pas sous documents[].
     // En modification : POST + _method=PUT, car PHP ne lit pas les fichiers d'un vrai PUT multipart.
     const extra = enEdition.value ? { _method: 'put' } : {};
     const url = enEdition.value ? route('demandes.update', props.demande.id) : route('demandes.store');
 
-    form.transform((data) => ({ ...data, ...docs, ...extra, action }))
+    // Pièces reprises d'un autre dossier : le serveur copie lui-même le fichier
+    const reprendre = pieces.value.filter(p => p.reprise).map(p => p.id);
+
+    form.transform((data) => ({ ...data, ...docs, ...extra, reprendre, action }))
         .post(url, {
             forceFormData: true,
             preserveScroll: true,
+            onError: allerAuxErreurs,
             onFinish: () => form.transform((data) => data),
         });
 }
 
 const titre = computed(() => {
-    if (aCompleter.value) return `Compléter la demande ${refDemande(props.demande)}`;
-    if (enEdition.value) return `Brouillon ${refDemande(props.demande)}`;
+    if (aCompleter.value) return `Compléter la demande ${props.demande.reference}`;
+    if (enEdition.value) return `Brouillon ${props.demande.reference}`;
     return 'Nouvelle demande d\'accès';
 });
 
-const fourni = (i, doc) => uploadedFiles.value['doc_' + i] || docsExistants.value[doc];
+// Pièces exigées par le type choisi, avec le fichier choisi pendant la saisie, celui déjà envoyé,
+// ou à défaut celui d'un autre dossier pour une pièce réutilisable (reprise d'office, sauf si écartée)
+const piecesRequises = computed(() => typeSelectionne.value?.documents_requis ?? []);
+const pieces = computed(() => piecesRequises.value.map((doc) => {
+    const fichier = uploadedFiles.value['doc_' + doc.id] ?? null;
+    const existant = docsExistants.value[doc.id] ?? null;
+    const reutilisable = props.reutilisables[doc.id] ?? null;
+    const reprise = !fichier && !existant && !ecartees.value[doc.id] ? reutilisable : null;
+    return { ...doc, fichier, existant, reutilisable, reprise, fourni: Boolean(fichier || existant || reprise) };
+}));
+
+// ── Parcours en étapes : chaque étape est vérifiée avant de passer à la suivante ──
+// titre : libellé court de la barre d'étapes ; entete : titre affiché au-dessus de l'étape
+const ETAPES = [
+    { id: 'demandeur', titre: 'Demandeur', entete: 'I. Informations sur le demandeur', champs: ['organisation', 'fonction', 'adresse', 'telephone'] },
+    { id: 'projet', titre: 'Projet', entete: 'II. Informations sur le projet', champs: ['titre', 'type_demande_id', 'type_precision', 'description', 'objectifs'] },
+    { id: 'aire', titre: 'Aire et période', entete: 'Aire protégée et période prévue', champs: ['site_id', 'date_debut', 'date_fin', 'equipe_nombre'] },
+    { id: 'pieces', titre: 'Pièces', entete: 'Pièces à joindre', champs: [] },
+    { id: 'engagement', titre: 'Engagement', entete: 'Récapitulatif et engagement', champs: ['piece_identite', 'engagement', 'message_complement'] },
+];
+// L'étape des pièces n'apparaît que si le type de projet en exige (ou n'est pas encore choisi)
+const etapes = computed(() => ETAPES.filter(e => e.id !== 'pieces' || !typeSelectionne.value || typeSelectionne.value.documents_requis?.length));
+const champsEtape = (id) => (id === 'pieces' ? piecesRequises.value.map(d => 'doc_' + d.id) : ETAPES.find(e => e.id === id).champs);
+const etapeDuChamp = (champ) => (champ.startsWith('doc_') ? 'pieces' : ETAPES.find(e => e.champs.includes(champ))?.id ?? 'demandeur');
+const vide = (valeur) => !String(valeur ?? '').trim();
+
+// Mêmes exigences que le serveur pour une soumission (App\Http\Requests\DemandeRequest)
+function erreursEtape(id) {
+    const err = {};
+    if (id === 'demandeur') {
+        if (vide(form.organisation)) err.organisation = 'Indiquez votre institution, société de production ou organisation.';
+        if (vide(form.fonction)) err.fonction = 'Indiquez votre fonction.';
+        if (vide(form.adresse)) err.adresse = 'Indiquez votre adresse.';
+        if (vide(form.telephone)) err.telephone = 'Indiquez votre numéro de téléphone.';
+        else if (!/^[0-9 +().-]+$/.test(form.telephone.trim())) err.telephone = 'Le numéro de téléphone ne peut contenir que des chiffres, des espaces et les signes + ( ) - .';
+    } else if (id === 'projet') {
+        if (vide(form.titre)) err.titre = 'Donnez un titre au projet.';
+        if (!form.type_demande_id) err.type_demande_id = 'Choisissez un type de projet.';
+        else if (typeSelectionne.value?.precision_requise && vide(form.type_precision)) err.type_precision = 'Précisez le type de projet.';
+        if (vide(form.description)) err.description = 'Résumez le synopsis du projet.';
+        if (vide(form.objectifs)) err.objectifs = 'Indiquez le ou les objectifs principaux du projet.';
+    } else if (id === 'aire') {
+        if (!form.site_id) err.site_id = 'Choisissez une aire protégée.';
+        if (!form.date_debut) err.date_debut = 'Indiquez la date de début.';
+        else if (form.date_debut < today) err.date_debut = 'La date de début ne peut pas être antérieure à aujourd\'hui.';
+        else if (bloquant.value) err.date_debut = 'Ces dates chevauchent une période bloquante sur cette aire protégée : choisissez d\'autres dates.';
+        if (!form.date_fin) err.date_fin = 'Indiquez la date de fin.';
+        else if (form.date_debut && form.date_fin < form.date_debut) err.date_fin = 'La date de fin doit être postérieure ou égale à la date de début.';
+        const equipe = Number(form.equipe_nombre);
+        if (!Number.isInteger(equipe) || equipe < 1) err.equipe_nombre = 'L\'équipe compte au moins une personne.';
+    } else if (id === 'pieces') {
+        pieces.value.filter(p => !p.fourni).forEach((p) => { err['doc_' + p.id] = `Le document '${p.libelle}' est obligatoire.`; });
+    } else if (id === 'engagement') {
+        if (vide(form.piece_identite)) err.piece_identite = 'Indiquez le numéro de votre CIN ou de votre passeport.';
+        if (!form.engagement) err.engagement = 'Acceptez les engagements du demandeur pour envoyer la demande.';
+    }
+    return err;
+}
+const etapeComplete = (id) => Object.keys(erreursEtape(id)).length === 0;
+// Une étape est accessible quand toutes les précédentes sont complètes
+const accessible = (i) => etapes.value.slice(0, i).every(e => etapeComplete(e.id));
+const etapeEnErreur = (id) => Object.keys(form.errors).some(k => etapeDuChamp(k) === id);
+
+// Création : première étape. Reprise d'un dossier : première étape incomplète (au plus tard
+// l'engagement, qui n'est jamais pré-coché).
+const etape = ref(enEdition.value ? (etapes.value.find(e => !etapeComplete(e.id))?.id ?? 'engagement') : 'demandeur');
+const indexEtape = computed(() => Math.max(0, etapes.value.findIndex(e => e.id === etape.value)));
+const titreEtape = computed(() => ETAPES.find(e => e.id === etape.value).entete);
+const derniere = computed(() => indexEtape.value === etapes.value.length - 1);
+const formEl = ref(null);
+
+function allerA(id) {
+    etape.value = id;
+    nextTick(() => {
+        formEl.value?.querySelector('.fs__head h2')?.focus({ preventScroll: true });
+        const haut = formEl.value?.getBoundingClientRect().top ?? 0;
+        if (haut < 0) window.scrollBy({ top: haut - 96 });
+    });
+}
+
+// Affiche les erreurs de l'étape ; renvoie false si elle est incomplète
+function verifierEtape(id) {
+    const err = erreursEtape(id);
+    const champs = champsEtape(id);
+    if (champs.length) form.clearErrors(...champs);
+    if (Object.keys(err).length) {
+        form.setError(err);
+        return false;
+    }
+    return true;
+}
+
+function focusPremiereErreur() {
+    nextTick(() => {
+        const champ = champsEtape(etape.value).find(c => form.errors[c]);
+        if (champ) document.getElementById(champ)?.focus();
+    });
+}
+
+function suivant() {
+    if (!verifierEtape(etape.value)) return focusPremiereErreur();
+    allerA(etapes.value[indexEtape.value + 1].id);
+}
+
+const precedent = () => allerA(etapes.value[indexEtape.value - 1].id);
+
+// Entrée dans un champ ou bouton principal : étape suivante, ou envoi depuis le récapitulatif
+function valider() {
+    if (!derniere.value) return suivant();
+    const incomplete = etapes.value.find(e => !verifierEtape(e.id));
+    if (incomplete) {
+        allerA(incomplete.id);
+        return focusPremiereErreur();
+    }
+    envoyer('soumettre');
+}
+
+// Erreurs renvoyées par le serveur : retour à la première étape concernée
+function allerAuxErreurs(errors) {
+    const ids = etapes.value.map(e => e.id);
+    const premiere = Object.keys(errors).map(k => ids.indexOf(etapeDuChamp(k))).filter(i => i >= 0).sort((a, b) => a - b)[0];
+    if (premiere !== undefined) {
+        allerA(ids[premiere]);
+        focusPremiereErreur();
+    }
+}
 </script>
 
 <template>
@@ -133,165 +298,79 @@ const fourni = (i, doc) => uploadedFiles.value['doc_' + i] || docsExistants.valu
             </div>
         </section>
 
-        <form class="create-layout" novalidate @submit.prevent="envoyer('soumettre')">
+        <form ref="formEl" class="create-layout" novalidate @submit.prevent="valider">
             <div class="create-main">
-                <div v-if="form.errors.date_debut" class="gf-error-banner" role="alert">
-                    <Icon name="prohibit" />
-                    {{ form.errors.date_debut }}
-                </div>
+                <nav class="stepper" aria-label="Étapes de la demande">
+                    <ol>
+                        <li v-for="(e, i) in etapes" :key="e.id">
+                            <button
+                                type="button"
+                                class="stepper__btn"
+                                :class="{
+                                    'is-current': e.id === etape,
+                                    'is-done': e.id !== etape && etapeComplete(e.id) && accessible(i),
+                                    'is-error': e.id !== etape && etapeEnErreur(e.id),
+                                }"
+                                :aria-current="e.id === etape ? 'step' : undefined"
+                                :disabled="e.id !== etape && !accessible(i)"
+                                @click="allerA(e.id)"
+                            >
+                                <span class="stepper__n">
+                                    <Icon v-if="e.id !== etape && etapeComplete(e.id) && accessible(i)" name="check-fat" />
+                                    <template v-else>{{ i + 1 }}</template>
+                                </span>
+                                <span class="stepper__label">{{ e.titre }}</span>
+                            </button>
+                        </li>
+                    </ol>
+                </nav>
 
                 <section class="fs">
-                    <header class="fs__head"><span class="fs__n">1</span><h2>Activité et site</h2></header>
-                    <div class="gf-row gf-row-2">
-                        <div>
-                            <label class="gf-label" for="type_demande_id">Type d'activité</label>
-                            <select id="type_demande_id" v-model="form.type_demande_id" class="gf-select" required @change="onTypeChange">
-                                <option disabled value="">Choisissez un type</option>
-                                <option v-for="t in types" :key="t.id" :value="t.id">{{ t.libelle }}</option>
-                            </select>
-                            <InputError class="gf-error" :message="form.errors.type_demande_id" />
-                        </div>
-                        <div>
-                            <label class="gf-label" for="site_id">Aire protégée</label>
-                            <select id="site_id" v-model="form.site_id" class="gf-select" required>
-                                <option disabled value="">Choisissez un site</option>
-                                <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
-                            </select>
-                            <InputError class="gf-error" :message="form.errors.site_id" />
-                        </div>
-                    </div>
-                </section>
-
-                <section class="fs">
-                    <header class="fs__head"><span class="fs__n">2</span><h2>Dates et équipe</h2></header>
-                    <div class="gf-row gf-row-3">
-                        <div>
-                            <label class="gf-label" for="date_debut">Arrivée</label>
-                            <input id="date_debut" v-model="form.date_debut" type="date" class="gf-input" :min="today" required />
-                        </div>
-                        <div>
-                            <label class="gf-label" for="date_fin">Départ</label>
-                            <input id="date_fin" v-model="form.date_fin" type="date" class="gf-input" :min="form.date_debut || today" required />
-                            <InputError class="gf-error" :message="form.errors.date_fin" />
-                        </div>
-                        <div>
-                            <label class="gf-label" for="equipe_nombre">Personnes sur le terrain</label>
-                            <input id="equipe_nombre" v-model="form.equipe_nombre" type="number" min="1" class="gf-input" required />
-                            <InputError class="gf-error" :message="form.errors.equipe_nombre" />
-                        </div>
-                    </div>
-                </section>
-
-                <section class="fs">
-                    <header class="fs__head"><span class="fs__n">3</span><h2>Objet de la mission</h2></header>
-                    <div>
-                        <label class="gf-label" for="description">Description du projet</label>
-                        <textarea id="description" v-model="form.description" class="gf-textarea" rows="5" required placeholder="Objectif, protocole, zones visitées, matériel utilisé"></textarea>
-                        <InputError class="gf-error" :message="form.errors.description" />
-                    </div>
-                    <div v-if="aCompleter">
-                        <label class="gf-label" for="message_complement">Message au validateur (facultatif)</label>
-                        <textarea id="message_complement" v-model="form.message_complement" class="gf-textarea" rows="3" placeholder="Précisez ce que vous avez modifié ou ajouté"></textarea>
-                        <InputError class="gf-error" :message="form.errors.message_complement" />
-                    </div>
-                </section>
-
-                <section class="fs">
-                    <header class="fs__head"><span class="fs__n">4</span><h2>Pièces à joindre</h2></header>
-                    <p v-if="!typeSelectionne" class="fs__hint">Choisissez d'abord un type d'activité : la liste des pièces obligatoires en dépend.</p>
-                    <p v-else-if="!typeSelectionne.documents_requis?.length" class="fs__hint">Aucune pièce n'est exigée pour ce type d'activité.</p>
-                    <div v-else class="docs">
-                        <div v-for="(doc, i) in typeSelectionne.documents_requis" :key="i" class="doc" :class="{ 'doc--ok': fourni(i, doc) }">
-                            <Icon :name="fourni(i, doc) ? 'file-pdf' : 'file-dashed'" class="doc__icon" />
-                            <div class="doc__body">
-                                <strong>{{ doc }}</strong>
-                                <small v-if="uploadedFiles['doc_' + i]">{{ uploadedFiles['doc_' + i].name }}</small>
-                                <small v-else-if="docsExistants[doc]">Déjà fourni : <a :href="route('documents.show', docsExistants[doc].id)">{{ docsExistants[doc].nom_fichier }}</a></small>
-                                <small v-else>PDF, JPG, PNG, Word ou OpenDocument, 20 Mo au maximum</small>
-                                <InputError class="gf-error" :message="form.errors['doc_' + i]" />
-                            </div>
-                            <label class="btn-ghost btn--sm doc__btn">
-                                <Icon :name="fourni(i, doc) ? 'arrows-clockwise' : 'upload-simple'" />
-                                {{ fourni(i, doc) ? 'Remplacer' : 'Choisir' }}
-                                <input :id="`doc_${i}`" type="file" class="sr-only" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.odt" @change="handleFileChange(i, $event)" />
-                            </label>
-                        </div>
-                    </div>
+                    <header class="fs__head"><span class="fs__n">{{ indexEtape + 1 }}</span><h2 tabindex="-1">{{ titreEtape }}</h2></header>
+                    <EtapeDemandeur v-if="etape === 'demandeur'" :form="form" :demandeur="demandeur" />
+                    <EtapeProjet v-else-if="etape === 'projet'" :form="form" :types="types" :type-projet="typeSelectionne" @type-change="onTypeChange" />
+                    <EtapeAirePeriode v-else-if="etape === 'aire'" :form="form" :sites="sites" :today="today" />
+                    <EtapePieces v-else-if="etape === 'pieces'" :form="form" :type-projet="typeSelectionne" :pieces="pieces" @fichier="choisirFichier" @ecarter="ecarterReprise" />
+                    <EtapeRecap
+                        v-else
+                        :form="form"
+                        :demandeur="demandeur"
+                        :engagements="engagements"
+                        :type-projet="typeSelectionne"
+                        :site="siteSelectionne"
+                        :calendrier="calendrier"
+                        :pieces="pieces"
+                        :a-completer="aCompleter"
+                        :today="today"
+                        @modifier="allerA"
+                    />
                 </section>
             </div>
 
             <aside class="create-side">
-                <div class="check">
-                    <header class="check__head"><h2>Vérification du calendrier</h2></header>
-                    <div class="check__body">
-                        <div class="check__map">
-                            <DashboardMap
-                                ref="carte"
-                                :sites="sites"
-                                :etats="etatsSites"
-                                :selected-id="form.site_id || null"
-                                selectable
-                                @select="(id) => (form.site_id = id)"
-                            />
-                        </div>
-                        <ul v-if="etatsSites" class="legende" aria-label="Légende de la carte">
-                            <li><span class="legende__ok"></span>Ouvert</li>
-                            <li><span class="hatch"></span>Période sensible</li>
-                            <li><span class="hatch hatch--block"></span>Bloquant</li>
-                        </ul>
-
-                        <p v-if="!siteSelectionne" class="fs__hint">Cliquez sur une aire protégée de la carte ou choisissez-la dans la liste.</p>
-                        <template v-else>
-                            <div class="fiche">
-                                <span class="site-label">{{ siteSelectionne.nom }}</span>
-                                <span v-if="surfaceSite" class="fiche__surface mono">≈ {{ surfaceSite }}</span>
-                                <p v-if="siteSelectionne.description" class="fiche__desc">{{ siteSelectionne.description }}</p>
-                                <button v-if="surfaceSite" type="button" class="btn-sm-edit fiche__3d" @click="carte?.voir3d(siteSelectionne.id)">
-                                    <Icon name="mountains" />
-                                    Voir le terrain en 3D
-                                </button>
-                            </div>
-
-                            <div v-if="!form.date_debut" class="res res--none">
-                                <Icon name="calendar-blank" />
-                                <div><strong>Dates à compléter</strong>Choisissez l'arrivée et le départ pour vérifier le calendrier du site.</div>
-                            </div>
-                            <div v-else-if="bloquant" class="res res--block" role="alert">
-                                <Icon name="prohibit" />
-                                <div><strong>Envoi impossible sur ces dates</strong>Une période bloquante couvre tout ou partie du séjour. Choisissez d'autres dates.</div>
-                            </div>
-                            <div v-else-if="chevauchements.length" class="res res--warn" role="alert">
-                                <Icon name="warning" />
-                                <div><strong>Période sensible sur ces dates</strong>La demande reste possible. Elle sera signalée au validateur et les précautions figureront au cahier des charges.</div>
-                            </div>
-                            <div v-else class="res res--ok">
-                                <Icon name="check-circle" />
-                                <div><strong>Aucune période sensible</strong>Le site est ouvert sur ces dates.</div>
-                            </div>
-
-                            <div class="periodes">
-                                <p class="eyebrow">Périodes sensibles du site</p>
-                                <ul v-if="periodesSite.length" class="periodes__list">
-                                    <li v-for="p in periodesSite" :key="p.id" class="periodes__item" :class="{ 'periodes__item--hit': chevauche(p) }">
-                                        <span class="hatch" :class="{ 'hatch--block': p.niveau_restriction === 'bloquant' }"></span>
-                                        <span class="periodes__text">
-                                            <span class="mono periodes__dates">{{ formatDate(p.date_debut) }} → {{ formatDate(p.date_fin) }}</span>
-                                            <span>{{ p.description }}</span>
-                                        </span>
-                                        <span class="periodes__lvl" :class="{ 'periodes__lvl--block': p.niveau_restriction === 'bloquant' }">{{ p.niveau_restriction === 'bloquant' ? 'Bloquant' : 'Avertissement' }}</span>
-                                    </li>
-                                </ul>
-                                <p v-else class="fs__hint">Aucune restriction prévue sur ce site.</p>
-                            </div>
-                        </template>
-                    </div>
-                </div>
+                <VerificationCalendrier
+                    :sites="sites"
+                    :etats="etatsSites"
+                    :site="siteSelectionne"
+                    :calendrier="calendrier"
+                    :periodes="periodesSite"
+                    :chevauchements="chevauchements"
+                    @select="(id) => (form.site_id = id)"
+                />
             </aside>
 
             <div class="create-actions">
-                <span class="create-actions__msg">{{ bloquant ? 'Ces dates tombent pendant une période bloquante.' : '' }}</span>
+                <span class="create-actions__info">
+                    <span class="create-actions__step">Étape {{ indexEtape + 1 }} sur {{ etapes.length }}</span>
+                    <span v-if="bloquant" class="create-actions__msg">Ces dates tombent pendant une période bloquante.</span>
+                </span>
+                <button v-if="indexEtape > 0" type="button" class="btn-ghost" @click="precedent"><Icon name="arrow-left" />Précédent</button>
                 <button v-if="!aCompleter" type="button" class="btn-ghost" :disabled="form.processing" @click="envoyer('brouillon')">Enregistrer le brouillon</button>
-                <button type="submit" :disabled="form.processing || bloquant" class="btn-accent">
+                <button v-if="!derniere" type="submit" class="btn-accent">
+                    Suivant
+                    <Icon name="arrow-right" />
+                </button>
+                <button v-else type="submit" :disabled="form.processing || bloquant" class="btn-accent">
                     <Icon v-if="form.processing" name="circle-notch" class="spin" />
                     <Icon v-else name="arrow-right" />
                     {{ form.processing ? 'Envoi…' : aCompleter ? 'Renvoyer le dossier complété' : 'Envoyer la demande' }}
@@ -311,64 +390,33 @@ const fourni = (i, doc) => uploadedFiles.value['doc_' + i] || docsExistants.valu
 .fs__head { display: flex; align-items: center; gap: 12px; }
 .fs__head h2 { font-size: 17px; font-weight: 700; }
 .fs__n { display: grid; place-items: center; width: 26px; height: 26px; border: 1.5px solid var(--forest); border-radius: 50%; color: var(--forest); font: 600 12.5px var(--f-mono); }
-.fs__hint { font-size: 13.5px; color: var(--ink-3); }
 
-.gf-error-banner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--signal-soft); border: 1px solid var(--signal-line); border-radius: var(--r); font-size: 13.5px; color: var(--ink); }
-.gf-error-banner svg { width: 20px; height: 20px; color: var(--signal); flex-shrink: 0; }
+.fs__head h2:focus { outline: none; }
 
-.docs { display: grid; gap: 8px; }
-.doc { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px dashed var(--rule); border-radius: var(--r-sm); }
-.doc--ok { border-style: solid; }
-.doc__icon { width: 26px; height: 26px; color: var(--ink-3); }
-.doc--ok .doc__icon { color: var(--forest); }
-.doc__body { display: grid; gap: 2px; min-width: 0; }
-.doc__body strong { font-weight: 600; font-size: 14px; }
-.doc__body small { font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
-.doc__body a { color: var(--water); font-weight: 600; }
-.doc__btn { cursor: pointer; }
-.doc__btn:focus-within { outline: 2px solid var(--water); outline-offset: 2px; }
-.btn--sm { padding: 7px 10px; font-size: 13px; }
+.stepper ol { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.stepper__btn { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 8px 10px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-sm); font-size: 13px; color: var(--ink-3); text-align: left; cursor: pointer; }
+.stepper__btn:hover:not(:disabled) { border-color: var(--ink-3); }
+.stepper__btn:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }
+.stepper__btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.stepper__n { flex-shrink: 0; display: grid; place-items: center; width: 22px; height: 22px; border: 1.5px solid currentColor; border-radius: 50%; font: 600 11.5px var(--f-mono); }
+.stepper__n svg { width: 12px; height: 12px; }
+.stepper__label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.stepper__btn.is-done { color: var(--forest); }
+.stepper__btn.is-done .stepper__n { background: var(--forest-soft); }
+.stepper__btn.is-current { border-color: var(--forest); color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--forest); }
+.stepper__btn.is-current .stepper__n { background: var(--forest); border-color: var(--forest); color: #fff; }
+.stepper__btn.is-error { border-color: var(--signal-line); color: var(--signal); }
+/* Sur petit écran, seul le libellé de l'étape en cours reste affiché */
+@media (max-width: 720px) {
+    .stepper ol { display: flex; }
+    .stepper li { flex: 0 0 auto; }
+    .stepper li:has(.is-current) { flex: 1 1 auto; min-width: 0; }
+    .stepper__btn { padding: 8px; }
+    .stepper__label { display: none; }
+    .stepper__btn.is-current .stepper__label { display: inline; }
+}
 
 .create-side { min-width: 0; }
-.check { position: sticky; top: 84px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; }
-.check__head { padding: 14px 24px 4px; }
-.check__head h2 { font-size: 15.5px; font-weight: 700; }
-.check__body { display: grid; gap: 12px; padding: 14px; }
-.check__map { height: 300px; }
-.check__map :deep(.map-wrapper),
-.check__map :deep(.map-inner) { min-height: 0; border-radius: var(--r-sm); }
-
-.legende { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--ink-2); }
-.legende li { display: inline-flex; align-items: center; gap: 6px; }
-.legende__ok { width: 14px; height: 14px; background: var(--forest-soft); border: 1px solid var(--forest); }
-
-.fiche { display: grid; gap: 4px; }
-.fiche__surface { font-size: 12px; color: var(--ink-3); }
-.fiche__3d { justify-self: start; margin-top: 4px; }
-.fiche__3d svg { width: 15px; height: 15px; }
-.fiche__desc { font-size: 13px; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-
-.res { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-sm); font-size: 13.5px; color: var(--ink-2); }
-.res strong { display: block; color: var(--ink); }
-.res svg { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
-.res--ok { background: var(--forest-soft); }
-.res--ok svg { color: var(--forest); }
-.res--warn { background: var(--ochre-soft); }
-.res--warn svg { color: var(--ochre); }
-.res--block { background: var(--signal-soft); }
-.res--block svg { color: var(--signal); }
-.res--none { background: var(--sunk); }
-.res--none svg { color: var(--ink-3); }
-
-.periodes { display: grid; gap: 8px; padding-top: 4px; }
-.periodes__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.periodes__item { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--rule-soft); border-radius: var(--r-sm); font-size: 12.5px; color: var(--ink-2); }
-.periodes__item .hatch { margin-top: 2px; }
-.periodes__item--hit { border-color: var(--ink-3); background: var(--paper); }
-.periodes__text { display: grid; gap: 2px; min-width: 0; }
-.periodes__dates { font-size: 12px; color: var(--ink); }
-.periodes__lvl { font: 600 10.5px/1.3 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
-.periodes__lvl--block { color: var(--signal); }
 
 .create-actions {
     grid-column: 1 / -1;
@@ -384,7 +432,9 @@ const fourni = (i, doc) => uploadedFiles.value['doc_' + i] || docsExistants.valu
     background: var(--paper);
     border-top: 1px solid var(--rule);
 }
-.create-actions__msg { margin-right: auto; font-size: 13px; font-weight: 600; color: var(--signal); }
+.create-actions__info { display: grid; gap: 2px; margin-right: auto; }
+.create-actions__step { font-size: 12.5px; color: var(--ink-3); }
+.create-actions__msg { font-size: 13px; font-weight: 600; color: var(--signal); }
 
 .complement-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; margin-bottom: 24px; padding: 16px 24px; background: var(--ochre-soft); border: 1px solid var(--ochre-line); border-radius: var(--r); }
 .complement-box__icon { width: 24px; height: 24px; color: var(--ochre); }

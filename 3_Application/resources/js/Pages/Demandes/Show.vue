@@ -1,29 +1,27 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
+import TimelineDemande from '@/Components/TimelineDemande.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { openAuthenticatedPdf } from '@/utils/openPdf.js';
-import { statutBadgeClass, formatDate, refDemande } from '@/utils/statut.js';
+import { statutBadgeClass, formatDate } from '@/utils/statut.js';
 
 const props = defineProps({
     demande: Object,
     complement: { type: Object, default: null },
+    delaiHabituel: { type: Number, default: null },
     canEdit: Boolean,
     canDelete: Boolean,
 });
 
 const code = computed(() => props.demande.statut.code);
-const reference = computed(() => refDemande(props.demande));
+const reference = computed(() => props.demande.reference);
 const docsRequis = computed(() => props.demande.type_demande?.documents_requis ?? []);
-const docsManquants = computed(() => docsRequis.value.filter(n => !props.demande.documents.some(d => d.type_document === n)));
-
-// Auteur d'une entrée d'historique, vu par le demandeur (on n'expose pas les noms des agents)
-const acteur = (h) => {
-    if (h.user?.id === props.demande.user_id) return 'Vous';
-    return h.user?.role === 'admin' ? 'Administration' : 'Validateur';
-};
+const docsManquants = computed(() => docsRequis.value
+    .filter(r => !props.demande.documents.some(d => d.document_requis_id === r.id))
+    .map(r => r.libelle));
 
 const confirmDelete = ref(false);
 const deleting = ref(false);
@@ -58,7 +56,7 @@ const openPdf = async (url, filename) => {
         </template>
 
         <div class="intro">
-            <h1 class="intro__title">{{ demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
+            <h1 class="intro__title">{{ demande.titre || demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
             <StatutSteps :code="code" large />
         </div>
 
@@ -88,7 +86,7 @@ const openPdf = async (url, filename) => {
             <Icon name="seal-check" class="callout__icon" />
             <div class="callout__body">
                 <span class="callout__tag">Demande validée</span>
-                <p>Présentez l'autorisation à l'arrivée sur le site et respectez le cahier des charges.</p>
+                <p>Présentez l'autorisation à l'arrivée dans l'aire protégée et respectez le cahier des charges.</p>
             </div>
             <div class="btn-row">
                 <button type="button" class="btn-accent" @click="openPdf(route('demandes.pdf.autorisation', demande.id), `autorisation_${demande.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
@@ -99,8 +97,8 @@ const openPdf = async (url, filename) => {
         <div class="show-layout">
             <div class="stack">
                 <dl class="meta">
-                    <div><dt>Site</dt><dd>{{ demande.site.nom }}</dd></div>
-                    <div><dt>Activité</dt><dd>{{ demande.type_demande.libelle }}</dd></div>
+                    <div><dt>Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
+                    <div><dt>Type de projet</dt><dd>{{ demande.type_demande.libelle }}<template v-if="demande.type_precision"> ({{ demande.type_precision }})</template></dd></div>
                     <div>
                         <dt>Séjour</dt>
                         <dd class="mono">
@@ -113,8 +111,13 @@ const openPdf = async (url, filename) => {
                 </dl>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Description du projet</h2></header>
+                    <header class="panel__head"><h2>Résumé du synopsis</h2></header>
                     <p class="panel__text">{{ demande.description || '—' }}</p>
+                </section>
+
+                <section class="panel">
+                    <header class="panel__head"><h2>Objectif(s) principal(aux) du projet</h2></header>
+                    <p class="panel__text">{{ demande.objectifs || '—' }}</p>
                 </section>
 
                 <div v-for="(a, i) in demande.resultats_analyse || []" :key="i" class="conflict">
@@ -154,25 +157,17 @@ const openPdf = async (url, filename) => {
 
             <aside class="stack side">
                 <section class="panel">
-                    <header class="panel__head"><h2>Historique</h2></header>
-                    <ol v-if="demande.historique_statuts.length" class="hist">
-                        <li v-for="(h, i) in demande.historique_statuts" :key="h.id" :class="{ 'hist--now': i === demande.historique_statuts.length - 1 }">
-                            <span class="hist__dot"></span>
-                            <div>
-                                <strong>{{ h.nouveau_statut.libelle }}</strong>
-                                <small><span class="mono">{{ new Date(h.date_changement).toLocaleDateString('fr-FR') }}</span> · {{ acteur(h) }}</small>
-                                <q v-if="h.commentaire">{{ h.commentaire }}</q>
-                            </div>
-                        </li>
-                    </ol>
-                    <p v-else class="panel__text muted">
-                        {{ code === 'brouillon' ? 'L\'historique démarrera à l\'envoi de la demande.' : 'Aucune décision pour le moment : votre dossier est en file d\'attente.' }}
-                    </p>
+                    <header class="panel__head"><h2>Suivi du dossier</h2></header>
+                    <TimelineDemande :demande="demande" vue-demandeur :delai-habituel="delaiHabituel" />
                 </section>
 
-                <section v-if="canEdit || canDelete" class="panel">
+                <section v-if="canEdit || canDelete || code !== 'brouillon'" class="panel">
                     <header class="panel__head"><h2>Actions</h2></header>
                     <div class="side-actions">
+                        <button v-if="code !== 'brouillon'" type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.formulaire', demande.id), `formulaire_demande_${demande.id}.pdf`)">
+                            <Icon name="file-pdf" />
+                            Formulaire de demande
+                        </button>
                         <Link v-if="canEdit" :href="route('demandes.edit', demande.id)" class="btn-ghost">
                             <Icon name="pencil-simple" />
                             {{ code === 'a_completer' ? 'Compléter le dossier' : 'Modifier le brouillon' }}
@@ -183,7 +178,7 @@ const openPdf = async (url, filename) => {
                                 <p>Supprimer définitivement ce brouillon et ses pièces jointes ?</p>
                                 <div class="del-confirm__btns">
                                     <button type="button" class="btn-ghost" @click="confirmDelete = false">Annuler</button>
-                                    <button type="button" class="btn-sm-delete" :disabled="deleting" @click="supprimer">Oui, supprimer</button>
+                                    <button type="button" class="btn-sm-delete del-btn" :disabled="deleting" @click="supprimer">Oui, supprimer</button>
                                 </div>
                             </div>
                         </template>
@@ -254,18 +249,11 @@ const openPdf = async (url, filename) => {
 .docs__body small { font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
 .docs__missing .docs__icon, .docs__missing strong { color: var(--ochre); }
 
-.hist { list-style: none; margin: 0; padding: 4px 24px 24px; display: grid; }
-.hist li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 12px; padding-top: 12px; }
-.hist li::before { content: ''; position: absolute; left: 6px; top: 26px; bottom: -12px; border-left: 1px solid var(--rule); }
-.hist li:last-child::before { display: none; }
-.hist__dot { position: relative; z-index: 1; width: 13px; height: 13px; margin-top: 4px; border: 2px solid var(--ink-3); border-radius: 50%; background: var(--surface); }
-.hist--now .hist__dot { border-color: var(--water); background: var(--water); }
-.hist strong { display: block; font-weight: 600; font-size: 14px; }
-.hist small { font-size: 12.5px; color: var(--ink-3); }
-.hist q { display: block; margin-top: 4px; font-size: 13px; font-style: italic; color: var(--ink-2); quotes: "« " " »"; }
-
 .side-actions { display: grid; gap: 10px; padding: 16px 24px; }
-.del-btn { justify-content: center; padding: 9px 14px; }
+/* Même gabarit que .btn-ghost (« Modifier le brouillon », « Annuler ») */
+.del-btn { justify-content: center; gap: 8px; min-height: 36px; padding: 8px 14px; border-radius: var(--r-sm); font: 600 14px/1 var(--f-body); white-space: nowrap; }
+.del-btn :deep(svg) { width: 16px; height: 16px; }
+@media (pointer: coarse) { .del-btn { min-height: 40px; } }
 .del-confirm { padding: 12px; background: var(--signal-soft); border: 1px solid var(--signal-line); border-radius: var(--r-sm); }
 .del-confirm p { margin-bottom: 10px; font-size: 13px; color: var(--ink); }
 .del-confirm__btns { display: flex; justify-content: flex-end; gap: 8px; }

@@ -1,0 +1,36 @@
+%%mocodo
+
+DOCUMENT: id_document, nom_fichier, chemin_fichier, type_document
+FOURNIR, 0N DOCUMENT_REQUIS, 01 DOCUMENT
+DOCUMENT_REQUIS: id_document_requis, libelle_document_requis
+EXIGER, 0N TYPE_DEMANDE, 11 DOCUMENT_REQUIS
+TYPE_DEMANDE: id_type_demande, libelle_type, precision_requise
+REGLE_SPECIFIQUE: id_regle, libelle_regle
+
+CONTENIR, 0N DEMANDE, 11 DOCUMENT
+RELEVER DE, 0N TYPE_DEMANDE, 11 DEMANDE
+SOUMETTRE, 0N UTILISATEUR, 11 DEMANDE
+CONCERNER, 0N SITE, 11 DEMANDE
+SITE: id_site, nom_site, description_site, coordonnees_site
+IMPOSER, 0N TYPE_DEMANDE, 11 REGLE_SPECIFIQUE
+
+DEMANDE: id_demande, titre_projet, precision_type, description_demande, objectifs_projet, date_debut_activite, date_fin_activite, nombre_personnes, date_soumission, resultats_analyse
+PORTER SUR, 0N DEMANDE, 01 NOTIFICATION
+NOTIFICATION: id_notification, contenu_notification, lu_notification, date_envoi
+GÉRER, 0N UTILISATEUR, 0N SITE
+UTILISATEUR: id_utilisateur, nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur, organisation_utilisateur, fonction_utilisateur, adresse_utilisateur, telephone_utilisateur, piece_identite
+:
+
+:
+QUITTER, 0N STATUT, 01 HISTORIQUE_STATUT
+TRACER, 0N DEMANDE, 11 HISTORIQUE_STATUT
+RECEVOIR, 0N UTILISATEUR, 11 NOTIFICATION
+DÉCIDER, 0N UTILISATEUR, 01 HISTORIQUE_STATUT
+CONNAÎTRE, 0N SITE, 11 PERIODE_SENSIBLE
+
+AVOIR POUR STATUT, 0N STATUT, 11 DEMANDE
+:
+STATUT: id_statut, code_statut, libelle_statut, description_statut
+ATTEINDRE, 0N STATUT, 11 HISTORIQUE_STATUT
+HISTORIQUE_STATUT: id_historique, commentaire_statut, date_changement
+PERIODE_SENSIBLE: id_periode, date_debut_periode, date_fin_periode, description_periode, niveau_restriction

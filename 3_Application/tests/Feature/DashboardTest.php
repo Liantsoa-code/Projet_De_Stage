@@ -37,7 +37,8 @@ class DashboardTest extends TestCase
 
         $this->site = Site::create(['nom' => 'Andasibe', 'description' => '', 'polygone_coordonnees' => []]);
         $this->autreSite = Site::create(['nom' => 'Isalo', 'description' => '', 'polygone_coordonnees' => []]);
-        $this->type = TypeDemande::create(['libelle' => 'Recherche', 'documents_requis' => ['Protocole', 'Assurance'], 'regles_specifiques' => []]);
+        $this->type = TypeDemande::create(['libelle' => 'Recherche']);
+        $this->type->documentsRequis()->createMany([['libelle' => 'Protocole'], ['libelle' => 'Assurance']]);
         $this->demandeur = User::factory()->create(['role' => 'demandeur', 'name' => 'Rova Demandeur']);
         $this->validateur = User::factory()->create(['role' => 'validateur']);
         $this->validateur->sites()->attach($this->site);
@@ -115,6 +116,38 @@ class DashboardTest extends TestCase
             );
     }
 
+    public function test_main_statistics_count_received_pending_and_validated_requests(): void
+    {
+        $this->makeDemande('soumise');
+        $this->makeDemande('en_analyse');
+        $this->makeDemande('a_completer');
+        $this->makeDemande('validee', ['date_soumission' => now()->subMonths(2)]);
+        $this->makeDemande('rejetee');
+        // Ni les brouillons ni les demandes d'une autre aire protégée ne comptent pour le validateur.
+        $this->makeDemande('brouillon', ['date_soumission' => null]);
+        $this->makeDemande('validee', ['site_id' => $this->autreSite->id]);
+
+        $this->actingAs($this->validateur)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('principales.recues', 5)
+                ->where('principales.recues_mois', 4)
+                ->where('principales.en_attente', 3)
+                ->where('principales.chez_demandeur', 1)
+                ->where('principales.validees', 1)
+                ->where('principales.rejetees', 1)
+                ->where('principales.taux_validation', 50)
+            );
+
+        $this->actingAs($this->admin)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('principales.recues', 6)
+                ->where('principales.validees', 2)
+                ->where('principales.taux_validation', 67)
+            );
+    }
+
     public function test_validateur_sees_his_activity_of_the_month(): void
     {
         $this->decision('validee', 2);
@@ -177,7 +210,7 @@ class DashboardTest extends TestCase
     public function test_demandeur_sees_missing_documents_and_usual_delay(): void
     {
         $brouillon = $this->makeDemande('brouillon');
-        Document::create(['demande_id' => $brouillon->id, 'nom_fichier' => 'p.pdf', 'chemin' => 'x', 'type_document' => 'Protocole']);
+        Document::create(['demande_id' => $brouillon->id, 'nom_fichier' => 'p.pdf', 'chemin' => 'x', 'document_requis_id' => $this->type->documentsRequis->first()->id, 'type_document' => 'Protocole']);
         $this->makeDemande('soumise', ['date_soumission' => now()->subDays(2)]);
         // Le brouillon est le plus récemment modifié : il arrive en tête de liste
         $brouillon->updated_at = now()->addMinute();

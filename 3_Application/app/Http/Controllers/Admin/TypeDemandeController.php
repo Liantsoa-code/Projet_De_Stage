@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Demande;
 use App\Models\TypeDemande;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class TypeDemandeController extends Controller
 {
     public function index()
     {
-        $types = TypeDemande::all();
+        $types = TypeDemande::with('documentsRequis:id,type_demande_id,libelle,reutilisable')->get();
         return Inertia::render('Admin/TypeDemandes/Index', ['types' => $types]);
     }
 
@@ -23,53 +24,79 @@ class TypeDemandeController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'libelle' => 'required|string|max:100',
-            'documents_requis' => 'nullable|string',
-            'regles_specifiques' => 'nullable|string',
-        ]);
+        $validated = $this->validateType($request);
 
-        // Convertir la chaîne en tableau (séparée par des virgules)
-        $documents = $validated['documents_requis'] ? array_map('trim', explode(',', $validated['documents_requis'])) : [];
-        $regles = $validated['regles_specifiques'] ? array_map('trim', explode(',', $validated['regles_specifiques'])) : [];
-
-        TypeDemande::create([
-            'libelle' => $validated['libelle'],
-            'documents_requis' => $documents,
-            'regles_specifiques' => $regles,
-        ]);
+        DB::transaction(function () use ($validated) {
+            $type = TypeDemande::create($this->champsType($validated));
+            $this->syncListes($type, $validated);
+        });
 
         return redirect()->route('admin.type-demandes.index')->with('message', 'Type de demande ajouté.');
     }
 
     public function edit(TypeDemande $type_demande)
     {
+        $type_demande->load(['documentsRequis:id,type_demande_id,libelle,reutilisable', 'reglesSpecifiques:id,type_demande_id,libelle']);
+
         return Inertia::render('Admin/TypeDemandes/Edit', ['type' => $type_demande]);
     }
 
     public function update(Request $request, TypeDemande $type_demande)
     {
-        $validated = $request->validate([
-            'libelle' => 'required|string|max:100',
-            'documents_requis' => 'nullable|string',
-            'regles_specifiques' => 'nullable|string',
-        ]);
+        $validated = $this->validateType($request);
 
-        $documents = $validated['documents_requis'] ? array_map('trim', explode(',', $validated['documents_requis'])) : [];
-        $regles = $validated['regles_specifiques'] ? array_map('trim', explode(',', $validated['regles_specifiques'])) : [];
-
-        $type_demande->update([
-            'libelle' => $validated['libelle'],
-            'documents_requis' => $documents,
-            'regles_specifiques' => $regles,
-        ]);
+        DB::transaction(function () use ($validated, $type_demande) {
+            $type_demande->update($this->champsType($validated));
+            $this->syncListes($type_demande, $validated);
+        });
 
         return redirect()->route('admin.type-demandes.index')->with('message', 'Type de demande modifié.');
     }
 
+    /**
+     * Pièces requises et règles : une ligne par élément ({id, libelle}), l'id est conservé
+     * quand on renomme une pièce, pour que les fichiers déjà déposés restent rattachés.
+     * Une pièce peut être marquée réutilisable : elle est alors reprise d'un dossier précédent du demandeur.
+     */
+    private function validateType(Request $request): array
+    {
+        return $request->validate([
+            'libelle' => 'required|string|max:100',
+            'precision_requise' => 'boolean',
+            'documents_requis' => 'array',
+            'documents_requis.*.id' => 'nullable|integer',
+            'documents_requis.*.libelle' => 'required|string|max:150|distinct:ignore_case',
+            'documents_requis.*.reutilisable' => 'boolean',
+            'regles_specifiques' => 'array',
+            'regles_specifiques.*.id' => 'nullable|integer',
+            'regles_specifiques.*.libelle' => 'required|string|max:255',
+        ], [
+            'documents_requis.*.libelle.required' => 'Chaque pièce doit avoir un nom.',
+            'documents_requis.*.libelle.distinct' => 'Cette pièce figure déjà dans la liste.',
+            'regles_specifiques.*.libelle.required' => 'Chaque règle doit avoir un texte.',
+        ]);
+    }
+
+    /**
+     * precision_requise : le demandeur précise son projet (choix « Autre (précisez) » du formulaire).
+     */
+    private function champsType(array $validated): array
+    {
+        return [
+            'libelle' => $validated['libelle'],
+            'precision_requise' => $validated['precision_requise'] ?? false,
+        ];
+    }
+
+    private function syncListes(TypeDemande $type, array $validated): void
+    {
+        TypeDemande::syncListe($type->documentsRequis(), $validated['documents_requis'] ?? []);
+        TypeDemande::syncListe($type->reglesSpecifiques(), $validated['regles_specifiques'] ?? []);
+    }
+
     public function destroy(TypeDemande $type_demande)
     {
-        // La clé étrangère est en cascade : supprimer le type effacerait les demandes associées.
+        // La base refuse la suppression (RESTRICT) : on explique pourquoi plutôt que d'afficher une erreur SQL.
         $nbDemandes = Demande::where('type_demande_id', $type_demande->id)->count();
         if ($nbDemandes > 0) {
             return redirect()->route('admin.type-demandes.index')

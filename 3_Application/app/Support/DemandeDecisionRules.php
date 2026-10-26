@@ -6,46 +6,11 @@ use App\Models\Demande;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
+/**
+ * Décideurs à prévenir pour une demande. Qui peut consulter ou décider : voir DemandePolicy.
+ */
 class DemandeDecisionRules
 {
-    /**
-     * Un admin ou validateur ne peut pas rendre de décision sur sa propre demande.
-     */
-    public static function canUserDecide(User $user, Demande $demande): bool
-    {
-        if (! in_array($user->role, ['admin', 'validateur'], true)) {
-            return false;
-        }
-
-        return (int) $demande->user_id !== (int) $user->id;
-    }
-
-    /**
-     * Accès en lecture à une demande et à ses fichiers (pièces jointes, PDF) :
-     * le demandeur, un admin, ou un validateur rattaché au site de la demande.
-     */
-    public static function canUserView(User $user, Demande $demande): bool
-    {
-        if ((int) $demande->user_id === (int) $user->id) {
-            return true;
-        }
-
-        // Un brouillon reste privé tant qu'il n'est pas soumis.
-        if ($demande->statut?->code === 'brouillon') {
-            return false;
-        }
-
-        if ($user->role === 'admin') {
-            return true;
-        }
-
-        if ($user->role !== 'validateur') {
-            return false;
-        }
-
-        return $user->sites()->where('sites.id', $demande->site_id)->exists();
-    }
-
     /**
      * Utilisateurs à notifier lors d'une nouvelle soumission (hors demandeur).
      * Demandeur classique → validateurs du site.
@@ -64,7 +29,7 @@ class DemandeDecisionRules
         if ($creator->role === 'demandeur') {
             return $query
                 ->where('role', 'validateur')
-                ->whereHas('sites', fn ($q) => $q->where('sites.id', $siteId))
+                ->whereHas('sites', fn ($q) => $q->where('t_sites.id', $siteId))
                 ->get();
         }
 
@@ -73,7 +38,29 @@ class DemandeDecisionRules
                 $q->where('role', 'admin')
                     ->orWhere(function ($q2) use ($siteId) {
                         $q2->where('role', 'validateur')
-                            ->whereHas('sites', fn ($q3) => $q3->where('sites.id', $siteId));
+                            ->whereHas('sites', fn ($q3) => $q3->where('t_sites.id', $siteId));
+                    });
+            })
+            ->get();
+    }
+
+    /**
+     * Équipe à tenir informée d'un changement de statut : validateurs du site et admins,
+     * hors auteur de la décision et hors demandeur (prévenu par son propre message).
+     *
+     * @return Collection<int, User>
+     */
+    public static function notifiableTeamForDecision(Demande $demande, User $decideur): Collection
+    {
+        $siteId = $demande->site_id;
+
+        return User::query()
+            ->whereNotIn('id', [$decideur->id, $demande->user_id])
+            ->where(function ($q) use ($siteId) {
+                $q->where('role', 'admin')
+                    ->orWhere(function ($q2) use ($siteId) {
+                        $q2->where('role', 'validateur')
+                            ->whereHas('sites', fn ($q3) => $q3->where('t_sites.id', $siteId));
                     });
             })
             ->get();

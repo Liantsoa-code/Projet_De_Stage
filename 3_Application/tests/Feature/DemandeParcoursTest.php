@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\DemandeNotificationMail;
 use App\Models\Demande;
 use App\Models\Document;
 use App\Models\HistoriqueStatut;
@@ -13,6 +14,7 @@ use App\Models\TypeDemande;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -26,6 +28,7 @@ class DemandeParcoursTest extends TestCase
 
     private Site $site;
     private TypeDemande $type;
+    private int $protocoleId;
     private User $demandeur;
     private User $validateur;
 
@@ -40,11 +43,8 @@ class DemandeParcoursTest extends TestCase
         }
 
         $this->site = Site::create(['nom' => 'Andasibe', 'description' => '', 'polygone_coordonnees' => []]);
-        $this->type = TypeDemande::create([
-            'libelle' => 'Recherche',
-            'documents_requis' => ['Protocole'],
-            'regles_specifiques' => [],
-        ]);
+        $this->type = TypeDemande::create(['libelle' => 'Recherche']);
+        $this->protocoleId = $this->type->documentsRequis()->create(['libelle' => 'Protocole'])->id;
         $this->demandeur = User::factory()->create(['role' => 'demandeur', 'name' => 'Rova Demandeur']);
         $this->validateur = User::factory()->create(['role' => 'validateur']);
         $this->validateur->sites()->attach($this->site);
@@ -52,14 +52,14 @@ class DemandeParcoursTest extends TestCase
 
     private function payload(array $overrides = []): array
     {
-        return array_merge([
+        return array_merge($this->champsFormulaire(), [
             'site_id' => $this->site->id,
             'type_demande_id' => $this->type->id,
             'date_debut' => now()->addDays(5)->toDateString(),
             'date_fin' => now()->addDays(7)->toDateString(),
             'equipe_nombre' => 3,
             'description' => 'Inventaire de la faune',
-            'doc_0' => UploadedFile::fake()->create('protocole.pdf', 100, 'application/pdf'),
+            'doc_' . $this->protocoleId => UploadedFile::fake()->create('protocole.pdf', 100, 'application/pdf'),
         ], $overrides);
     }
 
@@ -132,7 +132,7 @@ class DemandeParcoursTest extends TestCase
     {
         $brouillon = $this->makeDemande('brouillon');
         Storage::put("demandes/{$brouillon->id}/p.pdf", 'x');
-        $document = Document::create(['demande_id' => $brouillon->id, 'nom_fichier' => 'p.pdf', 'chemin' => "demandes/{$brouillon->id}/p.pdf", 'type_document' => 'Protocole']);
+        $document = Document::create(['demande_id' => $brouillon->id, 'nom_fichier' => 'p.pdf', 'chemin' => "demandes/{$brouillon->id}/p.pdf", 'document_requis_id' => $this->protocoleId, 'type_document' => 'Protocole']);
 
         $this->actingAs($this->validateur)
             ->get(route('validateur.demandes.index'))
@@ -152,7 +152,7 @@ class DemandeParcoursTest extends TestCase
 
         // Soumission sans renvoyer la pièce déjà fournie
         $payload = $this->payload(['action' => 'soumettre', '_method' => 'put']);
-        unset($payload['doc_0']);
+        unset($payload['doc_' . $this->protocoleId]);
 
         $this->actingAs($this->demandeur)
             ->post(route('demandes.update', $demande), $payload)
@@ -223,6 +223,33 @@ class DemandeParcoursTest extends TestCase
             ->where('commentaire', 'Protocole signé ajouté.')
             ->exists());
         $this->assertTrue(Notification::where('user_id', $this->validateur->id)->where('contenu', 'like', '%a complété son dossier%')->exists());
+    }
+
+    public function test_status_change_emails_demandeur_and_team_but_not_decider(): void
+    {
+        Mail::fake();
+        $collegue = User::factory()->create(['role' => 'validateur']);
+        $collegue->sites()->attach($this->site);
+        $autreSite = User::factory()->create(['role' => 'validateur']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $demande = $this->makeDemande('soumise');
+
+        $this->actingAs($this->validateur)
+            ->post(route('validateur.demandes.update-statut', $demande), [
+                'statut_id' => Statut::where('code', 'en_analyse')->value('id'),
+                'commentaire' => 'Pièces reçues, examen en cours.',
+            ])
+            ->assertSessionHasNoErrors();
+
+        Mail::assertQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($this->demandeur->email)
+            && $mail->lien === route('demandes.show', $demande));
+        Mail::assertQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($collegue->email)
+            && $mail->lien === route('validateur.demandes.show', $demande)
+            && str_contains($mail->contenu, '#'.$demande->id));
+        Mail::assertQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($admin->email));
+        Mail::assertNotQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($this->validateur->email));
+        Mail::assertNotQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($autreSite->email));
+        $this->assertTrue(Notification::where('user_id', $collegue->id)->where('demande_id', $demande->id)->exists());
     }
 
     // ── Analyse des périodes sensibles ──
@@ -319,5 +346,39 @@ class DemandeParcoursTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->has('sites.data', 1)
                 ->where('sites.data.0.nom', 'Ranomafana'));
+    }
+
+    // ── Référence officielle et limite d'envois ──
+
+    public function test_reference_is_computed_by_the_server_for_pages_and_dashboard(): void
+    {
+        $demande = $this->makeDemande('soumise');
+        $attendue = sprintf('FAN-%s-%04d', $demande->created_at->format('Y'), $demande->id);
+
+        $this->actingAs($this->demandeur)
+            ->get(route('demandes.show', $demande))
+            ->assertInertia(fn (Assert $page) => $page->where('demande.reference', $attendue));
+
+        $this->actingAs($this->validateur)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page->where('file.0.reference', $attendue));
+    }
+
+    public function test_demande_submissions_are_rate_limited(): void
+    {
+        $brouillon = ['site_id' => $this->site->id, 'type_demande_id' => $this->type->id, 'action' => 'brouillon'];
+
+        for ($i = 0; $i < 20; $i++) {
+            $this->actingAs($this->demandeur)->post(route('demandes.store'), $brouillon)->assertSessionHasNoErrors();
+        }
+
+        // Au-delà de 20 envois dans la minute : retour au formulaire avec un message, rien n'est enregistré
+        $this->actingAs($this->demandeur)
+            ->from(route('demandes.create'))
+            ->post(route('demandes.store'), $brouillon)
+            ->assertRedirect(route('demandes.create'))
+            ->assertSessionHas('error');
+
+        $this->assertSame(20, Demande::count());
     }
 }

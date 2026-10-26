@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -35,5 +38,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('is-demandeur', function (User $user) {
             return $user->role === 'demandeur';
         });
+
+        // Création et modification des demandes (avec envoi de fichiers) : 20 envois par minute et par utilisateur.
+        RateLimiter::for('demandes', fn (Request $request) => Limit::perMinute(20)
+            ->by($request->user()?->id ?: $request->ip())
+            ->response(fn () => back()->with('error', "Trop d'envois en peu de temps : patientez une minute avant de réessayer.")));
     }
 }

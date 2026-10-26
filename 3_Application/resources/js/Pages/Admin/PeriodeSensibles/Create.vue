@@ -27,9 +27,9 @@ const submit = () => form.post(route('admin.periode-sensibles.store'));
                 </div>
                 <form @submit.prevent="submit" class="gf-body">
                     <div>
-                        <label class="gf-label">Site protégé *</label>
+                        <label class="gf-label">Aire protégée *</label>
                         <select v-model="form.site_id" class="gf-select" required>
-                            <option disabled value="">Sélectionnez un site</option>
+                            <option disabled value="">Sélectionnez une aire protégée</option>
                             <option v-for="s in sites" :key="s.id" :value="s.id">{{ s.nom }}</option>
                         </select>
                         <InputError class="gf-error" :message="form.errors.site_id" />

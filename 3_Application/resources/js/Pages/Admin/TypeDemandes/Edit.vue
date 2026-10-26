@@ -3,15 +3,17 @@ import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
+import ListeEditable from '@/Components/ListeEditable.vue';
 
 const props = defineProps({ type: Object });
 const form = useForm({
     libelle: props.type.libelle,
-    documents_requis: Array.isArray(props.type.documents_requis) ? props.type.documents_requis.join(', ') : '',
-    regles_specifiques: Array.isArray(props.type.regles_specifiques)
-        ? props.type.regles_specifiques.join(', ')
-        : (props.type.regles_specifiques ? JSON.stringify(props.type.regles_specifiques) : ''),
+    precision_requise: Boolean(props.type.precision_requise),
+    documents_requis: (props.type.documents_requis ?? []).map(({ id, libelle, reutilisable }) => ({ id, libelle, reutilisable: Boolean(reutilisable) })),
+    regles_specifiques: (props.type.regles_specifiques ?? []).map(({ id, libelle }) => ({ id, libelle })),
 });
+// Pièce qu'un demandeur n'a à déposer qu'une fois (reprise d'un dossier précédent)
+const optionReutilisable = { cle: 'reutilisable', label: 'Réutilisable', aide: 'Reprise automatiquement des dossiers précédents du demandeur' };
 const submit = () => form.put(route('admin.type-demandes.update', props.type.id));
 </script>
 
@@ -35,10 +37,37 @@ const submit = () => form.put(route('admin.type-demandes.update', props.type.id)
                         <InputLabel value="Libellé *" class="field-label" />
                         <input type="text" class="field-input" v-model="form.libelle" required />
                     </div>
+                    <label class="field-check">
+                        <input v-model="form.precision_requise" type="checkbox" />
+                        <span>
+                            Le demandeur précise son projet
+                            <small>Pour le choix « Autre (précisez) » du formulaire de demande : un champ de précision devient obligatoire.</small>
+                        </span>
+                    </label>
                     <div class="field-group">
                         <InputLabel value="Documents requis" class="field-label" />
-                        <input type="text" class="field-input" v-model="form.documents_requis" />
-                        <p class="field-hint">Noms des documents séparés par des virgules.</p>
+                        <ListeEditable
+                            v-model="form.documents_requis"
+                            champ="documents_requis"
+                            :errors="form.errors"
+                            placeholder="Ex : Plan de vol drone"
+                            ajouter-label="Ajouter une pièce"
+                            vide="Aucune pièce exigée pour ce type."
+                            :option="optionReutilisable"
+                        />
+                        <p class="field-hint">Chaque pièce sera demandée lors de la soumission. Renommer une pièce garde les fichiers déjà déposés. Une pièce réutilisable (pièce d'identité, assurance…) déjà déposée par le demandeur est reprise automatiquement dans ses demandes suivantes, s'il ne la remplace pas.</p>
+                    </div>
+                    <div class="field-group">
+                        <InputLabel value="Règles spécifiques" class="field-label" />
+                        <ListeEditable
+                            v-model="form.regles_specifiques"
+                            champ="regles_specifiques"
+                            :errors="form.errors"
+                            placeholder="Ex : Équipe limitée à 10 personnes"
+                            ajouter-label="Ajouter une règle"
+                            vide="Aucune règle particulière."
+                        />
+                        <p class="field-hint">Reprises dans le cahier des charges remis avec l'autorisation.</p>
                     </div>
                     <div class="form-footer">
                         <Link :href="route('admin.type-demandes.index')" class="btn-cancel">Annuler</Link>
@@ -94,6 +123,9 @@ const submit = () => form.put(route('admin.type-demandes.update', props.type.id)
 .field-textarea { resize: vertical; line-height: 1.5; }
 .field-error { font-size: 11px; color: var(--signal); }
 .field-hint { font-size: 11.5px; color: var(--c-muted); margin: 0; line-height: 1.4; }
+.field-check { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; font-weight: 600; color: var(--c-text); cursor: pointer; }
+.field-check input { margin-top: 2px; accent-color: var(--forest); }
+.field-check small { display: block; font-size: 11.5px; font-weight: 400; color: var(--c-muted); line-height: 1.4; }
 
 .form-footer {
     display: flex; justify-content: flex-end; align-items: center;

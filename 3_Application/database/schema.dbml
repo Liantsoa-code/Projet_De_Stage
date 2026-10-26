@@ -1,0 +1,246 @@
+// Schéma de la base projet_stage, à coller sur https://dbdiagram.io
+// Toutes les tables portent le préfixe t_. Tables métier uniquement (les tables techniques
+// Laravel sont omises : t_cache, t_cache_locks, t_jobs, t_job_batches, t_failed_jobs,
+// t_sessions, t_password_reset_tokens, t_migrations).
+
+Project projet_stage {
+  database_type: 'MySQL'
+  Note: 'Plateforme d\'accès aux aires protégées — Association FANAMBY'
+}
+
+Enum role_utilisateur {
+  demandeur
+  validateur
+  admin
+}
+
+Enum niveau_restriction {
+  bloquant
+  avertissement
+}
+
+Table t_users {
+  id bigint [pk, increment]
+  name varchar(255) [not null]
+  email varchar(255) [not null, unique]
+  email_verified_at timestamp
+  password varchar(255) [not null]
+  role role_utilisateur [not null, default: 'demandeur']
+  organisation varchar(150) [note: 'Formulaire de demande, section I']
+  fonction varchar(100) [note: 'Section I ; pour un décideur, reprise dans la section VI']
+  adresse varchar(255)
+  telephone varchar(30)
+  piece_identite varchar(50) [note: 'N° de CIN ou de passeport (section V)']
+  remember_token varchar(100)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table t_sites {
+  id bigint [pk, increment]
+  nom varchar(150) [not null]
+  description text
+  polygone_coordonnees json
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table t_site_user {
+  user_id bigint [not null]
+  site_id bigint [not null]
+
+  indexes {
+    (user_id, site_id) [pk]
+  }
+
+  Note: 'Pivot : sites attribués à chaque validateur'
+}
+
+Table t_statuts {
+  id bigint [pk, increment]
+  code varchar(50) [not null, unique, note: 'brouillon, soumise, a_completer, ...']
+  libelle varchar(100) [not null]
+  description text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table t_type_demandes {
+  id bigint [pk, increment]
+  libelle varchar(100) [not null, note: 'Type de projet du formulaire de demande']
+  precision_requise boolean [not null, default: false, note: 'Le demandeur précise son projet (« Autre »)']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table t_documents_requis {
+  id bigint [pk, increment]
+  type_demande_id bigint [not null]
+  libelle varchar(150) [not null]
+  reutilisable boolean [not null, default: false, note: 'reprise d'un dossier précédent du même demandeur']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (type_demande_id, libelle) [unique]
+  }
+
+  Note: 'Pièces justificatives exigées pour un type de demande (une ligne par pièce)'
+}
+
+Table t_regles_specifiques {
+  id bigint [pk, increment]
+  type_demande_id bigint [not null]
+  libelle varchar(255) [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Règles reprises dans le cahier des charges (une ligne par règle)'
+}
+
+Table t_demandes {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  site_id bigint [not null]
+  type_demande_id bigint [not null]
+  titre varchar(200) [note: 'Titre du projet (section II)']
+  type_precision varchar(150) [note: 'Précision du type « Autre »']
+  description text [note: 'Résumé du synopsis']
+  objectifs text [note: 'Objectif(s) principal(aux) du projet']
+  date_debut date [note: 'Facultative tant que la demande est un brouillon']
+  date_fin date [note: 'Facultative tant que la demande est un brouillon']
+  equipe_nombre int [not null, default: 1, note: 'CHECK (equipe_nombre >= 1)']
+  statut_id bigint [not null]
+  date_soumission timestamp
+  resultats_analyse json [note: 'Dénormalisation : alertes figées au moment de la soumission']
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'CHECK (date_fin >= date_debut). statut_id = dernier statut historisé (brouillon si aucun historique)'
+}
+
+Table t_documents {
+  id bigint [pk, increment]
+  demande_id bigint [not null]
+  document_requis_id bigint [note: 'Vide si la pièce a été retirée du type depuis le dépôt']
+  nom_fichier varchar(255) [not null]
+  chemin varchar(255) [not null]
+  type_document varchar(50) [not null, note: 'Dénormalisation : libellé de la pièce figé au dépôt']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table t_historique_statuts {
+  id bigint [pk, increment]
+  demande_id bigint [not null]
+  user_id bigint [note: 'Vide si le compte de l\'auteur a été supprimé']
+  ancien_statut_id bigint
+  nouveau_statut_id bigint [not null]
+  commentaire text
+  date_changement timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table t_periode_sensibles {
+  id bigint [pk, increment]
+  site_id bigint [not null]
+  date_debut date [not null]
+  date_fin date [not null]
+  description varchar(255) [not null]
+  niveau_restriction niveau_restriction [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'CHECK (date_fin >= date_debut)'
+}
+
+Table t_notifications {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  demande_id bigint
+  contenu text [not null]
+  lu boolean [not null, default: false]
+  date_envoi timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (user_id, lu, date_envoi) [name: 't_notifications_user_lu_envoi_index', note: 'Cloche : non lues d\'un utilisateur']
+  }
+}
+
+Table t_modeles_reference {
+  id bigint [pk, increment]
+  titre varchar(150) [not null, unique]
+  description text [not null]
+  usage text
+  icone varchar(40) [not null]
+  automatique boolean [not null, default: false, note: 'Document produit par la plateforme à la validation (indication affichée)']
+  contenu text [not null, note: 'Texte mis en forme à l'impression ; les champs à compléter sont entre crochets (non stockés à part)']
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Modèles des documents officiels de la page Références, gérés par les admins'
+}
+
+Table t_documents_officiels {
+  id bigint [pk, increment]
+  demande_id bigint [not null]
+  type varchar(30) [not null, note: 'CHECK : autorisation ou cahier_charges']
+  contenu json [not null, note: 'Textes relus par le validateur ; les données du dossier sont lues sur la demande']
+  genere_par bigint [note: 'Auteur de la génération, vide si son compte est supprimé']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (demande_id, type) [unique, name: 't_documents_officiels_demande_id_type_unique']
+  }
+
+  Note: 'Autorisation et cahier des charges préparés avant la validation signée'
+}
+
+Table t_documents_reference {
+  id bigint [pk, increment]
+  titre varchar(255) [not null]
+  description text
+  nom_fichier varchar(255) [not null]
+  chemin varchar(255) [not null, note: 'Disque privé : storage/app/private/references']
+  type_mime varchar(100) [not null]
+  taille int [not null, note: 'En octets']
+  user_id bigint [note: 'Auteur du dépôt, vide si son compte est supprimé']
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Documents déposés sur la page Références, partagés entre validateurs et admins'
+}
+
+// Relations
+Ref: t_site_user.user_id > t_users.id [delete: cascade]
+Ref: t_site_user.site_id > t_sites.id [delete: cascade]
+
+Ref: t_demandes.user_id > t_users.id [delete: cascade]
+Ref: t_demandes.site_id > t_sites.id [delete: restrict]
+Ref: t_demandes.type_demande_id > t_type_demandes.id [delete: restrict]
+Ref: t_demandes.statut_id > t_statuts.id [delete: restrict]
+
+Ref: t_documents_requis.type_demande_id > t_type_demandes.id [delete: cascade]
+Ref: t_regles_specifiques.type_demande_id > t_type_demandes.id [delete: cascade]
+
+Ref: t_documents.demande_id > t_demandes.id [delete: cascade]
+Ref: t_documents.document_requis_id >? t_documents_requis.id [delete: set null]
+
+Ref: t_historique_statuts.demande_id > t_demandes.id [delete: cascade]
+Ref: t_historique_statuts.user_id >? t_users.id [delete: set null]
+Ref: t_historique_statuts.ancien_statut_id >? t_statuts.id
+Ref: t_historique_statuts.nouveau_statut_id > t_statuts.id
+
+Ref: t_periode_sensibles.site_id > t_sites.id [delete: cascade]
+
+Ref: t_notifications.user_id > t_users.id [delete: cascade]
+Ref: t_notifications.demande_id >? t_demandes.id [delete: cascade]
+
+Ref: t_documents_reference.user_id >? t_users.id [delete: set null]
+
+Ref: t_documents_officiels.demande_id > t_demandes.id [delete: cascade]
+Ref: t_documents_officiels.genere_par >? t_users.id [delete: set null]

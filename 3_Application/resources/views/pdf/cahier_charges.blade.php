@@ -11,28 +11,31 @@
         .footer { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 12px; color: #6E7A72; border-top: 1px solid #D3DAD1; padding-top: 10px; }
         h1 { font-size: 20px; text-transform: uppercase; text-align: center; margin-bottom: 40px; }
         .alert { background-color: #F6EAD3; color: #9A5F0C; padding: 10px; border: 1px solid #E0C38F; margin-top: 20px; }
+        .projet { text-align: center; color: #A3271B; border: 2px dashed #A3271B; padding: 8px; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="logo">FONDATION FANAMBY</div>
-        <p>Cahier des Charges - {{ $demande->typeDemande->libelle }}</p>
+        <div class="logo">ASSOCIATION FANAMBY</div>
+        <p>Cahier des Charges - {{ $demande->typeProjet() }}</p>
     </div>
+
+    @if($projet)
+        <div class="projet">Projet — document non validé, sans valeur officielle</div>
+    @endif
 
     <h1>CAHIER DES CHARGES À RESPECTER</h1>
 
     <div class="content">
-        <p>Ce document est une annexe obligatoire à l'autorisation d'accès pour <strong>{{ $demande->user->name }}</strong> sur le site de <strong>{{ $demande->site->nom }}</strong>.</p>
-        
-        <h3>Règles spécifiques liées à l'activité :</h3>
+        <p>Ce document est une annexe obligatoire à l'autorisation d'accès pour <strong>{{ $demande->user->name }}</strong> dans l'aire protégée de <strong>{{ $demande->site->nom }}</strong>.</p>
+
+        <h3>Règles spécifiques liées au type de projet :</h3>
         <ul>
-            @if(is_array($demande->typeDemande->regles_specifiques))
-                @foreach($demande->typeDemande->regles_specifiques as $key => $regle)
-                    <li><strong>{{ is_string($key) ? ucfirst($key) . ' :' : '' }}</strong> {{ is_string($regle) ? $regle : json_encode($regle) }}</li>
-                @endforeach
-            @else
+            @forelse(\App\Support\DocumentsOfficiels::lignes($contenu['regles']) as $regle)
+                <li>{{ $regle }}</li>
+            @empty
                 <li>Aucune règle spécifique supplémentaire enregistrée.</li>
-            @endif
+            @endforelse
         </ul>
 
         @if(!empty($demande->resultats_analyse))
@@ -45,15 +48,19 @@
             </ul>
         </div>
         @endif
-        
+
         <h3>Engagement du demandeur</h3>
-        <p>Le demandeur certifie avoir pris connaissance des règlements internes de l'aire protégée et s'engage à respecter la faune, la flore et les communautés locales. Tout non-respect de ce cahier des charges entraînera des poursuites.</p>
+        <p>{!! nl2br(e($contenu['engagement'])) !!}</p>
         <br><br>
-        <p><strong>Signature du demandeur :</strong> ___________________________</p>
+        @if($demande->date_soumission)
+            <p><strong>Signature du demandeur :</strong> engagements acceptés en ligne par {{ $demande->user->name }} lors de l'envoi du dossier, le {{ $demande->date_soumission->format('d/m/Y') }}.</p>
+        @else
+            <p><strong>Signature du demandeur :</strong> ___________________________</p>
+        @endif
     </div>
 
     <div class="footer">
-        Document généré automatiquement le {{ now()->format('d/m/Y à H:i') }} - Réf. : FAN-{{ ($demande->created_at ?? now())->format('Y') }}-{{ str_pad($demande->id, 4, '0', STR_PAD_LEFT) }}
+        Document généré le {{ now()->format('d/m/Y à H:i') }} - Réf. : {{ $demande->reference }}
     </div>
 </body>
 </html>

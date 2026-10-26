@@ -36,7 +36,7 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
             <div class="form-card">
                 <form @submit.prevent="submit" class="form-body">
                     <div class="field-group">
-                        <InputLabel for="site_id" value="Site protégé *" class="field-label" />
+                        <InputLabel for="site_id" value="Aire protégée *" class="field-label" />
                         <select id="site_id" v-model="form.site_id" class="field-select" required>
                             <option v-for="site in sites" :key="site.id" :value="site.id">{{ site.nom }}</option>
                         </select>

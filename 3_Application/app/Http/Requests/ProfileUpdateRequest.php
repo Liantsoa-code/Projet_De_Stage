@@ -26,6 +26,19 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            // Coordonnées reprises dans le formulaire de demande (sections I et V)
+            'organisation' => ['nullable', 'string', 'max:150'],
+            'fonction' => ['nullable', 'string', 'max:100'],
+            'adresse' => ['nullable', 'string', 'max:255'],
+            'telephone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9 +().-]+$/'],
+            'piece_identite' => ['nullable', 'string', 'max:50'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'telephone.regex' => 'Le numéro de téléphone ne peut contenir que des chiffres, des espaces et les signes + ( ) - .',
         ];
     }
 }

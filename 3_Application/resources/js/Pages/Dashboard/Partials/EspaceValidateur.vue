@@ -1,10 +1,11 @@
 <script setup>
+import CompteurAnime from '@/Components/CompteurAnime.vue';
 import Icon from '@/Components/Icon.vue';
 import CarteSites from '@/Pages/Dashboard/Partials/CarteSites.vue';
 import LigneDossier from '@/Pages/Dashboard/Partials/LigneDossier.vue';
+import StatsPrincipales from '@/Pages/Dashboard/Partials/StatsPrincipales.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { refDemande } from '@/utils/statut.js';
 
 // Espace validateur : traiter sa file de dossiers, du plus urgent au moins urgent
 const page = usePage();
@@ -18,31 +19,28 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
 
 <template>
     <div class="dash">
-        <div class="kpis">
+        <StatsPrincipales />
+
+        <div class="kpis kpis--sec">
             <div class="kpi">
-                <span class="kpi__n">{{ c.en_attente ?? 0 }}</span>
+                <CompteurAnime class="kpi__n" :valeur="c.en_attente ?? 0" />
                 <span class="kpi__l">À traiter</span>
                 <span class="kpi__s">dont {{ c.non_pris ?? 0 }} pas encore pris en charge</span>
             </div>
             <div class="kpi" :class="{ 'kpi--alert': c.imminents }">
-                <span class="kpi__n">{{ c.imminents ?? 0 }}</span>
+                <CompteurAnime class="kpi__n" :valeur="c.imminents ?? 0" />
                 <span class="kpi__l">Arrivées imminentes</span>
                 <span class="kpi__s">séjour dans 14 j ou moins, sans décision</span>
             </div>
             <div class="kpi" :class="{ 'kpi--alert': c.retards }">
-                <span class="kpi__n">{{ c.retards ?? 0 }}</span>
+                <CompteurAnime class="kpi__n" :valeur="c.retards ?? 0" />
                 <span class="kpi__l">En retard</span>
                 <span class="kpi__s">plus de 7 jours sans décision</span>
             </div>
             <div class="kpi" :class="{ 'kpi--warn': c.conflits }">
-                <span class="kpi__n">{{ c.conflits ?? 0 }}</span>
+                <CompteurAnime class="kpi__n" :valeur="c.conflits ?? 0" />
                 <span class="kpi__l">Conflits de calendrier</span>
                 <span class="kpi__s">période sensible sur les dates</span>
-            </div>
-            <div class="kpi">
-                <span class="kpi__n">{{ c.attente_demandeur ?? 0 }}</span>
-                <span class="kpi__l">Chez le demandeur</span>
-                <span class="kpi__s">compléments demandés</span>
             </div>
         </div>
 
@@ -61,7 +59,7 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
                 </div>
             </section>
 
-            <CarteSites titre="Vos sites" />
+            <CarteSites titre="Vos aires protégées" />
         </div>
 
         <div class="grid-2">
@@ -72,7 +70,7 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
                 </header>
                 <div v-if="attenteDemandeur.length" class="rows">
                     <Link v-for="d in attenteDemandeur" :key="d.id" :href="route('validateur.demandes.show', d.id)" class="row row--attente">
-                        <span class="mono ref">{{ refDemande(d) }}</span>
+                        <span class="mono ref">{{ d.reference }}</span>
                         <span class="row__main">
                             <strong>{{ d.demandeur ?? 'Demandeur' }}</strong>
                             <span class="site-label">{{ d.site ?? '—' }}</span>
@@ -86,13 +84,13 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
             <section class="panel">
                 <header class="panel__head">
                     <h2>Mon activité en {{ mois }}</h2>
-                    <small v-if="delaiMedian != null">délai médian sur vos sites : {{ delaiMedian }} j</small>
+                    <small v-if="delaiMedian != null">délai médian sur vos aires protégées : {{ delaiMedian }} j</small>
                 </header>
                 <ul class="activite">
-                    <li><span class="activite__n mono">{{ activite.en_analyse ?? 0 }}</span>prises en charge</li>
-                    <li><span class="activite__n mono">{{ activite.a_completer ?? 0 }}</span>compléments demandés</li>
-                    <li><span class="activite__n mono">{{ activite.validee ?? 0 }}</span>validations</li>
-                    <li><span class="activite__n mono">{{ activite.rejetee ?? 0 }}</span>rejets</li>
+                    <li><CompteurAnime class="activite__n mono" :valeur="activite.en_analyse ?? 0" />prises en charge</li>
+                    <li><CompteurAnime class="activite__n mono" :valeur="activite.a_completer ?? 0" />compléments demandés</li>
+                    <li><CompteurAnime class="activite__n mono" :valeur="activite.validee ?? 0" />validations</li>
+                    <li><CompteurAnime class="activite__n mono" :valeur="activite.rejetee ?? 0" />rejets</li>
                 </ul>
             </section>
         </div>
