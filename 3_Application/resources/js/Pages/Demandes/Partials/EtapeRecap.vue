@@ -3,6 +3,7 @@ import Icon from '@/Components/Icon.vue';
 import InputError from '@/Components/InputError.vue';
 import { computed } from 'vue';
 import { formatDate } from '@/utils/statut.js';
+import { VERDICTS, conditionsAnalyse, verdictAnalyse } from '@/utils/analyse.js';
 
 // Dernière étape : récapitulatif du dossier, avec un lien « Modifier » par partie,
 // puis « V. Engagement du demandeur » (pièce d'identité et acceptation, renouvelée à chaque envoi).
@@ -16,6 +17,8 @@ const props = defineProps({
     site: { type: Object, default: null },
     // État du calendrier sur les dates choisies : aucun (pas de dates), ouvert, sensible ou bloquant
     calendrier: { type: String, required: true },
+    // Analyse automatique du séjour en cours de saisie ({ verdict, bloquant, contraintes }), null tant qu'elle n'est pas faite
+    analyse: { type: Object, default: null },
     // Pièces exigées par le type, avec le fichier choisi (fichier), déjà envoyé (existant) ou repris d'un autre dossier (reprise)
     pieces: { type: Array, required: true },
     aCompleter: { type: Boolean, default: false },
@@ -28,6 +31,10 @@ const joursSejour = computed(() => (props.form.date_debut && props.form.date_fin
     ? Math.round((new Date(props.form.date_fin) - new Date(props.form.date_debut)) / 86400000) + 1
     : null));
 const coordonnees = computed(() => [props.form.fonction, props.form.adresse, props.form.telephone].filter(Boolean).join(' · '));
+
+const TONS = { compatible: 'ok', conditions: 'warn', conflit: 'block' };
+const verdict = computed(() => (props.analyse ? verdictAnalyse(props.analyse.contraintes) : null));
+const nbConditions = computed(() => conditionsAnalyse(props.analyse?.contraintes).length);
 </script>
 
 <template>
@@ -56,6 +63,10 @@ const coordonnees = computed(() => [props.form.fonction, props.form.adresse, pro
                 · {{ form.equipe_nombre }} personne{{ form.equipe_nombre > 1 ? 's' : '' }}
             </dd>
             <dd v-if="calendrier === 'bloquant'" class="recap__res recap__res--block"><Icon name="prohibit" />Période bloquante sur ces dates : envoi impossible.</dd>
+            <dd v-else-if="verdict" class="recap__res" :class="`recap__res--${TONS[verdict]}`">
+                <Icon :name="VERDICTS[verdict].icone" />
+                <span>Analyse : {{ VERDICTS[verdict].label.toLowerCase() }}<template v-if="nbConditions">, {{ nbConditions }} condition{{ nbConditions > 1 ? 's' : '' }} proposée{{ nbConditions > 1 ? 's' : '' }} (détail dans la colonne de droite)</template>.</span>
+            </dd>
             <dd v-else-if="calendrier === 'sensible'" class="recap__res recap__res--warn"><Icon name="warning" />Période sensible sur ces dates : la demande sera signalée au validateur.</dd>
             <dd v-else-if="calendrier === 'ouvert'" class="recap__res recap__res--ok"><Icon name="check-circle" />Aucune période sensible sur ces dates.</dd>
         </div>

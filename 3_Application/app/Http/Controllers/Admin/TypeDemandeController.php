@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Demande;
 use App\Models\TypeDemande;
+use App\Support\ListeEditable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -90,8 +91,8 @@ class TypeDemandeController extends Controller
 
     private function syncListes(TypeDemande $type, array $validated): void
     {
-        TypeDemande::syncListe($type->documentsRequis(), $validated['documents_requis'] ?? []);
-        TypeDemande::syncListe($type->reglesSpecifiques(), $validated['regles_specifiques'] ?? []);
+        ListeEditable::synchroniser($type->documentsRequis(), $validated['documents_requis'] ?? []);
+        ListeEditable::synchroniser($type->reglesSpecifiques(), $validated['regles_specifiques'] ?? []);
     }
 
     public function destroy(TypeDemande $type_demande)

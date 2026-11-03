@@ -37,15 +37,16 @@ Les attributs sont ceux du dictionnaire des données.
 | Entité | Identifiant | Attributs |
 |---|---|---|
 | UTILISATEUR | id_utilisateur | nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur, organisation_utilisateur, fonction_utilisateur, adresse_utilisateur, telephone_utilisateur, piece_identite |
-| SITE | id_site | nom_site, description_site, coordonnees_site |
+| SITE | id_site | nom_site, description_site, capacite_accueil, coordonnees_site |
+| CONDITION_SITE | id_condition_site | libelle_condition_site |
 | STATUT | id_statut | code_statut, libelle_statut, description_statut |
 | TYPE_DEMANDE | id_type_demande | libelle_type, precision_requise |
-| DOCUMENT_REQUIS | id_document_requis | libelle_document_requis |
+| DOCUMENT_REQUIS | id_document_requis | libelle_document_requis, reutilisable |
 | REGLE_SPECIFIQUE | id_regle | libelle_regle |
 | DEMANDE | id_demande | titre_projet, precision_type, description_demande, objectifs_projet, date_debut_activite, date_fin_activite, nombre_personnes, date_soumission, resultats_analyse |
 | DOCUMENT | id_document | nom_fichier, chemin_fichier, type_document |
 | HISTORIQUE_STATUT | id_historique | commentaire_statut, date_changement |
-| PERIODE_SENSIBLE | id_periode | date_debut_periode, date_fin_periode, description_periode, niveau_restriction |
+| PERIODE_SENSIBLE | id_periode | date_debut_periode, date_fin_periode, description_periode, niveau_restriction, condition_proposee |
 | NOTIFICATION | id_notification | contenu_notification, lu_notification, date_envoi |
 
 ### Associations et cardinalités
@@ -66,13 +67,14 @@ Les attributs sont ceux du dictionnaire des données.
 | QUITTER | STATUT (0,n) | HISTORIQUE_STATUT (0,1) | Ancien statut : absent pour une demande soumise directement | RG09 |
 | ATTEINDRE | STATUT (0,n) | HISTORIQUE_STATUT (1,1) | Nouveau statut : toujours présent | RG09 |
 | CONNAÎTRE | SITE (0,n) | PERIODE_SENSIBLE (1,1) | Une période sensible concerne un seul site | RG11 |
+| FIXER | SITE (0,n) | CONDITION_SITE (1,1) | Une règle permanente appartient à un seul site | RG15 |
 | RECEVOIR | UTILISATEUR (0,n) | NOTIFICATION (1,1) | Une notification est adressée à un seul utilisateur | RG12 |
 | PORTER SUR | DEMANDE (0,n) | NOTIFICATION (0,1) | Une notification concerne au plus une demande | RG12 |
 
 ### Choix de modélisation
 
 - **HISTORIQUE_STATUT est une entité, pas une association.** Une même demande peut passer plusieurs fois par le même statut, par exemple en_analyse → a_completer → en_analyse. Une association ternaire DEMANDE–STATUT–UTILISATEUR interdirait ces répétitions, car son identifiant serait le triplet. L'entité a donc son propre identifiant.
-- **DOCUMENT_REQUIS et REGLE_SPECIFIQUE sont des entités.** Ce sont des listes, et une liste rangée dans un seul attribut violerait la 1NF (voir la section 4). DOCUMENT_REQUIS est en plus référencé par DOCUMENT : c'est ce qui permet de savoir quelle pièce un fichier fournit.
+- **DOCUMENT_REQUIS, REGLE_SPECIFIQUE et CONDITION_SITE sont des entités.** Ce sont des listes, et une liste rangée dans un seul attribut violerait la 1NF (voir la section 4). DOCUMENT_REQUIS est en plus référencé par DOCUMENT : c'est ce qui permet de savoir quelle pièce un fichier fournit.
 - **AVOIR POUR STATUT double l'information portée par l'historique.** RG07 demande un statut courant, et c'est aussi celui de la dernière entrée de l'historique. Ce doublon est assumé : il est traité comme une dénormalisation (section 6).
 
 ## 3. Modèle logique (MLD)
@@ -86,7 +88,8 @@ On applique les règles de passage du cours :
 Les noms sont ceux du schéma réel. **Convention de nommage** : chaque table porte le préfixe `t_` (table), suivi du nom de l'entité au pluriel ; les noms d'index et de contraintes reprennent le nom de la table (`t_demandes_user_id_foreign`, `chk_t_demandes_dates`). La clé primaire est soulignée, et le symbole # marque une clé étrangère ; un (*) signale une clé étrangère qui peut être vide.
 
 - **t_users** (<u>id</u>, name, email, password, role, organisation, fonction, adresse, telephone, piece_identite, …)
-- **t_sites** (<u>id</u>, nom, description, polygone_coordonnees)
+- **t_sites** (<u>id</u>, nom, description, capacite_accueil, polygone_coordonnees)
+- **t_conditions_site** (<u>id</u>, #site_id, libelle)
 - **t_site_user** (<u>#user_id, #site_id</u>)
 - **t_statuts** (<u>id</u>, code, libelle, description)
 - **t_type_demandes** (<u>id</u>, libelle, precision_requise)
@@ -95,10 +98,10 @@ Les noms sont ceux du schéma réel. **Convention de nommage** : chaque table po
 - **t_demandes** (<u>id</u>, #user_id, #site_id, #type_demande_id, #statut_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, date_soumission, resultats_analyse)
 - **t_documents** (<u>id</u>, #demande_id, #document_requis_id (*), nom_fichier, chemin, type_document)
 - **t_historique_statuts** (<u>id</u>, #demande_id, #user_id (*), #ancien_statut_id (*), #nouveau_statut_id, commentaire, date_changement)
-- **t_periode_sensibles** (<u>id</u>, #site_id, date_debut, date_fin, description, niveau_restriction)
+- **t_periode_sensibles** (<u>id</u>, #site_id, date_debut, date_fin, description, niveau_restriction, condition_proposee)
 - **t_notifications** (<u>id</u>, #user_id, #demande_id (*), contenu, lu, date_envoi)
 
-On obtient 12 tables : 11 entités, plus la table d'association `t_site_user`. Les quatre clés étrangères facultatives viennent des quatre cardinalités (0,1) du MCD : FOURNIR, DÉCIDER, QUITTER et PORTER SUR.
+On obtient 13 tables : 12 entités, plus la table d'association `t_site_user`. Les quatre clés étrangères facultatives viennent des quatre cardinalités (0,1) du MCD : FOURNIR, DÉCIDER, QUITTER et PORTER SUR.
 
 Trois tables ont été ajoutées avec les fonctionnalités suivantes (documents officiels relus avant la validation, page Références). Elles ne figurent pas encore dans le MCD :
 

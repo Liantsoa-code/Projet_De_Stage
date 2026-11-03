@@ -4,11 +4,14 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
 import MapComponent from '@/Components/MapComponent.vue';
+import ReglesAnalyseSite from './Partials/ReglesAnalyseSite.vue';
 
 const props = defineProps({ site: Object });
 const form = useForm({
     nom: props.site.nom,
     description: props.site.description || '',
+    capacite_accueil: props.site.capacite_accueil ?? '',
+    conditions: (props.site.conditions ?? []).map(({ id, libelle }) => ({ id, libelle })),
     polygone_coordonnees: props.site.polygone_coordonnees || [],
 });
 const submit = () => form.put(route('admin.sites.update', props.site.id));
@@ -77,6 +80,7 @@ const handleFileUpload = (event) => {
                         <textarea class="gf-textarea" v-model="form.description" rows="3"></textarea>
                         <InputError class="gf-error" :message="form.errors.description" />
                     </div>
+                    <ReglesAnalyseSite :form="form" />
                     <div>
                         <div style="display:flex; justify-content: space-between; align-items:flex-end; margin-bottom: 8px;">
                             <label class="gf-label" style="margin-bottom:0;">Délimitation géographique</label>

@@ -49,18 +49,21 @@ class DemandeDecisionRulesTest extends TestCase
         $this->assertNotContains($admin->id, $ids);
     }
 
-    public function test_notifiable_deciders_for_demande_classique_only_site_validateurs(): void
+    public function test_notifiable_deciders_for_demande_classique_are_admins_and_site_validateurs(): void
     {
         $demandeur = User::factory()->create(['role' => 'demandeur']);
         $admin = User::factory()->create(['role' => 'admin']);
         $validateur = User::factory()->create(['role' => 'validateur']);
+        $autreValidateur = User::factory()->create(['role' => 'validateur']);
+        User::factory()->create(['role' => 'demandeur']);
         $site = Site::create(['nom' => 'Site A', 'description' => '', 'polygone_coordonnees' => []]);
+        $autreSite = Site::create(['nom' => 'Site B', 'description' => '', 'polygone_coordonnees' => []]);
         $validateur->sites()->attach($site);
+        $autreValidateur->sites()->attach($autreSite);
         $demande = $this->makeDemande($demandeur, $site);
 
-        $ids = DemandeDecisionRules::notifiableDecidersForNewDemande($demande)->pluck('id')->all();
+        $ids = DemandeDecisionRules::notifiableDecidersForNewDemande($demande)->pluck('id')->sort()->values()->all();
 
-        $this->assertSame([$validateur->id], $ids);
-        $this->assertNotContains($admin->id, $ids);
+        $this->assertSame([$admin->id, $validateur->id], $ids);
     }
 }

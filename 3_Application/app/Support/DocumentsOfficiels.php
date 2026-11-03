@@ -8,10 +8,11 @@ use App\Models\HistoriqueStatut;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
+use PhpOffice\PhpWord\PhpWord;
 
 /**
  * Autorisation et cahier des charges : textes par défaut, génération avant validation,
- * signature du validateur et rendu PDF. Seuls les textes sont modifiables ; les données
+ * signature du validateur et rendu PDF ou Word. Seuls les textes sont modifiables ; les données
  * du dossier (demandeur, aire protégée, dates, équipe, référence) viennent toujours de la demande.
  */
 class DocumentsOfficiels
@@ -53,7 +54,8 @@ class DocumentsOfficiels
 
     /**
      * Texte proposé à la génération, repris du dossier et du type de projet : l'objet de la mission
-     * reprend les objectifs du projet (à défaut le synopsis), l'engagement ceux du formulaire de demande.
+     * reprend les objectifs du projet (à défaut le synopsis), les conditions particulières celles proposées
+     * par l'analyse de la demande, l'engagement ceux du formulaire de demande.
      *
      * @return array<string, string>
      */
@@ -63,7 +65,7 @@ class DocumentsOfficiels
             return [
                 'introduction' => self::TEXTES['introduction'],
                 'objet' => (string) ($demande->objectifs ?: $demande->description),
-                'conditions' => '',
+                'conditions' => mb_substr(implode("\n", AnalyseDemande::conditions($demande->resultats_analyse)), 0, self::CHAMPS['autorisation']['conditions']),
                 'reserve' => self::TEXTES['reserve'],
                 'signataire' => self::TEXTES['signataire'],
             ];
@@ -194,11 +196,21 @@ class DocumentsOfficiels
     }
 
     /**
-     * PDF du document. En projet (avant validation), il est marqué comme tel et non signé.
+     * PDF du document. En projet (avant validation), il n'est pas encore signé.
      */
     public static function pdf(Demande $demande, string $type, bool $projet = false)
     {
         return Pdf::loadView(self::VUES[$type], self::donneesVue($demande, $type, $projet));
+    }
+
+    /**
+     * Version Word du document, avec le même texte que le PDF.
+     */
+    public static function word(Demande $demande, string $type, bool $projet = false): PhpWord
+    {
+        $donnees = self::donneesVue($demande, $type, $projet);
+
+        return $type === 'autorisation' ? DocumentsWord::autorisation($donnees) : DocumentsWord::cahierDesCharges($donnees);
     }
 
     /**
@@ -218,7 +230,6 @@ class DocumentsOfficiels
         return [
             'demande' => $demande,
             'contenu' => self::contenu($demande, $type),
-            'projet' => $projet,
             'validation' => $validation,
         ];
     }

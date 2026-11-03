@@ -39,8 +39,8 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
             </div>
             <div class="kpi" :class="{ 'kpi--warn': c.conflits }">
                 <CompteurAnime class="kpi__n" :valeur="c.conflits ?? 0" />
-                <span class="kpi__l">Conflits de calendrier</span>
-                <span class="kpi__s">période sensible sur les dates</span>
+                <span class="kpi__l">Conflits détectés</span>
+                <span class="kpi__s">analyse automatique en rouge</span>
             </div>
         </div>
 

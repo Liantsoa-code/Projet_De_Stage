@@ -9,10 +9,12 @@ use App\Models\Demande;
 use App\Models\Site;
 use App\Models\Statut;
 use App\Models\HistoriqueStatut;
+use App\Support\AnalyseDemande;
 use App\Support\DelaiDecision;
 use App\Support\DemandeNotifications;
 use App\Support\DemandeStatutWorkflow;
 use App\Support\DocumentsOfficiels;
+use App\Support\FormatDocument;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,10 +65,11 @@ class DemandeController extends Controller
             fwrite($out, "\xEF\xBB\xBF"); // BOM : Excel détecte l'UTF-8 (accents)
             fputcsv($out, [
                 'N°', 'Demandeur', 'Email', 'Aire protégée', 'Titre du projet', 'Type de projet', 'Début', 'Fin', 'Équipe',
-                'Statut', 'Soumise le', 'Décision le', 'Délai (jours)', 'Chevauchements',
+                'Statut', 'Soumise le', 'Décision le', 'Délai (jours)', 'Analyse', 'Contraintes',
             ], ';');
+            $verdicts = ['compatible' => 'Compatible', 'conditions' => 'Compatible sous conditions', 'conflit' => 'Conflit détecté'];
 
-            $query->chunk(500, function ($demandes) use ($out) {
+            $query->chunk(500, function ($demandes) use ($out, $verdicts) {
                 foreach ($demandes as $d) {
                     $decision = $d->historiqueStatuts->sortByDesc('date_changement')->first()?->date_changement;
                     fputcsv($out, [
@@ -83,7 +86,8 @@ class DemandeController extends Controller
                         $d->date_soumission?->format('d/m/Y H:i'),
                         $decision?->format('d/m/Y H:i'),
                         $decision && $d->date_soumission ? $d->date_soumission->copy()->startOfDay()->diffInDays($decision->copy()->startOfDay()) : '',
-                        count($d->resultats_analyse ?? []),
+                        $verdicts[AnalyseDemande::verdict($d->resultats_analyse)],
+                        count(AnalyseDemande::contraintesRelevees($d->resultats_analyse)),
                     ], ';');
                 }
             });
@@ -157,6 +161,8 @@ class DemandeController extends Controller
             'viewAllDemandes' => $user->role === 'admin',
             'canDecideOnDemande' => Gate::allows('decider', $demande) && ! $statutLocked,
             'statutLocked' => $statutLocked,
+            // Version Word des documents : pas pour un validateur auteur de la demande
+            'peutTelechargerWord' => Gate::allows('telechargerWord', $demande),
             // Autorisation et cahier des charges générés, en relecture avant la validation signée
             'documentsGeneres' => $statutLocked ? null : DocumentsOfficiels::pourEdition($demande),
             // Estimation de la décision sur la timeline, tant que le dossier est en instruction
@@ -244,7 +250,7 @@ class DemandeController extends Controller
         DocumentsOfficiels::generer($demande, Auth::user());
 
         return redirect()->route('validateur.demandes.show', $demande->id)
-            ->with('message', 'Documents générés : relisez-les, modifiez-les si besoin, puis signez pour valider le dossier.');
+            ->with('message', 'Documents prêts : relisez-les et modifiez-les si besoin. Rien n\'est envoyé au demandeur avant votre signature.');
     }
 
     public function modifierDocuments(DocumentsOfficielsRequest $request, Demande $demande)
@@ -271,16 +277,20 @@ class DemandeController extends Controller
     }
 
     /**
-     * Aperçu PDF d'un document en relecture, marqué « projet ».
+     * Document en relecture (PDF ou Word), marqué « projet ».
      */
-    public function apercuDocument(Demande $demande, string $type)
+    public function apercuDocument(Request $request, Demande $demande, string $type)
     {
         Gate::authorize('decider', $demande);
         abort_unless(isset(DocumentsOfficiels::CHAMPS[$type]), 404);
         abort_unless($demande->documentsOfficiels()->where('type', $type)->exists(), 404);
 
-        return DocumentsOfficiels::pdf($demande, $type, projet: true)
-            ->stream('projet_' . DocumentsOfficiels::FICHIERS[$type] . '_' . $demande->id . '.pdf');
+        return FormatDocument::reponse(
+            $request,
+            'projet_' . DocumentsOfficiels::FICHIERS[$type] . '_' . $demande->id,
+            fn () => DocumentsOfficiels::pdf($demande, $type, projet: true),
+            fn () => DocumentsOfficiels::word($demande, $type, projet: true),
+        );
     }
 
     /**

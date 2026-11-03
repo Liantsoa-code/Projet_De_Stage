@@ -12,10 +12,11 @@ class Site extends Model
     /** Clé de cache de la liste des sites affichée sur la page d'accueil. */
     public const CACHE_ACCUEIL = 'sites.accueil';
 
-    protected $fillable = ['nom', 'description', 'polygone_coordonnees'];
+    protected $fillable = ['nom', 'description', 'capacite_accueil', 'polygone_coordonnees'];
 
     protected $casts = [
         'polygone_coordonnees' => 'array',
+        'capacite_accueil' => 'integer',
     ];
 
     protected static function booted(): void
@@ -49,5 +50,11 @@ class Site extends Model
     public function periodeSensibles()
     {
         return $this->hasMany(PeriodeSensible::class);
+    }
+
+    /** Règles permanentes de l'aire protégée, reprises par l'analyse des demandes. */
+    public function conditions()
+    {
+        return $this->hasMany(ConditionSite::class)->orderBy('id');
     }
 }

@@ -51,6 +51,8 @@ abstract class StatsInstruction
             ->map(function (Demande $d) use ($aujourdhui) {
                 $avant = $d->date_debut ? DelaiDecision::joursEntre($aujourdhui, $d->date_debut) : null;
                 $attente = $d->date_soumission ? DelaiDecision::joursEntre($d->date_soumission, $aujourdhui) : 0;
+                // Verdict de l'analyse figée à l'envoi : un conflit appelle un arbitrage du validateur
+                $verdict = AnalyseDemande::verdict($d->resultats_analyse);
 
                 return [
                     'id' => $d->id,
@@ -65,7 +67,8 @@ abstract class StatsInstruction
                     'attente' => $attente,
                     'imminent' => $avant !== null && $avant <= self::JOURS_IMMINENT,
                     'retard' => $attente > self::JOURS_RETARD,
-                    'conflit' => ! empty($d->resultats_analyse),
+                    'verdict' => $verdict,
+                    'conflit' => $verdict === 'conflit',
                 ];
             })
             ->sortBy(fn ($d) => [

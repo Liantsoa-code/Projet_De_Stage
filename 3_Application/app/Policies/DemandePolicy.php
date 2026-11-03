@@ -129,6 +129,17 @@ class DemandePolicy
             : Response::deny('Le formulaire est disponible une fois la demande envoyée.');
     }
 
+    /**
+     * Version Word, modifiable, des documents d'une demande : seulement pour qui instruit le dossier sans
+     * en être l'auteur. Le demandeur reçoit le PDF, pour ne pas pouvoir retoucher son autorisation.
+     */
+    public function telechargerWord(User $user, Demande $demande): Response
+    {
+        return ! $this->estAuteur($user, $demande) && $this->instruire($user, $demande)->allowed()
+            ? Response::allow()
+            : Response::deny('Le demandeur reçoit les documents en PDF uniquement.');
+    }
+
     private function estAuteur(User $user, Demande $demande): bool
     {
         return (int) $demande->user_id === (int) $user->id;

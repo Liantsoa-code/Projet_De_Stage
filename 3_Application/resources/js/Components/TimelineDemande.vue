@@ -1,6 +1,7 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
 import { computed, ref, watch } from 'vue';
+import { VERDICTS, contraintesRelevees, verdictAnalyse } from '@/utils/analyse.js';
 import { formatDate } from '@/utils/statut.js';
 
 // Timeline du dossier : étapes passées (historique des statuts), étape actuelle et étapes à venir.
@@ -108,9 +109,12 @@ const evenements = computed(() => {
         cible?.pieces.push(doc);
     });
 
-    // L'analyse du calendrier est figée au dernier envoi
+    // L'analyse automatique est figée au dernier envoi : son verdict et les contraintes détectées
     const envois = passes.filter(e => e.depot && e.cle !== 'brouillon');
-    if (envois.length) envois[envois.length - 1].analyse = d.resultats_analyse ?? [];
+    if (envois.length) {
+        envois[envois.length - 1].analyse = contraintesRelevees(d.resultats_analyse);
+        envois[envois.length - 1].verdict = verdictAnalyse(d.resultats_analyse);
+    }
 
     passes.forEach((e, i) => { if (i > 0) e.ecart = joursEntre(passes[i - 1].date, e.date); });
 
@@ -196,8 +200,8 @@ const toutBasculer = () => {
                         </div>
 
                         <div v-if="e.analyse" class="tl__bloc">
-                            <span class="tl__label">Analyse du calendrier à l'envoi</span>
-                            <p v-if="!e.analyse.length" class="tl__ok"><Icon name="check-circle" />Aucune période sensible sur les dates du séjour.</p>
+                            <span class="tl__label">Analyse automatique à l'envoi : {{ VERDICTS[e.verdict].label }}</span>
+                            <p v-if="!e.analyse.length" class="tl__ok"><Icon name="check-circle" />Aucune contrainte détectée sur ce séjour.</p>
                             <p v-for="(a, i) in e.analyse" :key="i" class="tl__alerte"><Icon name="warning" />{{ a.message }}</p>
                         </div>
                     </div>

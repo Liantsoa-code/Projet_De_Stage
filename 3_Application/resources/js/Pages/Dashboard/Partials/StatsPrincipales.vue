@@ -60,7 +60,7 @@ const part = (n) => (total.value ? `${(n / total.value) * 100}%` : '0%');
 .carte {
     position: relative; display: grid; align-content: start; gap: 6px;
     padding: 20px 24px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r);
-    border-top: 4px solid var(--accent-carte); color: inherit; text-decoration: none;
+    color: inherit; text-decoration: none;
 }
 a.carte:hover { border-color: var(--accent-carte); }
 a.carte:focus-visible { outline: 2px solid var(--accent-carte); outline-offset: 2px; }

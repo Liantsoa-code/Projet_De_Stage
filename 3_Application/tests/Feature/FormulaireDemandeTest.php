@@ -233,6 +233,30 @@ class FormulaireDemandeTest extends TestCase
         $this->actingAs($this->demandeur)->get(route('demandes.pdf.formulaire', $rejetee))->assertOk();
     }
 
+    public function test_le_formulaire_rempli_existe_aussi_en_word(): void
+    {
+        $demande = $this->makeDemande('validee', ['type_demande_id' => $this->autre->id, 'type_precision' => 'Photographie commerciale']);
+        $this->decision($demande, 'validee', 'Respectez le balisage.');
+
+        $reponse = $this->actingAs($this->validateur)
+            ->get(route('demandes.pdf.formulaire', [$demande, 'format' => 'docx']))
+            ->assertOk()
+            ->assertDownload("formulaire_demande_{$demande->id}.docx");
+
+        $texte = $this->texteWord($reponse);
+        $this->assertStringContainsString('I. Informations sur le Demandeur', $texte);
+        $this->assertStringContainsString('Rova Demandeur', $texte);
+        $this->assertStringContainsString('☒ Autre (précisez) :Photographie commerciale', $texte);
+        $this->assertStringContainsString('☐ Documentaire', $texte);
+        $this->assertStringContainsString('☒ Allée des Baobabs', $texte);
+        $this->assertStringContainsString('☒ Avis favorable', $texte);
+        $this->assertStringContainsString('Respectez le balisage.', $texte);
+        $this->assertStringContainsString('Jean Validateur, Responsable des autorisations', $texte);
+
+        $brouillon = $this->makeDemande('brouillon');
+        $this->actingAs($this->demandeur)->get(route('demandes.pdf.formulaire', [$brouillon, 'format' => 'docx']))->assertForbidden();
+    }
+
     // ── Documents officiels ──
 
     public function test_les_documents_officiels_reprennent_les_objectifs_et_les_engagements(): void

@@ -38,13 +38,7 @@ class PeriodeSensibleController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'site_id' => 'required|exists:t_sites,id',
-            'date_debut' => 'required|date',
-            'date_fin' => 'required|date|after_or_equal:date_debut',
-            'description' => 'required|string|max:255',
-            'niveau_restriction' => 'required|in:bloquant,avertissement',
-        ]);
+        $validated = $this->valider($request);
 
         PeriodeSensible::create($validated);
         return redirect()->route('admin.periode-sensibles.index')->with('message', 'Période ajoutée avec succès.');
@@ -58,16 +52,31 @@ class PeriodeSensibleController extends Controller
 
     public function update(Request $request, PeriodeSensible $periode_sensible)
     {
+        $validated = $this->valider($request);
+
+        $periode_sensible->update($validated);
+        return redirect()->route('admin.periode-sensibles.index')->with('message', 'Période modifiée avec succès.');
+    }
+
+    /**
+     * La condition proposée n'a de sens que pour un avertissement : une période bloquante refuse l'envoi.
+     */
+    private function valider(Request $request): array
+    {
         $validated = $request->validate([
             'site_id' => 'required|exists:t_sites,id',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
             'description' => 'required|string|max:255',
             'niveau_restriction' => 'required|in:bloquant,avertissement',
-        ]);
+            'condition_proposee' => 'nullable|string|max:255',
+        ], [], ['condition_proposee' => 'condition proposée']);
 
-        $periode_sensible->update($validated);
-        return redirect()->route('admin.periode-sensibles.index')->with('message', 'Période modifiée avec succès.');
+        if ($validated['niveau_restriction'] === 'bloquant') {
+            $validated['condition_proposee'] = null;
+        }
+
+        return $validated;
     }
 
     public function destroy(PeriodeSensible $periode_sensible)

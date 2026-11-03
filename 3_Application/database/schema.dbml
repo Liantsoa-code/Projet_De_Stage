@@ -40,9 +40,22 @@ Table t_sites {
   id bigint [pk, increment]
   nom varchar(150) [not null]
   description text
+  capacite_accueil smallint [note: 'Personnes présentes en même temps au plus ; vide : sans limite']
   polygone_coordonnees json
   created_at timestamp
   updated_at timestamp
+
+  Note: 'CHECK (capacite_accueil >= 1)'
+}
+
+Table t_conditions_site {
+  id bigint [pk, increment]
+  site_id bigint [not null]
+  libelle varchar(255) [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Règles permanentes de l\'aire protégée (une ligne par règle), proposées par l\'analyse des demandes'
 }
 
 Table t_site_user {
@@ -149,6 +162,7 @@ Table t_periode_sensibles {
   date_fin date [not null]
   description varchar(255) [not null]
   niveau_restriction niveau_restriction [not null]
+  condition_proposee varchar(255) [note: 'Proposée par l\'analyse quand un séjour chevauche un avertissement']
   created_at timestamp
   updated_at timestamp
 
@@ -236,6 +250,7 @@ Ref: t_historique_statuts.ancien_statut_id >? t_statuts.id
 Ref: t_historique_statuts.nouveau_statut_id > t_statuts.id
 
 Ref: t_periode_sensibles.site_id > t_sites.id [delete: cascade]
+Ref: t_conditions_site.site_id > t_sites.id [delete: cascade]
 
 Ref: t_notifications.user_id > t_users.id [delete: cascade]
 Ref: t_notifications.demande_id >? t_demandes.id [delete: cascade]

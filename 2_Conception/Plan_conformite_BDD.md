@@ -86,7 +86,7 @@ Un seul écart a été relevé : `demandes.statut_id` était déclaré `RESTRICT
 
 ### Restant en cours (à terminer)
 
-- [x] **Diagramme MCD** : [MCD.svg](MCD.svg), généré par Mocodo à partir de [mcd.mcd](mcd.mcd). Il compte 11 entités et 16 associations, et sa disposition ne laisse que 2 croisements de liens. Pour l'ajuster, collez **mcd.mcd** (pas schema.dbml) sur [mocodo.net](https://www.mocodo.net).
+- [x] **Diagramme MCD** : [MCD.svg](MCD.svg), généré par Mocodo à partir de [mcd.mcd](mcd.mcd). Il compte 12 entités et 17 associations, et sa disposition ne laisse que 2 croisements de liens. Pour l'ajuster, collez **mcd.mcd** (pas schema.dbml) sur [mocodo.net](https://www.mocodo.net).
 - [ ] **Chevauchements du MCD** : 3 paires de cardinalités se superposent (autour de DEMANDE et de HISTORIQUE_STATUT). Il faut les déplacer à la main sur mocodo.net avant l'export final.
 - [x] **[STRUCTURE.md](../3_Application/STRUCTURE.md)** : soumission historisée, écran des types ligne par ligne, modèles `DocumentRequis` et `RegleSpecifique`, migrations 15 à 17, jeu de test, 86 tests avec `ConceptionBddTest`, composant `ListeEditable.vue`, lien vers `2_Conception/`.
 - [x] **[regle.txt](../1_Gestion_Projet/regle.txt)** : la stack réelle (Vue 3, Inertia, Tailwind, Gates Laravel) et le modèle de données actuel, avec un renvoi vers `Conception_BDD.md`.

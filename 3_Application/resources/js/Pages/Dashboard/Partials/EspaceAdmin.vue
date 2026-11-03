@@ -124,7 +124,7 @@ onUnmounted(() => chart?.destroy());
                     <Icon name="warning" />
                     <div>
                         <strong>{{ sansValidateur.length }} {{ sansValidateur.length > 1 ? 'aires protégées' : 'aire protégée' }} sans validateur</strong>
-                        <p>{{ sansValidateur.map((s) => s.nom).join(', ') }} : les nouvelles demandes n'y sont notifiées à personne.</p>
+                        <p>{{ sansValidateur.map((s) => s.nom).join(', ') }} : les nouvelles demandes n'y sont notifiées qu'aux administrateurs.</p>
                         <Link :href="route('admin.users.index', { role: 'validateur' })" class="link">Affecter un validateur</Link>
                     </div>
                 </div>

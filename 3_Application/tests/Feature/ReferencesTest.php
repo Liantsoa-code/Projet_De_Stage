@@ -149,6 +149,43 @@ class ReferencesTest extends TestCase
             ->assertHeader('Content-Type', 'application/pdf');
     }
 
+    public function test_un_modele_s_ouvre_aussi_en_word_meme_avant_enregistrement(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        foreach (ModeleReference::all() as $modele) {
+            $this->texteWord($this->actingAs($admin)->get(route('references.modeles.show', [$modele, 'format' => 'docx']))->assertOk());
+        }
+
+        $reponse = $this->actingAs($admin)
+            ->post(route('references.modeles.apercu'), [
+                'titre' => 'Brouillon',
+                'contenu' => "# Essai\n\n**Objet :** [date] <script>\n- un\n> Signé\n\n...",
+                'format' => 'docx',
+            ])
+            ->assertOk()
+            ->assertDownload('modele_brouillon.docx');
+
+        $texte = $this->texteWord($reponse);
+        $this->assertStringContainsString('Essai', $texte);
+        $this->assertStringContainsString('Objet : [date] <script>', $texte);
+        $this->assertStringContainsString('Signé', $texte);
+    }
+
+    public function test_les_blocs_d_un_modele_separent_le_gras_et_les_champs(): void
+    {
+        $this->assertSame([
+            ['type' => 'h1', 'lignes' => [[['texte' => 'Titre', 'gras' => false, 'champ' => false]]]],
+            ['type' => 'texte', 'lignes' => [[
+                ['texte' => 'Objet :', 'gras' => true, 'champ' => false],
+                ['texte' => ' ', 'gras' => false, 'champ' => false],
+                ['texte' => '[date]', 'gras' => false, 'champ' => true],
+            ]]],
+            ['type' => 'droite', 'lignes' => [[['texte' => 'Signé', 'gras' => false, 'champ' => false]], []]],
+            ['type' => 'pointilles', 'lignes' => []],
+        ], ModelesReference::blocs("# Titre\n\n**Objet :** [date]\n\n> Signé\n>\n..."));
+    }
+
     public function test_la_mise_en_forme_echappe_le_html_saisi(): void
     {
         $html = ModelesReference::html("# Titre\n\n**Objet :** [date] <script>alert(1)</script>\n- un\n- deux\n\n> Signé\n>\n> [nom]\n\n...");

@@ -1,13 +1,17 @@
 <script setup>
+import BoutonDocument from '@/Components/BoutonDocument.vue';
 import Icon from '@/Components/Icon.vue';
+import ApercuModele from '@/Components/Apercu/ApercuModele.vue';
+import EchelleA4 from '@/Components/Apercu/EchelleA4.vue';
+import FenetreApercu from '@/Components/Apercu/FenetreApercu.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ApercuDocument from './Partials/ApercuDocument.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { openAuthenticatedPdf } from '@/utils/openPdf.js';
+import { FORMATS, ouvrirDocument } from '@/utils/ouvrirDocument.js';
 import { formatDate } from '@/utils/statut.js';
 import { ref } from 'vue';
 
-// Modèles des documents officiels (PDF, gérés par les admins) et documents déposés par l'équipe.
+// Modèles des documents officiels (PDF ou Word, gérés par les admins) et documents déposés par l'équipe.
 defineProps({
     modeles: { type: Array, required: true },
     documents: { type: Array, required: true },
@@ -17,16 +21,19 @@ defineProps({
 // Nombre de champs affichés sur une carte, les autres sont résumés en « +N »
 const CHAMPS_VISIBLES = 6;
 
-const ouverture = ref(null);
+// Modèle affiché en grand dans la page (clic sur sa miniature)
+const modeleOuvert = ref(null);
 
-const ouvrir = async (modele) => {
-    ouverture.value = modele.id;
+// Format du modèle ouvert en cours de production (PDF ou Word)
+const telechargement = ref(null);
+const telecharger = async (modele, format) => {
+    telechargement.value = format;
     try {
-        await openAuthenticatedPdf(route('references.modeles.show', modele.id), `modele_${modele.id}.pdf`);
+        await ouvrirDocument(route('references.modeles.show', modele.id), format);
     } catch (e) {
-        alert(e.message || 'Erreur lors de l\'ouverture du PDF.');
+        alert(e.message || 'Erreur lors de l\'ouverture du document.');
     } finally {
-        ouverture.value = null;
+        telechargement.value = null;
     }
 };
 
@@ -110,6 +117,13 @@ const formatTaille = (octets) => (octets < 1024 * 1024
             <p v-if="!modeles.length" class="docs-vide">Aucun modèle pour l'instant.</p>
             <div v-else class="modeles">
                 <article v-for="modele in modeles" :key="modele.id" class="modele">
+                    <div class="modele__miniature">
+                        <EchelleA4 aria-hidden="true"><ApercuModele :titre="modele.titre" :contenu="modele.contenu" /></EchelleA4>
+                        <button type="button" class="modele__ouvrir" :aria-label="`Aperçu du modèle ${modele.titre}`" @click="modeleOuvert = modele">
+                            <span class="modele__agrandir"><Icon name="eye" />Aperçu</span>
+                        </button>
+                    </div>
+
                     <header class="modele__head">
                         <span class="modele__icon"><Icon :name="modele.icone" /></span>
                         <div>
@@ -138,10 +152,9 @@ const formatTaille = (octets) => (octets < 1024 * 1024
                     </div>
 
                     <div class="modele__actions">
-                        <button type="button" class="btn-ghost" :disabled="ouverture === modele.id" @click="ouvrir(modele)">
-                            <Icon :name="ouverture === modele.id ? 'circle-notch' : 'file-pdf'" :class="{ spin: ouverture === modele.id }" />
+                        <BoutonDocument class="btn-ghost" :url="route('references.modeles.show', modele.id)" word>
                             Ouvrir le modèle
-                        </button>
+                        </BoutonDocument>
                         <template v-if="peutGererModeles">
                             <Link :href="route('references.modeles.edit', modele.id)" class="btn-sm-edit">
                                 <Icon name="pencil-simple" />Modifier
@@ -218,6 +231,17 @@ const formatTaille = (octets) => (octets < 1024 * 1024
             <p v-else class="docs-vide">Aucun document déposé pour l'instant.</p>
         </section>
 
+        <FenetreApercu v-if="modeleOuvert" :titre="modeleOuvert.titre" sous-titre="Modèle de référence" @close="modeleOuvert = null">
+            <ApercuModele :titre="modeleOuvert.titre" :contenu="modeleOuvert.contenu" />
+            <template #actions>
+                <button v-for="f in FORMATS" :key="f.cle" type="button" class="btn-ghost" :title="f.detail"
+                    :disabled="telechargement !== null" @click="telecharger(modeleOuvert, f.cle)">
+                    <Icon :name="telechargement === f.cle ? 'circle-notch' : f.icone" :class="{ spin: telechargement === f.cle }" />
+                    {{ f.libelle }}
+                </button>
+            </template>
+        </FenetreApercu>
+
         <ApercuDocument v-if="apercu" :document="apercu" @close="apercu = null" />
     </AuthenticatedLayout>
 </template>
@@ -231,6 +255,16 @@ const formatTaille = (octets) => (octets < 1024 * 1024
 
 .modele { display: flex; flex-direction: column; gap: 14px; padding: 20px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); min-width: 0; }
 .modele__head { display: flex; align-items: flex-start; gap: 12px; }
+/* Haut de la première page du modèle ; le bouton qui la recouvre l'ouvre en grand */
+.modele__miniature { position: relative; height: 170px; overflow: hidden; padding: 14px 18px 0; border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--sunk); }
+.modele__miniature::after { content: ''; position: absolute; inset: auto 0 0; height: 48px; background: linear-gradient(transparent, var(--sunk)); pointer-events: none; }
+.modele__miniature:hover { border-color: var(--ink-3); }
+.modele__ouvrir { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; border-radius: inherit; background: none; cursor: zoom-in; }
+.modele__ouvrir:focus-visible { outline-offset: -2px; }
+.modele__agrandir { position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: var(--r-pill); background: var(--surface); font-size: 12px; font-weight: 600; color: var(--ink); opacity: 0; transition: opacity 0.15s; }
+.modele__agrandir svg { width: 14px; height: 14px; }
+.modele__ouvrir:hover .modele__agrandir, .modele__ouvrir:focus-visible .modele__agrandir { opacity: 1; }
+@media (hover: none) { .modele__agrandir { opacity: 1; } }
 .modele__icon { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--forest-soft); color: var(--forest); }
 .modele__icon svg { width: 22px; height: 22px; }
 .modele__titre { font: 700 15.5px/1.25 var(--f-body); color: var(--ink); }

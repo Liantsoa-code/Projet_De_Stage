@@ -4,10 +4,11 @@ namespace App\Support;
 
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
+use PhpOffice\PhpWord\PhpWord;
 
 /**
  * Modèles des documents officiels (page Références) : mise en forme du contenu saisi par les admins
- * et rendu PDF. Chaque PDF porte la mention « Modèle », sans valeur officielle.
+ * et rendu PDF ou Word.
  *
  * Conventions du contenu, ligne par ligne :
  *   # Titre          titre du document        ## Sous-titre   titre de partie
@@ -39,24 +40,22 @@ class ModelesReference
     }
 
     /**
-     * HTML du contenu pour la vue PDF. Tout le texte saisi est échappé avant la mise en forme.
+     * Blocs du contenu, comme blocsModele (resources/js/utils/documents.js) : h1, h3, pointilles,
+     * liste, droite ou texte, chacun avec ses lignes. Une ligne est une suite de morceaux de texte brut,
+     * que chaque rendu (HTML du PDF, Word) échappe et met en forme.
+     *
+     * @return array<int, array{type: string, lignes: array<int, array<int, array{texte: string, gras: bool, champ: bool}>>}>
      */
-    public static function html(string $contenu): string
+    public static function blocs(string $contenu): array
     {
-        $html = [];
-        $bloc = [];
-        $type = null;
+        $blocs = [];
+        $bloc = null;
 
-        $fermer = function () use (&$html, &$bloc, &$type) {
+        $fermer = function () use (&$blocs, &$bloc) {
             if ($bloc) {
-                $html[] = match ($type) {
-                    'liste' => '<ul>' . implode('', array_map(fn ($ligne) => "<li>{$ligne}</li>", $bloc)) . '</ul>',
-                    'droite' => '<p class="droite">' . implode('<br>', $bloc) . '</p>',
-                    default => '<p>' . implode('<br>', $bloc) . '</p>',
-                };
+                $blocs[] = $bloc;
             }
-            $bloc = [];
-            $type = null;
+            $bloc = null;
         };
 
         foreach (preg_split('/\R/u', $contenu) as $ligne) {
@@ -68,37 +67,68 @@ class ModelesReference
             }
             if (preg_match('/^(#{1,2})\s+(.+)$/u', $ligne, $titre)) {
                 $fermer();
-                $balise = strlen($titre[1]) === 1 ? 'h1' : 'h3';
-                $html[] = "<{$balise}>" . self::enLigne($titre[2]) . "</{$balise}>";
+                $blocs[] = ['type' => strlen($titre[1]) === 1 ? 'h1' : 'h3', 'lignes' => [self::enLigne($titre[2])]];
                 continue;
             }
             if ($ligne === '...') {
                 $fermer();
-                $html[] = '<div class="ligne"></div>';
+                $blocs[] = ['type' => 'pointilles', 'lignes' => []];
                 continue;
             }
 
-            [$nouveau, $texte] = match (true) {
+            [$type, $texte] = match (true) {
                 str_starts_with($ligne, '- ') => ['liste', substr($ligne, 2)],
                 str_starts_with($ligne, '>') => ['droite', ltrim(substr($ligne, 1))],
                 default => ['texte', $ligne],
             };
-            if ($type !== null && $type !== $nouveau) {
+            if ($bloc && $bloc['type'] !== $type) {
                 $fermer();
             }
-            $type = $nouveau;
-            $bloc[] = self::enLigne($texte);
+            $bloc ??= ['type' => $type, 'lignes' => []];
+            $bloc['lignes'][] = self::enLigne($texte);
         }
         $fermer();
 
-        return implode("\n", $html);
+        return $blocs;
     }
 
-    private static function enLigne(string $texte): string
+    /**
+     * Morceaux d'une ligne : texte, **gras** et [champ] (le champ garde ses crochets), comme enLigne en JS.
+     *
+     * @return array<int, array{texte: string, gras: bool, champ: bool}>
+     */
+    private static function enLigne(string $texte): array
     {
-        $texte = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', e($texte));
+        $morceaux = [];
 
-        return preg_replace('/\[([^\[\]]+)\]/u', '<span class="champ">[$1]</span>', $texte);
+        foreach (preg_split('/\*\*(.+?)\*\*/u', $texte, -1, PREG_SPLIT_DELIM_CAPTURE) as $i => $partie) {
+            foreach (preg_split('/(\[[^\[\]]+\])/u', $partie, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $morceau) {
+                $morceaux[] = ['texte' => $morceau, 'gras' => $i % 2 === 1, 'champ' => (bool) preg_match('/^\[[^\[\]]+\]$/u', $morceau)];
+            }
+        }
+
+        return $morceaux;
+    }
+
+    /**
+     * HTML du contenu pour la vue PDF. Tout le texte saisi est échappé avant la mise en forme.
+     */
+    public static function html(string $contenu): string
+    {
+        $ligne = fn (array $morceaux) => implode('', array_map(function (array $morceau) {
+            $html = e($morceau['texte']);
+            $html = $morceau['champ'] ? "<span class=\"champ\">{$html}</span>" : $html;
+
+            return $morceau['gras'] ? "<strong>{$html}</strong>" : $html;
+        }, $morceaux));
+
+        return implode("\n", array_map(fn (array $bloc) => match ($bloc['type']) {
+            'h1', 'h3' => "<{$bloc['type']}>" . $ligne($bloc['lignes'][0]) . "</{$bloc['type']}>",
+            'pointilles' => '<div class="ligne"></div>',
+            'liste' => '<ul>' . implode('', array_map(fn ($l) => '<li>' . $ligne($l) . '</li>', $bloc['lignes'])) . '</ul>',
+            'droite' => '<p class="droite">' . implode('<br>', array_map($ligne, $bloc['lignes'])) . '</p>',
+            default => '<p>' . implode('<br>', array_map($ligne, $bloc['lignes'])) . '</p>',
+        }, self::blocs($contenu)));
     }
 
     public static function pdf(string $titre, string $contenu)
@@ -109,8 +139,16 @@ class ModelesReference
         ]);
     }
 
+    public static function word(string $titre, string $contenu): PhpWord
+    {
+        return DocumentsWord::modele($titre, $contenu);
+    }
+
+    /**
+     * Nom du fichier téléchargé, sans extension (elle dépend du format).
+     */
     public static function nomFichier(string $titre): string
     {
-        return 'modele_' . (Str::slug($titre, '_') ?: 'document') . '.pdf';
+        return 'modele_' . (Str::slug($titre, '_') ?: 'document');
     }
 }

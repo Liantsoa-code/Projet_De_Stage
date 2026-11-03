@@ -1,11 +1,12 @@
 <script setup>
+import BoutonDocument from '@/Components/BoutonDocument.vue';
 import CompteurAnime from '@/Components/CompteurAnime.vue';
 import Icon from '@/Components/Icon.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { formatDate } from '@/utils/statut.js';
-import { openAuthenticatedPdf } from '@/utils/openPdf.js';
+import { verdictAnalyse } from '@/utils/analyse.js';
 
 // Espace demandeur : où en sont mes dossiers, et que dois-je faire ?
 const page = usePage();
@@ -29,14 +30,6 @@ function suivi(d) {
     }
     return null;
 }
-
-const openPdf = async (url, filename) => {
-    try {
-        await openAuthenticatedPdf(url, filename);
-    } catch (e) {
-        alert(e.message || 'Erreur lors de l\'ouverture du PDF.');
-    }
-};
 </script>
 
 <template>
@@ -98,10 +91,10 @@ const openPdf = async (url, filename) => {
                             <span class="site-label">{{ d.site?.nom }}</span>
                             <strong>{{ d.titre || d.type_demande?.libelle }}</strong>
                             <span class="mono dates">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</span>
-                            <span v-if="d.resultats_analyse?.length" class="note-hatch"><span class="hatch"></span>Période sensible : précautions au cahier des charges</span>
+                            <span v-if="verdictAnalyse(d.resultats_analyse) !== 'compatible'" class="note-hatch"><span class="hatch"></span>Séjour sous conditions : lisez l'autorisation et le cahier des charges</span>
                             <div class="btn-row">
-                                <button type="button" class="btn-ghost btn--sm" @click="openPdf(route('demandes.pdf.autorisation', d.id), `autorisation_${d.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
-                                <button type="button" class="btn-ghost btn--sm" @click="openPdf(route('demandes.pdf.cahier-charges', d.id), `cahier_des_charges_${d.id}.pdf`)"><Icon name="file-pdf" />Cahier des charges</button>
+                                <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.autorisation', d.id)">Autorisation</BoutonDocument>
+                                <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.cahier-charges', d.id)">Cahier des charges</BoutonDocument>
                             </div>
                         </div>
                     </div>

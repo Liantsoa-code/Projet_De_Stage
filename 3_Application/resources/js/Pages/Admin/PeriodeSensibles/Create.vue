@@ -4,7 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
 const props = defineProps({ sites: Array });
-const form = useForm({ site_id: '', date_debut: '', date_fin: '', description: '', niveau_restriction: 'avertissement' });
+const form = useForm({ site_id: '', date_debut: '', date_fin: '', description: '', niveau_restriction: 'avertissement', condition_proposee: '' });
 const submit = () => form.post(route('admin.periode-sensibles.store'));
 </script>
 <template>
@@ -58,6 +58,12 @@ const submit = () => form.post(route('admin.periode-sensibles.store'));
                         <label class="gf-label">Description / Motif *</label>
                         <textarea class="gf-textarea" v-model="form.description" rows="3" required placeholder="Ex : Période de nidification des tortues marines..."></textarea>
                         <InputError class="gf-error" :message="form.errors.description" />
+                    </div>
+                    <div v-if="form.niveau_restriction === 'avertissement'">
+                        <label class="gf-label">Condition proposée</label>
+                        <input type="text" class="gf-input" v-model="form.condition_proposee" maxlength="255" placeholder="Ex : Aucune approche à moins de 30 m des sites de ponte" />
+                        <p class="gf-hint">Proposée par l'analyse quand un séjour chevauche la période ; à défaut, une condition générale.</p>
+                        <InputError class="gf-error" :message="form.errors.condition_proposee" />
                     </div>
                     <div class="gf-footer">
                         <Link :href="route('admin.periode-sensibles.index')" class="btn-ghost">Annuler</Link>

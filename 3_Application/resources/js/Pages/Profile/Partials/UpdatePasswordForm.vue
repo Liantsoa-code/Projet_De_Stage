@@ -1,13 +1,16 @@
 <script setup>
+import Icon from '@/Components/Icon.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 const passwordInput = ref(null);
 const currentPasswordInput = ref(null);
+const enCours = ref(false);
 
 const form = useForm({
     current_password: '',
@@ -15,10 +18,19 @@ const form = useForm({
     password_confirmation: '',
 });
 
+const annuler = () => {
+    form.reset();
+    form.clearErrors();
+    enCours.value = false;
+};
+
 const updatePassword = () => {
     form.put(route('password.update'), {
         preserveScroll: true,
-        onSuccess: () => form.reset(),
+        onSuccess: () => {
+            form.reset();
+            enCours.value = false;
+        },
         onError: () => {
             if (form.errors.password) {
                 form.reset('password', 'password_confirmation');
@@ -34,19 +46,33 @@ const updatePassword = () => {
 </script>
 
 <template>
-    <section>
-        <header>
-            <h2 class="section-title">
-                Mot de passe
-            </h2>
+    <section class="profile-card">
+        <header class="profile-card__head">
+            <div>
+                <h2 class="section-title">
+                    Mot de passe
+                </h2>
 
-            <p class="section-text">
-                Choisissez un mot de passe long et différent de ceux que vous utilisez ailleurs.
-            </p>
+                <p class="section-text">
+                    Choisissez un mot de passe long et différent de ceux que vous utilisez ailleurs.
+                </p>
+            </div>
+
+            <Transition
+                enter-active-class="transition ease-in-out"
+                enter-from-class="opacity-0"
+                leave-active-class="transition ease-in-out"
+                leave-to-class="opacity-0"
+            >
+                <p v-if="form.recentlySuccessful" class="section-ok">Enregistré.</p>
+            </Transition>
+            <button v-if="!enCours" type="button" class="btn-sm-edit" @click="enCours = true">
+                Modifier <Icon name="pencil-simple" />
+            </button>
         </header>
 
-        <form @submit.prevent="updatePassword" class="mt-6 space-y-6">
-            <div>
+        <form v-if="enCours" @submit.prevent="updatePassword" class="profile-fields">
+            <div class="profile-fields__large">
                 <InputLabel for="current_password" value="Mot de passe actuel" />
 
                 <TextInput
@@ -56,6 +82,7 @@ const updatePassword = () => {
                     type="password"
                     class="mt-1 block w-full"
                     autocomplete="current-password"
+                    autofocus
                 />
 
                 <InputError
@@ -99,23 +126,17 @@ const updatePassword = () => {
                 />
             </div>
 
-            <div class="flex items-center gap-4">
+            <div class="profile-fields__large profile-actions">
+                <SecondaryButton @click="annuler">Annuler</SecondaryButton>
                 <PrimaryButton :disabled="form.processing">Enregistrer</PrimaryButton>
-
-                <Transition
-                    enter-active-class="transition ease-in-out"
-                    enter-from-class="opacity-0"
-                    leave-active-class="transition ease-in-out"
-                    leave-to-class="opacity-0"
-                >
-                    <p
-                        v-if="form.recentlySuccessful"
-                        class="section-text"
-                    >
-                        Enregistré.
-                    </p>
-                </Transition>
             </div>
         </form>
+
+        <dl v-else class="profile-fields">
+            <div>
+                <dt>Mot de passe</dt>
+                <dd>••••••••••</dd>
+            </div>
+        </dl>
     </section>
 </template>

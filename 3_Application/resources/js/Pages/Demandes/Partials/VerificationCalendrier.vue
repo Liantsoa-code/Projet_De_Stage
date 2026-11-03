@@ -1,12 +1,14 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
 import DashboardMap from '@/Components/DashboardMap.vue';
+import PanneauAnalyse from '@/Components/PanneauAnalyse.vue';
 import { computed, ref } from 'vue';
 import { formatDate } from '@/utils/statut.js';
 import { surfaceKm2, formatSurface } from '@/utils/carte.js';
 
-// Colonne « Vérification du calendrier », visible à toutes les étapes du formulaire :
-// carte des sites colorée selon les dates, fiche du site choisi et ses périodes sensibles.
+// Colonne « Vérification de la demande », visible à toutes les étapes du formulaire :
+// carte des sites colorée selon les dates, fiche du site choisi, analyse automatique du séjour
+// et périodes sensibles du site.
 const props = defineProps({
     sites: { type: Array, required: true },
     // État de chaque site sur les dates choisies, pour colorer la carte (null tant qu'il n'y a pas de dates)
@@ -17,6 +19,9 @@ const props = defineProps({
     // Périodes sensibles à venir du site choisi, et celles qui chevauchent le séjour
     periodes: { type: Array, required: true },
     chevauchements: { type: Array, required: true },
+    // Analyse automatique du séjour ({ verdict, bloquant, contraintes }) et nouvelle analyse en cours
+    analyse: { type: Object, default: null },
+    analyseEnCours: { type: Boolean, default: false },
 });
 
 defineEmits(['select']);
@@ -28,7 +33,7 @@ const chevauche = (p) => props.chevauchements.some(c => c.id === p.id);
 
 <template>
     <div class="check">
-        <header class="check__head"><h2>Vérification du calendrier</h2></header>
+        <header class="check__head"><h2>Vérification de la demande</h2></header>
         <div class="check__body">
             <div class="check__map">
                 <DashboardMap
@@ -62,6 +67,8 @@ const chevauche = (p) => props.chevauchements.some(c => c.id === p.id);
                     <Icon name="calendar-blank" />
                     <div><strong>Dates à compléter</strong>Choisissez l'arrivée et le départ pour vérifier le calendrier du site.</div>
                 </div>
+                <!-- Analyse complète par le serveur ; en attendant (ou sans date de départ), le calendrier seul -->
+                <PanneauAnalyse v-else-if="analyse" :contraintes="analyse.contraintes" compact avant-envoi :chargement="analyseEnCours" />
                 <div v-else-if="calendrier === 'bloquant'" class="res res--block" role="alert">
                     <Icon name="prohibit" />
                     <div><strong>Envoi impossible sur ces dates</strong>Une période bloquante couvre tout ou partie du séjour. Choisissez d'autres dates.</div>

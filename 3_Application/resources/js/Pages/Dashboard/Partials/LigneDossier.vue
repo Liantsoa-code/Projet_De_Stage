@@ -32,7 +32,8 @@ const arrivee = computed(() => {
             <span v-if="d.imminent" class="tag tag--alert"><Icon name="calendar-x" />{{ arrivee }}</span>
             <span v-else-if="arrivee" class="tag">{{ arrivee }}</span>
             <span class="tag" :class="{ 'tag--alert': d.retard }"><Icon name="clock" />{{ d.attente }} j d'attente</span>
-            <span v-if="d.conflit" class="tag tag--warn"><span class="hatch"></span>Période sensible</span>
+            <span v-if="d.verdict === 'conflit'" class="tag tag--alert"><Icon name="prohibit" />Conflit détecté</span>
+            <span v-else-if="d.verdict === 'conditions'" class="tag tag--warn"><Icon name="warning" />Sous conditions</span>
         </span>
     </Link>
 </template>

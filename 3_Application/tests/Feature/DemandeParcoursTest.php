@@ -252,6 +252,23 @@ class DemandeParcoursTest extends TestCase
         $this->assertTrue(Notification::where('user_id', $collegue->id)->where('demande_id', $demande->id)->exists());
     }
 
+    public function test_submission_alerts_site_validators_and_admins(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $autreSite = User::factory()->create(['role' => 'validateur']);
+
+        $this->actingAs($this->demandeur)->post(route('demandes.store'), $this->payload())->assertSessionHasNoErrors();
+        $demande = Demande::firstOrFail();
+
+        foreach ([$this->validateur, $admin] as $decideur) {
+            $this->assertTrue(Notification::where('user_id', $decideur->id)->where('demande_id', $demande->id)->where('contenu', 'like', 'Nouvelle demande%')->exists());
+            Mail::assertQueued(DemandeNotificationMail::class, fn ($mail) => $mail->hasTo($decideur->email)
+                && $mail->lien === route('validateur.demandes.show', $demande));
+        }
+        $this->assertFalse(Notification::where('user_id', $autreSite->id)->exists());
+    }
+
     // ── Analyse des périodes sensibles ──
 
     public function test_submission_records_warning_overlap_and_refuses_blocking_one(): void

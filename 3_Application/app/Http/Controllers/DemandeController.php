@@ -10,6 +10,7 @@ use App\Models\PeriodeSensible;
 use App\Models\Site;
 use App\Models\Statut;
 use App\Models\TypeDemande;
+use App\Support\AnalyseDemande;
 use App\Support\DelaiDecision;
 use App\Support\DemandeDossier;
 use App\Support\DemandeNotifications;
@@ -103,7 +104,7 @@ class DemandeController extends Controller
                 'user_id' => Auth::id(),
                 'statut_id' => $statutInitial,
                 'date_soumission' => $soumission ? now() : null,
-                'resultats_analyse' => $analyse['resultats'], // Fige les résultats dans un JSON
+                'resultats_analyse' => $analyse['contraintes'], // Fige les résultats dans un JSON
             ]);
 
             $this->enregistrerCoordonnees($validated);
@@ -151,7 +152,7 @@ class DemandeController extends Controller
         $validated = $request->validated();
         $typeDemande = $request->typeDemande();
 
-        $analyse = $this->analyse($validated, $soumission);
+        $analyse = $this->analyse($validated, $soumission, $demande->id);
 
         if ($analyse['bloquant']) {
             return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur cette aire protégée.']);
@@ -164,7 +165,7 @@ class DemandeController extends Controller
                 return true;
             }
 
-            $champs = $this->champsProjet($validated, $typeDemande) + ['resultats_analyse' => $analyse['resultats']];
+            $champs = $this->champsProjet($validated, $typeDemande) + ['resultats_analyse' => $analyse['contraintes']];
 
             if ($renvoiComplement) {
                 // Le dossier retourne directement en analyse chez le validateur.
@@ -284,19 +285,32 @@ class DemandeController extends Controller
     }
 
     /**
-     * Analyse des périodes sensibles, uniquement pour une soumission (le brouillon peut être incomplet).
+     * Analyse du séjour pendant la saisie (JSON), par le même moteur qu'à l'envoi.
+     * L'id de la demande en cours de modification l'exclut de ses propres comparaisons.
      */
-    private function analyse(array $validated, bool $soumission): array
+    public function analyser(Request $request)
+    {
+        $validated = $request->validate([
+            'site_id' => 'required|integer|exists:t_sites,id',
+            'date_debut' => 'required|date',
+            'date_fin' => 'required|date|after_or_equal:date_debut',
+            'equipe_nombre' => 'nullable|integer|min:1|max:1000',
+            'demande_id' => 'nullable|integer',
+        ]);
+
+        return response()->json(AnalyseDemande::analyser($validated, Auth::id(), $validated['demande_id'] ?? null));
+    }
+
+    /**
+     * Analyse du séjour, uniquement pour une soumission (le brouillon peut être incomplet).
+     */
+    private function analyse(array $validated, bool $soumission, ?int $demandeId = null): array
     {
         if (! $soumission) {
-            return ['resultats' => [], 'bloquant' => false];
+            return ['verdict' => null, 'bloquant' => false, 'contraintes' => []];
         }
 
-        return DemandeDossier::analysePeriodes(
-            (int) $validated['site_id'],
-            $validated['date_debut'],
-            $validated['date_fin'],
-        );
+        return AnalyseDemande::analyser($validated, Auth::id(), $demandeId);
     }
 
     /**

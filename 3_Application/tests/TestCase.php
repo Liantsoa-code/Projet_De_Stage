@@ -2,7 +2,10 @@
 
 namespace Tests;
 
+use DOMDocument;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Testing\TestResponse;
+use ZipArchive;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -33,5 +36,26 @@ abstract class TestCase extends BaseTestCase
             'piece_identite' => '101 211 045 678',
             'engagement' => '1',
         ];
+    }
+
+    /**
+     * Texte du corps d'un document Word téléchargé. Le fichier doit s'ouvrir et son XML être valide :
+     * un texte saisi mal échappé (« & », « < ») rendrait le document illisible dans Word.
+     */
+    protected function texteWord(TestResponse $response): string
+    {
+        $fichier = tempnam(sys_get_temp_dir(), 'docx');
+        file_put_contents($fichier, $response->streamedContent());
+
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($fichier) === true, 'Le fichier Word ne s\'ouvre pas.');
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+        unlink($fichier);
+
+        $document = new DOMDocument();
+        $this->assertTrue($document->loadXML($xml), 'Le contenu du fichier Word est invalide.');
+
+        return $document->textContent;
     }
 }

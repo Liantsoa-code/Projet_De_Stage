@@ -22,7 +22,7 @@ defineProps({
             </header>
 
             <main class="guest__main">
-                <nav v-if="onglet" class="guest__tabs" aria-label="Accès au compte">
+                <nav v-if="onglet" v-glisse="'acces'" class="guest__tabs" aria-label="Accès au compte">
                     <Link :href="route('login')" class="guest__tab" :aria-current="onglet === 'connexion' ? 'page' : undefined">Se connecter</Link>
                     <Link :href="route('register')" class="guest__tab" :aria-current="onglet === 'inscription' ? 'page' : undefined">Créer un compte</Link>
                 </nav>
@@ -90,7 +90,8 @@ defineProps({
     transition: background-color 0.15s, color 0.15s;
 }
 .guest__tab:hover { color: var(--ink); }
-.guest__tab[aria-current='page'] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--rule); }
+/* Le fond blanc de l'onglet actif est la pastille glissante (v-glisse) */
+.guest__tab[aria-current='page'] { color: var(--ink); }
 
 .guest__foot { font-size: 12.5px; color: var(--ink-3); }
 

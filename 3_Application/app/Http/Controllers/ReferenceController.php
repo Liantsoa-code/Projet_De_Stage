@@ -25,6 +25,8 @@ class ReferenceController extends Controller
                 'usage' => $m->usage,
                 'icone' => $m->icone,
                 'automatique' => $m->automatique,
+                // Texte du modèle, mis en forme dans la page pour la miniature et l'aperçu
+                'contenu' => $m->contenu,
                 'champs' => ModelesReference::champs($m->contenu),
             ]);
 

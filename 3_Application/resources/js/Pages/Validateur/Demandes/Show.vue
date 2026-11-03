@@ -1,13 +1,14 @@
 <script setup>
+import BoutonDocument from '@/Components/BoutonDocument.vue';
 import Icon from '@/Components/Icon.vue';
+import PanneauAnalyse from '@/Components/PanneauAnalyse.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
 import TimelineDemande from '@/Components/TimelineDemande.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DocumentsGeneres from './Partials/DocumentsGeneres.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { openAuthenticatedPdf } from '@/utils/openPdf.js';
 import { statutBadgeClass, formatDate, joursDepuis } from '@/utils/statut.js';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 const props = defineProps({
     demande: Object,
@@ -17,12 +18,13 @@ const props = defineProps({
     statutLocked: { type: Boolean, default: false },
     delaiHabituel: { type: Number, default: null },
     documentsGeneres: { type: Object, default: null },
+    peutTelechargerWord: { type: Boolean, default: false },
 });
 
 const CHOIX = {
     en_analyse: { label: 'Prendre en charge', sub: 'Passe le dossier en analyse et prévient le demandeur', icon: 'stamp' },
     a_completer: { label: 'Demander un complément', sub: 'Le dossier retourne au demandeur avec votre commentaire', icon: 'pencil-simple-line' },
-    validee: { label: 'Avis favorable', sub: 'Génère l\'autorisation et le cahier des charges à relire, puis vous signez pour valider', icon: 'seal-check' },
+    validee: { label: 'Avis favorable', sub: 'Vous relisez et modifiez l\'autorisation et le cahier des charges, puis vous signez : le demandeur n\'est prévenu qu\'à la signature', icon: 'seal-check' },
     rejetee: { label: 'Avis défavorable', sub: 'La demande est rejetée : décision définitive, le dossier est clos', icon: 'prohibit' },
     soumise: { label: 'Remettre en file', sub: 'Le dossier repasse au statut soumis', icon: 'arrow-left' },
 };
@@ -38,10 +40,16 @@ const form = useForm({
     signature: '',
 });
 
-// Validation en deux temps : « Générer » prépare les documents, la signature valide le dossier.
+// Validation en deux temps : « Préparer » génère les documents à relire, la signature valide le dossier.
 const docsModifies = ref(false);
 const generation = useForm({});
-const generer = () => generation.post(route('validateur.demandes.documents.generer', props.demande.id), { preserveScroll: true });
+// Les documents s'affichent en haut de la page : le validateur y est amené dès qu'ils sont prêts.
+const blocDocuments = ref(null);
+const montrerDocuments = () => blocDocuments.value?.montrer();
+const generer = () => generation.post(route('validateur.demandes.documents.generer', props.demande.id), {
+    preserveScroll: true,
+    onSuccess: () => nextTick(montrerDocuments),
+});
 
 const submit = () => {
     if (statutChoisi.value === 'validee' && !props.documentsGeneres) {
@@ -51,14 +59,6 @@ const submit = () => {
     form.post(route('validateur.demandes.update-statut', props.demande.id), {
         onSuccess: () => form.reset('commentaire', 'signature'),
     });
-};
-
-const openPdf = async (url, filename) => {
-    try {
-        await openAuthenticatedPdf(url, filename);
-    } catch (e) {
-        alert(e.message || 'Erreur lors de l\'ouverture du PDF.');
-    }
 };
 
 const reference = computed(() => props.demande.reference);
@@ -81,7 +81,7 @@ const boutonDesactive = computed(() => {
 
 const boutonLabel = computed(() => {
     if (form.processing || generation.processing) return 'Enregistrement…';
-    if (statutChoisi.value === 'validee') return props.documentsGeneres ? 'Signer et valider le dossier' : 'Générer les documents';
+    if (statutChoisi.value === 'validee') return props.documentsGeneres ? 'Signer et valider le dossier' : 'Préparer les documents à relire';
     return {
         a_completer: 'Envoyer la demande de complément',
         rejetee: 'Émettre l\'avis défavorable',
@@ -120,16 +120,19 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
             <StatutSteps :code="code" large />
         </div>
 
+        <!-- Pleine largeur : la saisie et l'aperçu des documents côte à côte -->
+        <DocumentsGeneres
+            v-if="documentsGeneres && canDecideOnDemande"
+            ref="blocDocuments"
+            :key="documentsGeneres.genere_le"
+            v-model:modifie="docsModifies"
+            class="docs-generes"
+            :demande="demande"
+            :documents="documentsGeneres"
+        />
+
         <div class="show-layout">
             <div class="stack">
-                <DocumentsGeneres
-                    v-if="documentsGeneres && canDecideOnDemande"
-                    :key="documentsGeneres.genere_le"
-                    v-model:modifie="docsModifies"
-                    :demande="demande"
-                    :documents="documentsGeneres"
-                />
-
                 <dl class="meta">
                     <div><dt>Demandeur</dt><dd>{{ demande.user.name }}<small>{{ demande.user.email }}</small></dd></div>
                     <div><dt>Organisation</dt><dd>{{ demande.user.organisation || '—' }}<small>{{ demande.user.fonction }}</small></dd></div>
@@ -142,24 +145,18 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                     <div><dt>Déposée le</dt><dd class="mono">{{ formatDate(demande.date_soumission) }}</dd></div>
                 </dl>
 
-                <template v-if="demande.resultats_analyse?.length">
-                    <div v-for="(a, i) in demande.resultats_analyse" :key="i" class="conflict">
-                        <div class="conflict__band"></div>
-                        <div class="conflict__body">
-                            <span class="conflict__tag"><Icon name="warning" />Période sensible</span>
-                            <p>{{ a.message }}</p>
-                        </div>
-                    </div>
-                </template>
-                <div v-else class="res-ok">
-                    <Icon name="check-circle" />
-                    <span>Aucune période sensible ne chevauche ces dates.</span>
-                </div>
+                <section class="panel">
+                    <header class="panel__head">
+                        <h2>Analyse de la demande</h2>
+                        <small>Faite automatiquement à l'envoi du dossier</small>
+                    </header>
+                    <PanneauAnalyse :contraintes="demande.resultats_analyse ?? []" />
+                </section>
 
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Projet</h2>
-                        <button type="button" class="link link-btn" @click="openPdf(route('demandes.pdf.formulaire', demande.id), `formulaire_demande_${demande.id}.pdf`)">Formulaire de demande (PDF)</button>
+                        <BoutonDocument class="link link-btn" :url="route('demandes.pdf.formulaire', demande.id)" :word="peutTelechargerWord">Formulaire de demande</BoutonDocument>
                     </header>
                     <dl class="projet">
                         <div><dt>Titre du projet</dt><dd>{{ demande.titre || '—' }}</dd></div>
@@ -208,8 +205,8 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                         <p v-else-if="code === 'validee'">Le dossier est définitivement clôturé. Les documents officiels sont disponibles.</p>
                         <p v-else>Ce dossier ne peut plus être modifié.</p>
                         <div v-if="code === 'validee'" class="btn-col">
-                            <button type="button" class="btn-accent" @click="openPdf(route('demandes.pdf.autorisation', demande.id), `autorisation_${demande.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
-                            <button type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.cahier-charges', demande.id), `cahier_des_charges_${demande.id}.pdf`)"><Icon name="file-pdf" />Cahier des charges</button>
+                            <BoutonDocument class="btn-accent" :url="route('demandes.pdf.autorisation', demande.id)" :word="peutTelechargerWord">Autorisation</BoutonDocument>
+                            <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.cahier-charges', demande.id)" :word="peutTelechargerWord">Cahier des charges</BoutonDocument>
                         </div>
                     </div>
                 </section>
@@ -247,15 +244,23 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                             Les documents générés seront supprimés.
                         </p>
 
-                        <!-- Étape 1 de la validation : génération des documents -->
+                        <!-- Étape 1 de la validation : documents à relire et modifier, rien n'est encore envoyé -->
                         <ol v-if="statutChoisi === 'validee'" class="steps">
                             <li :class="documentsGeneres ? 'steps__done' : 'steps__now'">
                                 <Icon :name="documentsGeneres ? 'check-circle' : 'file-text'" />
-                                <span><strong>Générer les documents</strong><small>{{ documentsGeneres ? 'Fait : relisez-les et modifiez-les si besoin' : 'Autorisation et cahier des charges, modifiables avant la validation' }}</small></span>
+                                <span>
+                                    <strong>{{ documentsGeneres ? 'Documents prêts à relire' : 'Préparer les documents' }}</strong>
+                                    <small>{{ documentsGeneres
+                                        ? 'Relisez et modifiez l\'autorisation et le cahier des charges en haut de la page.'
+                                        : 'Autorisation et cahier des charges, à relire et modifier. Rien n\'est envoyé au demandeur à cette étape.' }}</small>
+                                    <button v-if="documentsGeneres" type="button" class="link link-btn steps__lien" @click="montrerDocuments">
+                                        <Icon name="eye" />Relire et modifier les documents
+                                    </button>
+                                </span>
                             </li>
                             <li :class="documentsGeneres ? 'steps__now' : ''">
                                 <Icon name="seal-check" />
-                                <span><strong>Signer pour valider</strong><small>Retapez votre nom pour valider définitivement le dossier</small></span>
+                                <span><strong>Signer pour valider</strong><small>Retapez votre nom : l'avis favorable et les documents sont alors envoyés au demandeur</small></span>
                             </li>
                         </ol>
 
@@ -295,6 +300,7 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .late svg { width: 14px; height: 14px; }
 .intro { display: grid; gap: 12px; margin-bottom: 24px; }
 .intro__title { font-size: clamp(20px, 2vw, 26px); font-weight: 700; line-height: 1.15; max-width: 48ch; }
+.docs-generes { margin-bottom: 24px; }
 
 .show-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 @media (max-width: 1000px) { .show-layout { grid-template-columns: minmax(0, 1fr); } }
@@ -315,21 +321,13 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .panel__text { padding: 16px 24px; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; }
 .panel__body { display: grid; gap: 14px; padding: 16px 24px; font-size: 14px; color: var(--ink-2); }
 .muted { color: var(--ink-3); }
-.link-btn { padding: 0; background: none; border: 0; cursor: pointer; }
+.link-btn { display: inline-flex; align-items: center; gap: 5px; padding: 0; background: none; border: 0; cursor: pointer; }
+.link-btn :deep(svg) { width: 14px; height: 14px; }
 .projet { display: grid; gap: 12px; margin: 0; padding: 8px 24px 18px; }
 .projet dt { font: 600 10.5px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
 .projet dd { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; overflow-wrap: anywhere; }
 .link { font-size: 13px; font-weight: 600; color: var(--water); text-decoration: none; }
 .link:hover { text-decoration: underline; }
-
-.conflict { border: 1px solid var(--ochre); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
-.conflict__band { height: 10px; background: repeating-linear-gradient(45deg, var(--ochre) 0 2px, transparent 2px 7px); }
-.conflict__body { display: grid; gap: 6px; padding: 14px 16px; }
-.conflict__tag { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
-.conflict__tag svg { width: 14px; height: 14px; }
-.conflict__body p { font-size: 14px; color: var(--ink-2); }
-.res-ok { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--forest-soft); border-radius: var(--r-sm); font-size: 14px; }
-.res-ok svg { width: 20px; height: 20px; color: var(--forest); flex-shrink: 0; }
 
 .docs { list-style: none; margin: 0; padding: 0; }
 .docs li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--rule-soft); }
@@ -366,6 +364,7 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .steps__now { border-style: solid !important; border-color: var(--forest) !important; color: var(--ink-2) !important; }
 .steps__now svg { color: var(--forest); }
 .steps__done { color: var(--forest) !important; }
+.steps__lien { margin-top: 6px; }
 .signature { display: grid; gap: 6px; }
 .btn-warn, .btn-danger {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;

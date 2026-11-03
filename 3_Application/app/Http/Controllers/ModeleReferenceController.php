@@ -4,21 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ModeleReferenceRequest;
 use App\Models\ModeleReference;
+use App\Support\FormatDocument;
 use App\Support\ModelesReference;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 /**
- * Modèles des documents officiels de la page Références. Le PDF est ouvert aux validateurs
+ * Modèles des documents officiels de la page Références. Le document (PDF ou Word) est ouvert aux validateurs
  * et aux admins ; la création, la modification, l'aperçu et la suppression sont réservés aux admins
  * (gates sur les routes).
  */
 class ModeleReferenceController extends Controller
 {
-    public function show(ModeleReference $modele)
+    public function show(Request $request, ModeleReference $modele)
     {
-        return ModelesReference::pdf($modele->titre, $modele->contenu)
-            ->stream(ModelesReference::nomFichier($modele->titre));
+        return $this->document($request, $modele->titre, $modele->contenu);
     }
 
     public function create()
@@ -53,7 +53,7 @@ class ModeleReferenceController extends Controller
     }
 
     /**
-     * PDF du texte en cours de saisie, avant enregistrement.
+     * Document (PDF ou Word) du texte en cours de saisie, avant enregistrement.
      */
     public function apercu(Request $request)
     {
@@ -62,8 +62,16 @@ class ModeleReferenceController extends Controller
             'contenu' => 'required|string|max:' . ModelesReference::CONTENU_MAX,
         ]);
 
-        $titre = $valide['titre'] ?? 'Sans titre';
+        return $this->document($request, $valide['titre'] ?? 'Sans titre', $valide['contenu']);
+    }
 
-        return ModelesReference::pdf($titre, $valide['contenu'])->stream(ModelesReference::nomFichier($titre));
+    private function document(Request $request, string $titre, string $contenu)
+    {
+        return FormatDocument::reponse(
+            $request,
+            ModelesReference::nomFichier($titre),
+            fn () => ModelesReference::pdf($titre, $contenu),
+            fn () => ModelesReference::word($titre, $contenu),
+        );
     }
 }

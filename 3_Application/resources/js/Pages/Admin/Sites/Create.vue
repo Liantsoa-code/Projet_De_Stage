@@ -4,8 +4,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
 import MapComponent from '@/Components/MapComponent.vue';
+import ReglesAnalyseSite from './Partials/ReglesAnalyseSite.vue';
 
-const form = useForm({ nom: '', description: '', polygone_coordonnees: [] });
+const form = useForm({ nom: '', description: '', capacite_accueil: '', conditions: [], polygone_coordonnees: [] });
 const submit = () => form.post(route('admin.sites.store'));
 
 const handleFileUpload = (event) => {
@@ -72,6 +73,7 @@ const handleFileUpload = (event) => {
                         <textarea class="gf-textarea" v-model="form.description" rows="3" placeholder="Faune, flore, règlements particuliers..."></textarea>
                         <InputError class="gf-error" :message="form.errors.description" />
                     </div>
+                    <ReglesAnalyseSite :form="form" />
                     <div>
                         <div style="display:flex; justify-content: space-between; align-items:flex-end; margin-bottom: 8px;">
                             <label class="gf-label" style="margin-bottom:0;">Délimitation géographique</label>

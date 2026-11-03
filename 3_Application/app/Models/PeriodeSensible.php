@@ -8,7 +8,7 @@ class PeriodeSensible extends Model
 {
     protected $table = 't_periode_sensibles';
 
-    protected $fillable = ['site_id', 'date_debut', 'date_fin', 'description', 'niveau_restriction'];
+    protected $fillable = ['site_id', 'date_debut', 'date_fin', 'description', 'niveau_restriction', 'condition_proposee'];
 
     protected $casts = [
         'date_debut' => 'date',

@@ -3,9 +3,11 @@
 <head>
     <meta charset="utf-8">
     <title>Formulaire de demande d'autorisation</title>
+    {{-- Aperçu en direct dans le navigateur : resources/js/Components/Apercu/ApercuFormulaireDemande.vue, à garder en phase --}}
     <style>
         @page { margin: 60px 70px 70px; }
-        body { font-family: 'Times New Roman', 'Times', serif; font-size: 12.5px; color: #15201A; line-height: 1.45; }
+        /* Un mot trop long pour la ligne est coupé au lieu de sortir de la page */
+        body { font-family: 'Times New Roman', 'Times', serif; font-size: 12.5px; color: #15201A; line-height: 1.45; overflow-wrap: anywhere; }
         h1 { font-size: 16px; text-align: center; margin: 0 0 30px; line-height: 1.35; }
         h2 { font-size: 13.5px; margin: 26px 0 10px; }
         .champs { width: 100%; border-collapse: collapse; margin-bottom: 4px; }

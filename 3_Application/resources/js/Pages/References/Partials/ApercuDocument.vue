@@ -4,7 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 
 // Aperçu d'un document déposé : PDF et images affichés dans la page, les autres formats se téléchargent.
 // Le fichier est récupéré par une requête authentifiée puis affiché depuis la mémoire du navigateur,
-// ce qui évite l'interception par les gestionnaires de téléchargement (comme openPdf.js).
+// ce qui évite l'interception par les gestionnaires de téléchargement (comme ouvrirDocument.js).
 const props = defineProps({ document: { type: Object, required: true } });
 const emit = defineEmits(['close']);
 

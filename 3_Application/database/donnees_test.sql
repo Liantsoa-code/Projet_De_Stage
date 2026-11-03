@@ -1,7 +1,8 @@
 -- ============================================================================
 -- Jeu de données de test — Plateforme d'accès aux aires protégées FANAMBY
 -- ============================================================================
--- Base cible : projet_stage (MySQL / MariaDB), après « php artisan migrate ».
+-- Chargement : « php artisan donnees:test », qui complète aussi les pièces jointes et l'analyse
+-- (voir plus bas). Base cible : projet_stage (MySQL / MariaDB), après « php artisan migrate ».
 -- Le script VIDE les tables de l'application puis les remplit : il peut être
 -- relancé à tout moment pour revenir à cet état de départ. Toutes les tables
 -- portent le préfixe t_. Les modèles de la page Références (t_modeles_reference)
@@ -19,7 +20,11 @@
 --   « Allée des Baobabs » n'a volontairement aucun validateur.
 --
 -- Pièces jointes : les lignes de t_documents pointent vers storage/app/private/demandes/{id}/.
--- Sans ces fichiers, le téléchargement d'une pièce affiche « Fichier introuvable ».
+-- « php artisan donnees:test » crée un PDF de démonstration pour chaque fichier absent ; chargé
+-- autrement, le téléchargement d'une pièce sans fichier affiche « Fichier introuvable ».
+-- Analyse : resultats_analyse est au format d'avant le moteur (périodes sensibles seulement) ;
+-- « php artisan donnees:test » la refait avec toutes les règles (App\Support\AnalyseDemande).
+-- Chaque instruction se termine par « ; » en fin de ligne (découpage de DonneesTest::instructions).
 -- ============================================================================
 
 SET NAMES utf8mb4;
@@ -31,6 +36,7 @@ TRUNCATE TABLE t_historique_statuts;
 TRUNCATE TABLE t_documents;
 TRUNCATE TABLE t_demandes;
 TRUNCATE TABLE t_periode_sensibles;
+TRUNCATE TABLE t_conditions_site;
 TRUNCATE TABLE t_site_user;
 TRUNCATE TABLE t_regles_specifiques;
 TRUNCATE TABLE t_documents_requis;
@@ -183,6 +189,22 @@ INSERT INTO t_periode_sensibles (id, site_id, date_debut, date_fin, description,
 (6, 2, CURDATE() - INTERVAL 40 DAY, CURDATE() - INTERVAL 30 DAY, 'Inventaire forestier (terminé)', 'bloquant', NOW() - INTERVAL 60 DAY, NOW()),
 (7, 2, CURDATE() + INTERVAL 200 DAY, CURDATE() + INTERVAL 230 DAY, 'Régénération du corridor : accès limité', 'avertissement', NOW() - INTERVAL 60 DAY, NOW()),
 (8, 1, CURDATE() + INTERVAL 150 DAY, CURDATE() + INTERVAL 165 DAY, 'Brûlis contrôlés de prévention', 'bloquant', NOW() - INTERVAL 60 DAY, NOW());
+
+-- ── Règles de l'analyse des demandes (exemples fictifs, mêmes valeurs que ReglesAnalyseSeeder) ──
+UPDATE t_sites SET capacite_accueil = CASE id WHEN 1 THEN 8 WHEN 2 THEN 15 WHEN 3 THEN 12 WHEN 4 THEN 10 WHEN 5 THEN 40 END WHERE id IN (1, 2, 3, 4, 5);
+INSERT INTO t_conditions_site (site_id, libelle, created_at, updated_at) VALUES
+(1, 'Accès aux grottes uniquement avec un guide agréé de l''aire protégée', NOW(), NOW()),
+(2, 'Présence d''un guide local agréé pendant tout le séjour', NOW(), NOW()),
+(3, 'Aucun prélèvement de faune, de flore ou de minéraux', NOW(), NOW()),
+(4, 'Feu et bivouac uniquement sur les campements aménagés', NOW(), NOW()),
+(5, 'Aucun survol de drone au-dessus des visiteurs', NOW(), NOW()),
+(5, 'Véhicules garés sur le parking aménagé uniquement', NOW(), NOW());
+UPDATE t_periode_sensibles SET condition_proposee = CASE id
+    WHEN 1 THEN 'Groupes de 4 personnes au plus près des lémuriens, à 20 m au moins, sans bruit ni flash'
+    WHEN 2 THEN 'Aucune présence sur les plages de nidification entre 17 h et 7 h'
+    WHEN 4 THEN 'Aucun feu ni groupe électrogène ; signalement de l''équipe au poste de garde à l''arrivée'
+    WHEN 7 THEN 'Circulation sur les sentiers balisés uniquement, aucun accès aux parcelles en régénération'
+END WHERE id IN (1, 2, 4, 7);
 
 -- ── Demandes (22 dossiers couvrant tous les statuts et cas particuliers) ──
 -- titre, type de projet (et sa précision pour « Autre »), résumé du synopsis (description) et objectifs :

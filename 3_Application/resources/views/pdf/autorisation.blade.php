@@ -3,27 +3,21 @@
 <head>
     <meta charset="utf-8">
     <title>Autorisation d'accès</title>
+    {{-- Aperçu en direct dans le navigateur : resources/js/Components/Apercu/ApercuAutorisation.vue, à garder en phase --}}
     <style>
-        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #15201A; }
-        .header { text-align: center; border-bottom: 2px solid #00683A; padding-bottom: 20px; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: bold; color: #00683A; }
+        /* Un mot trop long pour la ligne est coupé au lieu de sortir de la page */
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #15201A; overflow-wrap: anywhere; }
+        .logo { text-align: right; }
+        .logo img { width: 72px; height: 72px; }
         .content { margin: 20px; line-height: 1.6; }
         .footer { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 12px; color: #6E7A72; border-top: 1px solid #D3DAD1; padding-top: 10px; }
         h1 { font-size: 20px; text-transform: uppercase; text-align: center; margin-bottom: 40px; }
-        .projet { text-align: center; color: #A3271B; border: 2px dashed #A3271B; padding: 8px; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         .signature { text-align: right; }
         .signature small { color: #6E7A72; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="logo">ASSOCIATION FANAMBY</div>
-        <p>Gestionnaire des Aires Protégées</p>
-    </div>
-
-    @if($projet)
-        <div class="projet">Projet — document non validé, sans valeur officielle</div>
-    @endif
+    <div class="logo"><img src="{{ public_path('assets/logo-fanamby-192.png') }}" alt="Fanamby"></div>
 
     <h1>AUTORISATION OFFICIELLE D'ACCÈS</h1>
 

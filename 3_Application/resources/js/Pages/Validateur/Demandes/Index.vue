@@ -6,6 +6,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useListFilters } from '@/composables/useListFilters.js';
 import { statutBadgeClass, formatDate } from '@/utils/statut.js';
+import { verdictAnalyse } from '@/utils/analyse.js';
 import TableSkeleton from '@/Components/TableSkeleton.vue';
 import { useNavigation } from '@/composables/useNavigation.js';
 
@@ -101,7 +102,8 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
                         <td>
                             <span class="statut-cell">
                                 <span :class="statutBadgeClass(d.statut.code)">{{ d.statut.libelle }}</span>
-                                <span v-if="d.resultats_analyse?.length" class="hatch" title="Chevauche une période sensible" aria-label="Chevauche une période sensible"></span>
+                                <span v-if="verdictAnalyse(d.resultats_analyse) === 'conflit'" class="hatch hatch--block" title="Analyse : conflit détecté" aria-label="Analyse : conflit détecté"></span>
+                                <span v-else-if="verdictAnalyse(d.resultats_analyse) === 'conditions'" class="hatch" title="Analyse : compatible sous conditions" aria-label="Analyse : compatible sous conditions"></span>
                             </span>
                         </td>
                         <td class="text-right" @click.stop>

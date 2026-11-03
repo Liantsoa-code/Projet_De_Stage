@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     // Le demandeur consulte ses dossiers, modifie ses brouillons / compléments et supprime ses brouillons.
     // Création et modification (avec envoi de fichiers) limitées par le limiteur « demandes » (AppServiceProvider).
+    Route::post('/demandes/analyse', [DemandeController::class, 'analyser'])->name('demandes.analyse');
     Route::resource('demandes', DemandeController::class)->middlewareFor(['store', 'update'], 'throttle:demandes');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');

@@ -1,11 +1,12 @@
 <script setup>
+import BoutonDocument from '@/Components/BoutonDocument.vue';
 import Icon from '@/Components/Icon.vue';
+import PanneauAnalyse from '@/Components/PanneauAnalyse.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
 import TimelineDemande from '@/Components/TimelineDemande.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { openAuthenticatedPdf } from '@/utils/openPdf.js';
 import { statutBadgeClass, formatDate } from '@/utils/statut.js';
 
 const props = defineProps({
@@ -28,14 +29,6 @@ const deleting = ref(false);
 const supprimer = () => {
     deleting.value = true;
     router.delete(route('demandes.destroy', props.demande.id), { onFinish: () => (deleting.value = false) });
-};
-
-const openPdf = async (url, filename) => {
-    try {
-        await openAuthenticatedPdf(url, filename);
-    } catch (e) {
-        alert(e.message || 'Erreur lors de l\'ouverture du PDF.');
-    }
 };
 </script>
 
@@ -89,8 +82,8 @@ const openPdf = async (url, filename) => {
                 <p>Présentez l'autorisation à l'arrivée dans l'aire protégée et respectez le cahier des charges.</p>
             </div>
             <div class="btn-row">
-                <button type="button" class="btn-accent" @click="openPdf(route('demandes.pdf.autorisation', demande.id), `autorisation_${demande.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
-                <button type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.cahier-charges', demande.id), `cahier_des_charges_${demande.id}.pdf`)"><Icon name="file-pdf" />Cahier des charges</button>
+                <BoutonDocument class="btn-accent" :url="route('demandes.pdf.autorisation', demande.id)">Autorisation</BoutonDocument>
+                <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.cahier-charges', demande.id)">Cahier des charges</BoutonDocument>
             </div>
         </section>
 
@@ -120,13 +113,14 @@ const openPdf = async (url, filename) => {
                     <p class="panel__text">{{ demande.objectifs || '—' }}</p>
                 </section>
 
-                <div v-for="(a, i) in demande.resultats_analyse || []" :key="i" class="conflict">
-                    <div class="conflict__band"></div>
-                    <div class="conflict__body">
-                        <span class="conflict__tag"><Icon name="warning" />Période sensible</span>
-                        <p>{{ a.message }}</p>
-                    </div>
-                </div>
+                <!-- Un brouillon n'est analysé qu'à son envoi -->
+                <section v-if="demande.date_soumission" class="panel">
+                    <header class="panel__head">
+                        <h2>Analyse de la demande</h2>
+                        <small>Faite automatiquement à l'envoi du dossier</small>
+                    </header>
+                    <PanneauAnalyse :contraintes="demande.resultats_analyse ?? []" />
+                </section>
 
                 <section class="panel">
                     <header class="panel__head">
@@ -164,10 +158,9 @@ const openPdf = async (url, filename) => {
                 <section v-if="canEdit || canDelete || code !== 'brouillon'" class="panel">
                     <header class="panel__head"><h2>Actions</h2></header>
                     <div class="side-actions">
-                        <button v-if="code !== 'brouillon'" type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.formulaire', demande.id), `formulaire_demande_${demande.id}.pdf`)">
-                            <Icon name="file-pdf" />
+                        <BoutonDocument v-if="code !== 'brouillon'" class="btn-ghost" :url="route('demandes.pdf.formulaire', demande.id)">
                             Formulaire de demande
-                        </button>
+                        </BoutonDocument>
                         <Link v-if="canEdit" :href="route('demandes.edit', demande.id)" class="btn-ghost">
                             <Icon name="pencil-simple" />
                             {{ code === 'a_completer' ? 'Compléter le dossier' : 'Modifier le brouillon' }}
@@ -232,13 +225,6 @@ const openPdf = async (url, filename) => {
 .muted { color: var(--ink-3); }
 .link { font-size: 13px; font-weight: 600; color: var(--water); text-decoration: none; }
 .link:hover { text-decoration: underline; }
-
-.conflict { border: 1px solid var(--ochre); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
-.conflict__band { height: 10px; background: repeating-linear-gradient(45deg, var(--ochre) 0 2px, transparent 2px 7px); }
-.conflict__body { display: grid; gap: 6px; padding: 14px 16px; }
-.conflict__tag { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
-.conflict__tag svg { width: 14px; height: 14px; }
-.conflict__body p { font-size: 14px; color: var(--ink-2); }
 
 .docs { list-style: none; margin: 0; padding: 0; }
 .docs li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--rule-soft); }

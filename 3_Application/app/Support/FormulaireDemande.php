@@ -7,6 +7,7 @@ use App\Models\HistoriqueStatut;
 use App\Models\Site;
 use App\Models\TypeDemande;
 use Barryvdh\DomPDF\Facade\Pdf;
+use PhpOffice\PhpWord\PhpWord;
 
 /**
  * Formulaire de demande d'autorisation rempli, au format du formulaire papier de Fanamby :
@@ -20,8 +21,13 @@ class FormulaireDemande
         return Pdf::loadView('pdf.formulaire_demande', self::donnees($demande));
     }
 
+    public static function word(Demande $demande): PhpWord
+    {
+        return DocumentsWord::formulaire(self::donnees($demande));
+    }
+
     /**
-     * Variables de la vue PDF : la demande, toutes les cases des listes du formulaire (types de projet,
+     * Variables de la vue PDF et du document Word : la demande, toutes les cases des listes du formulaire (types de projet,
      * aires protégées), les engagements et la décision (avis favorable = validation, défavorable = rejet).
      */
     public static function donnees(Demande $demande): array

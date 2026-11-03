@@ -1,5 +1,7 @@
 <script setup>
 import Icon from '@/Components/Icon.vue';
+import ApercuFormulaireDemande from '@/Components/Apercu/ApercuFormulaireDemande.vue';
+import CadreApercu from '@/Components/Apercu/CadreApercu.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import EtapeAirePeriode from '@/Pages/Demandes/Partials/EtapeAirePeriode.vue';
 import EtapeDemandeur from '@/Pages/Demandes/Partials/EtapeDemandeur.vue';
@@ -8,7 +10,7 @@ import EtapeProjet from '@/Pages/Demandes/Partials/EtapeProjet.vue';
 import EtapeRecap from '@/Pages/Demandes/Partials/EtapeRecap.vue';
 import VerificationCalendrier from '@/Pages/Demandes/Partials/VerificationCalendrier.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 // Formulaire en étapes, dans l'ordre du formulaire papier de Fanamby (I. demandeur, II. projet,
 // V. engagement) : la page garde les données, la vérification et l'envoi ;
@@ -91,6 +93,62 @@ const calendrier = computed(() => {
     if (bloquant.value) return 'bloquant';
     return chevauchements.value.length ? 'sensible' : 'ouvert';
 });
+
+// ── Analyse automatique du séjour par le serveur (AnalyseDemande, le moteur qui analysera l'envoi),
+// relancée 300 ms après le dernier changement de l'aire protégée, des dates ou de l'équipe ──
+const analyse = ref(null);
+const analyseEnCours = ref(false);
+let minuteurAnalyse = null;
+let derniereAnalyse = 0;
+const analyser = async () => {
+    const numero = ++derniereAnalyse;
+    analyseEnCours.value = true;
+    try {
+        const { data } = await window.axios.post(route('demandes.analyse'), {
+            site_id: form.site_id,
+            date_debut: form.date_debut,
+            date_fin: form.date_fin,
+            equipe_nombre: form.equipe_nombre || null,
+            demande_id: props.demande?.id ?? null,
+        });
+        if (numero === derniereAnalyse) analyse.value = data;
+    } catch {
+        // Saisie encore invalide (équipe à 0…) : la colonne revient à la vérification du calendrier.
+        if (numero === derniereAnalyse) analyse.value = null;
+    } finally {
+        if (numero === derniereAnalyse) analyseEnCours.value = false;
+    }
+};
+watch(() => [form.site_id, form.date_debut, form.date_fin, form.equipe_nombre], () => {
+    clearTimeout(minuteurAnalyse);
+    if (!form.site_id || !form.date_debut || !form.date_fin || form.date_fin < form.date_debut) {
+        derniereAnalyse++; // une réponse encore attendue sera ignorée
+        analyse.value = null;
+        analyseEnCours.value = false;
+        return;
+    }
+    analyseEnCours.value = true;
+    minuteurAnalyse = setTimeout(analyser, 300);
+}, { immediate: true });
+
+// ── Colonne de droite : carte et calendrier, ou aperçu du formulaire de demande ──
+const volet = ref('carte');
+// Le formulaire tel qu'il sera généré à l'envoi : la précision n'est gardée que pour un type qui la demande
+// (comme DemandeController), et la case d'engagement vaut signature, datée de l'envoi.
+const apercuFormulaire = computed(() => ({
+    ...form.data(),
+    user: {
+        ...props.demandeur,
+        organisation: form.organisation,
+        fonction: form.fonction,
+        adresse: form.adresse,
+        telephone: form.telephone,
+        piece_identite: form.piece_identite,
+    },
+    type_precision: typeSelectionne.value?.precision_requise ? form.type_precision : '',
+    date_soumission: form.engagement ? new Date() : null,
+    reference: props.demande?.reference ?? null,
+}));
 
 // Quand le type change, on vide les fichiers precedemment choisis
 function onTypeChange() {
@@ -339,6 +397,7 @@ function allerAuxErreurs(errors) {
                         :type-projet="typeSelectionne"
                         :site="siteSelectionne"
                         :calendrier="calendrier"
+                        :analyse="analyse"
                         :pieces="pieces"
                         :a-completer="aCompleter"
                         :today="today"
@@ -348,15 +407,31 @@ function allerAuxErreurs(errors) {
             </div>
 
             <aside class="create-side">
+                <div v-glisse class="tabs side-tabs" role="tablist" aria-label="Colonne de droite">
+                    <button type="button" role="tab" class="tab" :class="{ 'tab--active': volet === 'carte' }" :aria-selected="volet === 'carte'" @click="volet = 'carte'">
+                        Carte et analyse
+                    </button>
+                    <button type="button" role="tab" class="tab" :class="{ 'tab--active': volet === 'apercu' }" :aria-selected="volet === 'apercu'" @click="volet = 'apercu'">
+                        Aperçu du formulaire
+                    </button>
+                </div>
+
+                <!-- v-show : la carte n'est pas recréée à chaque changement d'onglet -->
                 <VerificationCalendrier
+                    v-show="volet === 'carte'"
                     :sites="sites"
                     :etats="etatsSites"
                     :site="siteSelectionne"
                     :calendrier="calendrier"
                     :periodes="periodesSite"
                     :chevauchements="chevauchements"
+                    :analyse="analyse"
+                    :analyse-en-cours="analyseEnCours"
                     @select="(id) => (form.site_id = id)"
                 />
+                <CadreApercu v-if="volet === 'apercu'" titre="Formulaire de demande" sous-titre="Tel qu'il sera généré à l'envoi">
+                    <ApercuFormulaireDemande :demande="apercuFormulaire" :types="types" :sites="sites" :engagements="engagements" />
+                </CadreApercu>
             </aside>
 
             <div class="create-actions">
@@ -416,7 +491,9 @@ function allerAuxErreurs(errors) {
     .stepper__btn.is-current .stepper__label { display: inline; }
 }
 
-.create-side { min-width: 0; }
+.create-side { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.side-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 0; }
+.side-tabs .tab { justify-content: center; padding-inline: 8px; }
 
 .create-actions {
     grid-column: 1 / -1;
