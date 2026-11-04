@@ -52,22 +52,53 @@ class DemandePolicy
     }
 
     /**
-     * Ouvrir le dossier côté validation : un admin, ou un validateur rattaché au site.
-     * Un brouillon n'est pas encore soumis : il n'existe pas pour les décideurs (404).
+     * Retirer (annuler) une demande envoyée, par son auteur, tant qu'aucune décision n'est prise.
      */
-    public function instruire(User $user, Demande $demande): Response
+    public function retirer(User $user, Demande $demande): Response
+    {
+        if (! $this->estAuteur($user, $demande)) {
+            return Response::deny('Accès non autorisé à cette demande.');
+        }
+
+        return DemandeStatutWorkflow::peutEtreRetiree($demande->statut)
+            ? Response::allow()
+            : Response::deny('Seule une demande envoyée et pas encore décidée peut être annulée.');
+    }
+
+    /**
+     * Ouvrir le dossier côté instruction, en lecture : un admin ou un observateur (toutes les aires protégées),
+     * ou un validateur rattaché au site. Un brouillon n'est pas encore soumis : il n'existe pas pour l'équipe (404).
+     */
+    public function suivre(User $user, Demande $demande): Response
     {
         if ($demande->statut?->code === 'brouillon') {
             return Response::denyAsNotFound();
         }
 
-        if ($user->role === 'admin') {
+        if (in_array($user->role, ['admin', 'observateur'], true)) {
             return Response::allow();
         }
 
         return $user->role === 'validateur' && $user->sites()->whereKey($demande->site_id)->exists()
             ? Response::allow()
             : Response::deny('Accès non autorisé à cette demande.');
+    }
+
+    /**
+     * Instruire le dossier (décider, préparer les documents, traiter les signalements) : le suivre,
+     * sans être observateur. L'observateur suit les dossiers sans jamais décider.
+     */
+    public function instruire(User $user, Demande $demande): Response
+    {
+        $acces = $this->suivre($user, $demande);
+
+        if ($acces->denied()) {
+            return $acces;
+        }
+
+        return $user->role === 'observateur'
+            ? Response::deny("Un observateur suit les dossiers sans prendre de décision.")
+            : Response::allow();
     }
 
     /**
@@ -87,11 +118,45 @@ class DemandePolicy
     }
 
     /**
-     * Télécharger les pièces jointes : l'auteur, ou quelqu'un qui peut instruire le dossier.
+     * Documents officiels en cours de relecture (avant la signature) : l'équipe qui suit le dossier,
+     * sauf son auteur, qui ne les reçoit qu'à la validation.
+     */
+    public function consulterProjets(User $user, Demande $demande): Response
+    {
+        $acces = $this->suivre($user, $demande);
+
+        if ($acces->denied()) {
+            return $acces;
+        }
+
+        return $this->estAuteur($user, $demande)
+            ? Response::deny('Vous recevrez les documents de votre demande à sa validation.')
+            : Response::allow();
+    }
+
+    /**
+     * Signaler un problème sur un dossier : quiconque le suit (observateur, validateur du site, admin),
+     * sauf son auteur.
+     */
+    public function signaler(User $user, Demande $demande): Response
+    {
+        return $this->consulterProjets($user, $demande);
+    }
+
+    /**
+     * Traiter (clore avec une réponse) un signalement : un validateur du site ou un admin.
+     */
+    public function traiterSignalement(User $user, Demande $demande): Response
+    {
+        return $this->instruire($user, $demande);
+    }
+
+    /**
+     * Télécharger les pièces jointes : l'auteur, ou quelqu'un qui suit le dossier (observateur compris).
      */
     public function consulterFichiers(User $user, Demande $demande): Response
     {
-        return $this->estAuteur($user, $demande) || $this->instruire($user, $demande)->allowed()
+        return $this->estAuteur($user, $demande) || $this->suivre($user, $demande)->allowed()
             ? Response::allow()
             : Response::deny('Accès non autorisé à ce document.');
     }

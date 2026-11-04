@@ -12,12 +12,13 @@ class PeriodeSensibleController extends Controller
 {
     public function index(Request $request)
     {
-        $siteId = $request->input('site_id');
+        // Plusieurs aires protégées cochées possibles (« site_id[]=1&site_id[]=3 »)
+        $siteIds = $request->collect('site_id')->filter(fn ($v) => is_scalar($v) && $v !== '')->map(fn ($v) => (string) $v)->values()->all();
         // Par défaut, seules les périodes en cours ou à venir ; « passees=1 » affiche aussi l'historique.
         $avecPassees = $request->boolean('passees');
 
         $periodes = PeriodeSensible::with('site:id,nom')
-            ->when($siteId, fn ($q) => $q->where('site_id', $siteId))
+            ->when($siteIds, fn ($q) => $q->whereIn('site_id', $siteIds))
             ->when(! $avecPassees, fn ($q) => $q->where('date_fin', '>=', now()->toDateString()))
             ->orderBy('date_debut')
             ->paginate(15)
@@ -26,7 +27,7 @@ class PeriodeSensibleController extends Controller
         return Inertia::render('Admin/PeriodeSensibles/Index', [
             'periodes' => $periodes,
             'sites' => Site::orderBy('nom')->get(['id', 'nom']),
-            'filters' => ['site_id' => $siteId, 'passees' => $avecPassees],
+            'filters' => ['site_id' => $siteIds, 'passees' => $avecPassees],
         ]);
     }
 

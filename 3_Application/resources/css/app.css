@@ -288,6 +288,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 }
 .badge-err { color: var(--signal); background: var(--signal-soft); }
 .badge-err::before { border-radius: 0; width: 8px; height: 2px; }
+/* Retirée par le demandeur : gris, carré vide */
+.badge-retire { color: var(--ink-2); background: var(--sunk); }
+.badge-retire::before { background: transparent; border: 1.5px solid currentColor; border-radius: 1px; width: 6px; height: 6px; }
 
 /* Hachures des périodes sensibles */
 .hatch {

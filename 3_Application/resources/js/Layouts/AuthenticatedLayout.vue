@@ -12,6 +12,8 @@ const notifications = computed(() => page.props.notifications || []);
 const isValidateurOrAdmin = computed(
     () => user.value?.role === 'validateur' || user.value?.role === 'admin',
 );
+// L'équipe qui suit les dossiers : validateurs, admins et observateurs (en lecture seule)
+const suitLesDossiers = computed(() => isValidateurOrAdmin.value || user.value?.role === 'observateur');
 const { loading: navLoading, samePage, target } = useNavigation();
 const changementDePage = computed(() => navLoading.value && !samePage.value);
 const notifOpen = ref(false);
@@ -22,32 +24,34 @@ watch(() => page.url, () => {
     notifOpen.value = false;
 });
 
-const ROLE_LABELS = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' };
+const ROLE_LABELS = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur', observateur: 'Observateur' };
 
 const navGroups = computed(() => {
-    const groups = [
-        {
-            label: 'Mon espace',
+    // Mon espace : tableau de bord, puis l'instruction (en lecture seule pour l'observateur)
+    const monEspace = [
+        { label: 'Tableau de bord', route: 'dashboard', match: ['dashboard'], icon: 'squares-four' },
+    ];
+    if (suitLesDossiers.value) {
+        monEspace.push({
+            label: user.value?.role === 'validateur' ? 'Dossiers à valider' : 'Toutes les demandes',
+            route: 'validateur.demandes.index',
+            match: ['validateur.demandes.*'],
+            icon: 'stamp',
+            page: 'dossiers_a_valider',
+        });
+    }
+    if (isValidateurOrAdmin.value) {
+        monEspace.push({ label: 'Références', route: 'references.index', match: ['references.*'], icon: 'books', page: 'references' });
+    }
+
+    const groups = [{ label: 'Mon espace', items: monEspace }];
+    // L'observateur suit les demandes des autres : il n'en dépose pas
+    if (user.value?.role !== 'observateur') {
+        groups.push({
+            label: 'Demandes',
             items: [
-                { label: 'Tableau de bord', route: 'dashboard', match: ['dashboard'], icon: 'squares-four' },
                 { label: 'Mes demandes', route: 'demandes.index', match: ['demandes.index', 'demandes.show', 'demandes.edit'], icon: 'file-text', page: 'mes_demandes' },
                 { label: 'Nouvelle demande', route: 'demandes.create', match: ['demandes.create'], icon: 'plus', page: 'nouvelle_demande' },
-            ],
-        },
-    ];
-
-    if (isValidateurOrAdmin.value) {
-        groups.push({
-            label: 'Instruction',
-            items: [
-                {
-                    label: user.value?.role === 'admin' ? 'Toutes les demandes' : 'Dossiers à valider',
-                    route: 'validateur.demandes.index',
-                    match: ['validateur.demandes.*'],
-                    icon: 'stamp',
-                    page: 'dossiers_a_valider',
-                },
-                { label: 'Références', route: 'references.index', match: ['references.*'], icon: 'books', page: 'references' },
             ],
         });
     }
@@ -195,7 +199,7 @@ function formatNotifDate(value) {
                                 as="button"
                                 class="notif-item__read"
                                 @click="notifOpen = false"
-                            >{{ isValidateurOrAdmin ? 'Voir le dossier' : 'Voir mes demandes' }}</Link>
+                            >{{ suitLesDossiers ? 'Voir le dossier' : 'Voir mes demandes' }}</Link>
                         </div>
                     </div>
                 </div>

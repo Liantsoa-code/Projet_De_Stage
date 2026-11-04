@@ -207,6 +207,24 @@ class DashboardTest extends TestCase
             );
     }
 
+    public function test_team_is_on_site_from_its_arrival_before_activities(): void
+    {
+        // Arrivée hier, activités dans 2 jours : l'équipe est déjà sur le terrain (2 personnes × 5 jours)
+        $this->makeDemande('validee', [
+            'equipe_nombre' => 2,
+            'date_arrivee' => now()->subDay()->toDateString(),
+            'date_debut' => now()->addDays(2)->toDateString(),
+            'date_fin' => now()->addDays(3)->toDateString(),
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('terrain.sejours', 1)
+                ->where('terrain.personnes', 2)
+                ->where('frequentation.0.personnes_jours', 10));
+    }
+
     public function test_demandeur_sees_missing_documents_and_usual_delay(): void
     {
         $brouillon = $this->makeDemande('brouillon');

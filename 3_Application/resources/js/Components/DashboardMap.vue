@@ -1,4 +1,5 @@
 <script setup>
+import GaleriePhotos from '@/Components/GaleriePhotos.vue';
 import { onMounted, ref, onUnmounted, watch } from 'vue';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -52,7 +53,7 @@ function el(tag, className, text) {
 }
 
 // Fiche construite en DOM : nom et description restent du texte, jamais du HTML.
-// `fermer` : fourni pour les fiches ouvertes au clic, qui proposent alors la vue 3D.
+// `fermer` : fourni pour les fiches ouvertes au clic, qui proposent alors la vue 3D et les photos.
 function fiche(id, avecDescription, fermer) {
     const site = sitesById.get(id);
     const root = el('div', 'site-popup');
@@ -76,14 +77,27 @@ function fiche(id, avecDescription, fermer) {
         root.append(el('p', 'site-popup__text', d ? d.substring(0, 160) + (d.length > 160 ? '…' : '') : 'Aucune description.'));
     }
 
-    if (fermer && boundsById.has(id)) {
-        const bouton = el('button', 'btn-sm-edit site-popup__3d', 'Voir en 3D');
-        bouton.type = 'button';
-        bouton.addEventListener('click', () => {
-            fermer();
-            voir3d(id);
-        });
-        root.append(bouton);
+    if (fermer) {
+        const actions = el('div', 'site-popup__actions');
+        if (boundsById.has(id)) {
+            const bouton = el('button', 'btn-sm-edit', 'Voir en 3D');
+            bouton.type = 'button';
+            bouton.addEventListener('click', () => {
+                fermer();
+                voir3d(id);
+            });
+            actions.append(bouton);
+        }
+        if (aDesPhotos(id)) {
+            const bouton = el('button', 'btn-sm-edit', 'Voir les photos');
+            bouton.type = 'button';
+            bouton.addEventListener('click', () => {
+                fermer();
+                voirPhotos(id);
+            });
+            actions.append(bouton);
+        }
+        if (actions.childElementCount) root.append(actions);
     }
     return root;
 }
@@ -157,7 +171,18 @@ function revenir2d() {
     en3d.value = false;
 }
 
-defineExpose({ focusSite, voir3d });
+// Galerie de photos du site : photos déposées sur la plateforme, ou seulement le lien vers la banque d'images
+const galerie = ref(null);
+const aDesPhotos = (id) => {
+    const site = sitesById.get(id);
+    return Boolean(site?.nbPhotos || site?.lienPhotos);
+};
+function voirPhotos(id) {
+    const site = sitesById.get(id);
+    if (site) galerie.value = { id, nom: site.nom };
+}
+
+defineExpose({ focusSite, voir3d, voirPhotos, aDesPhotos });
 
 function centroid(coordinates) {
     let pts = coordinates;
@@ -292,6 +317,8 @@ function placeSitesOnMap() {
         sitesById.set(site.id, {
             nom: site.nom,
             description: site.description || '',
+            nbPhotos: site.nb_photos ?? 0,
+            lienPhotos: site.lien_photos ?? null,
             surface: valide ? surfaceKm2(coords) : 0,
             centre,
         });
@@ -447,6 +474,7 @@ onUnmounted(() => {
             <span class="vue3d__aide">Clic droit + glisser pour pivoter</span>
             <button type="button" class="btn-sm-edit" @click="revenir2d">Revenir en 2D</button>
         </div>
+        <GaleriePhotos v-if="galerie" :site-id="galerie.id" :nom="galerie.nom" @close="galerie = null" />
     </div>
 </template>
 
@@ -484,7 +512,7 @@ onUnmounted(() => {
     .vue3d { padding-left: 5px; }
     .vue3d__aide { display: none; }
 }
-.site-popup__3d { margin-top: 10px; }
+.site-popup__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .map-inner {
     height: 100%;
     width: 100%;

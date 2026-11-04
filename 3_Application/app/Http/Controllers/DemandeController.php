@@ -14,6 +14,7 @@ use App\Support\AnalyseDemande;
 use App\Support\DelaiDecision;
 use App\Support\DemandeDossier;
 use App\Support\DemandeNotifications;
+use App\Support\DemandeStatutWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,7 @@ class DemandeController extends Controller
                 : null,
             'canEdit' => Gate::allows('update', $demande),
             'canDelete' => Gate::allows('delete', $demande),
+            'canRetirer' => Gate::allows('retirer', $demande),
         ]);
     }
 
@@ -219,6 +221,42 @@ class DemandeController extends Controller
     }
 
     /**
+     * Le demandeur annule sa demande envoyée, avant toute décision : statut « Retirée », définitif.
+     * Le motif facultatif est gardé dans l'historique et transmis aux décideurs du site.
+     */
+    public function retirer(Request $request, Demande $demande)
+    {
+        Gate::authorize('retirer', $demande);
+
+        $motif = trim((string) ($request->validate(['motif' => 'nullable|string|max:1000'])['motif'] ?? ''));
+
+        $retiree = DB::transaction(function () use ($demande, $motif) {
+            // Verrou : une décision du validateur prise entre-temps l'emporte sur le retrait.
+            $actuelle = Demande::whereKey($demande->id)->lockForUpdate()->firstOrFail();
+            if (! DemandeStatutWorkflow::peutEtreRetiree($actuelle->statut)) {
+                return false;
+            }
+
+            $statutId = $this->statutId('retiree');
+            $this->historiser($actuelle, $actuelle->statut_id, $statutId, $motif !== '' ? $motif : null);
+            $actuelle->update(['statut_id' => $statutId]);
+            // Documents officiels éventuellement préparés : ils ne serviront plus
+            $actuelle->documentsOfficiels()->delete();
+
+            return true;
+        });
+
+        if (! $retiree) {
+            return redirect()->route('demandes.show', $demande)
+                ->with('error', 'Le statut de cette demande a changé entre-temps : elle ne peut plus être annulée.');
+        }
+
+        DemandeNotifications::retrait($demande->refresh(), $motif);
+
+        return redirect()->route('demandes.show', $demande)->with('message', 'Votre demande a été annulée.');
+    }
+
+    /**
      * Champs de la demande saisis dans le formulaire (section II). La précision du type
      * n'est gardée que si le type de projet la demande (« Autre »).
      */
@@ -231,6 +269,7 @@ class DemandeController extends Controller
             'type_precision' => $typeDemande->precision_requise ? ($validated['type_precision'] ?? null) : null,
             'description' => $validated['description'] ?? null,
             'objectifs' => $validated['objectifs'] ?? null,
+            'date_arrivee' => $validated['date_arrivee'] ?? null,
             'date_debut' => $validated['date_debut'] ?? null,
             'date_fin' => $validated['date_fin'] ?? null,
             'equipe_nombre' => $validated['equipe_nombre'] ?? 1,
@@ -256,7 +295,7 @@ class DemandeController extends Controller
     private function formProps(?Demande $demande = null): array
     {
         return [
-            'sites' => Site::all(),
+            'sites' => Site::withCount('photos as nb_photos')->get(),
             'types' => TypeDemande::with('documentsRequis:id,type_demande_id,libelle,reutilisable')->get(),
             // Section I pré-remplie avec le compte ; section V : engagements à accepter
             'demandeur' => Auth::user()->only(['name', 'email', ...Demande::COORDONNEES]),

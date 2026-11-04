@@ -24,8 +24,9 @@ class DatabaseSeeder extends Seeder
             ['code' => 'validee', 'libelle' => 'Validée', 'description' => 'Demande acceptée'],
             ['code' => 'rejetee', 'libelle' => 'Rejetée', 'description' => 'Demande refusée'],
             ['code' => 'a_completer', 'libelle' => 'À compléter', 'description' => 'Des compléments sont demandés au demandeur'],
+            ['code' => 'retiree', 'libelle' => 'Retirée', 'description' => 'Demande annulée par le demandeur'],
         ];
-        // firstOrCreate : les statuts sont déjà insérés par la migration de t_statuts.
+        // firstOrCreate : les statuts sont déjà insérés par les migrations (t_statuts, puis « retiree »).
         foreach ($statuts as $statut) {
             Statut::firstOrCreate(['code' => $statut['code']], $statut);
         }
@@ -98,6 +99,16 @@ class DatabaseSeeder extends Seeder
             'email' => 'alice@exemple.com',
             'password' => Hash::make('password'),
             'role' => 'demandeur',
+        ]);
+
+        // Observateur : suit tous les dossiers sans décider, et signale les problèmes
+        User::create([
+            'name' => 'Nirina Observatrice',
+            'email' => 'observateur@fanamby.org',
+            'password' => Hash::make('password'),
+            'role' => 'observateur',
+            'organisation' => 'Association Fanamby',
+            'fonction' => 'Chargée de suivi et évaluation',
         ]);
     }
 }

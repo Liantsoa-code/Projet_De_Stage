@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Demande;
 use App\Models\Site;
 use App\Support\ListeEditable;
+use App\Support\PhotosSite;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class SiteController extends Controller
@@ -51,9 +53,12 @@ class SiteController extends Controller
 
     public function edit(Site $site)
     {
-        $site->load('conditions:id,site_id,libelle');
+        $site->load([
+            'conditions:id,site_id,libelle',
+            'photos' => fn ($q) => $q->orderBy('ordre')->orderBy('id'),
+        ]);
 
-        return Inertia::render('Admin/Sites/Edit', ['site' => $site]);
+        return Inertia::render('Admin/Sites/Edit', ['site' => $site, 'photosMax' => PhotosSite::MAX]);
     }
 
     public function update(Request $request, Site $site)
@@ -77,6 +82,7 @@ class SiteController extends Controller
             'nom' => 'required|string|max:150',
             'description' => 'nullable|string',
             'capacite_accueil' => 'nullable|integer|min:1|max:10000',
+            'lien_photos' => 'nullable|url:http,https|max:500',
             'polygone_coordonnees' => 'nullable|array', // Peut venir sous forme JSON/Array depuis la carte
             'conditions' => 'array',
             'conditions.*.id' => 'nullable|integer',
@@ -85,6 +91,7 @@ class SiteController extends Controller
             'conditions.*.libelle.required' => 'Chaque règle doit avoir un texte.',
         ], [
             'capacite_accueil' => "capacité d'accueil",
+            'lien_photos' => "lien vers la banque d'images",
         ]);
     }
 
@@ -98,6 +105,8 @@ class SiteController extends Controller
         }
 
         $site->delete();
+        // Les photos sont supprimées avec le site (cascade) ; leurs fichiers aussi
+        Storage::deleteDirectory("sites/{$site->id}");
         return redirect()->route('admin.sites.index')->with('message', 'Aire protégée supprimée avec succès.');
     }
 

@@ -31,7 +31,7 @@ const form = useForm({
     piece_identite: user.value.piece_identite ?? '',
 });
 
-const ROLE_LABELS = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' };
+const ROLE_LABELS = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur', observateur: 'Observateur' };
 
 const initiales = computed(() =>
     user.value.name

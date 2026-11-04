@@ -40,6 +40,30 @@ class DemandeDecisionRules
     }
 
     /**
+     * Observateurs à prévenir d'une nouvelle demande (ils suivent toutes les aires protégées),
+     * hors auteur de la demande.
+     *
+     * @return Collection<int, User>
+     */
+    public static function observateurs(Demande $demande): Collection
+    {
+        return User::where('role', 'observateur')->where('id', '!=', $demande->user_id)->get();
+    }
+
+    /**
+     * Destinataires d'un signalement : validateurs du site et admins, hors auteur du signalement
+     * et hors auteur de la demande (les signalements sont internes à l'équipe).
+     *
+     * @return Collection<int, User>
+     */
+    public static function notifiablesForSignalement(Demande $demande, User $auteur): Collection
+    {
+        return self::decideursDuSite($demande->site_id)
+            ->whereNotIn('id', [$auteur->id, $demande->user_id])
+            ->get();
+    }
+
+    /**
      * Admins et validateurs rattachés au site.
      */
     private static function decideursDuSite(int $siteId): Builder

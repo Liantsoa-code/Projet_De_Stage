@@ -152,7 +152,7 @@ N° [numéro]/FANAMBY/[année]
 # Avis défavorable
 
 **Objet :** réponse à votre demande d'accès à l'aire protégée de [aire protégée]
-**Référence du dossier :** [FAN-AAAA-NNNN]
+**Référence du dossier :** [FNB-AAAA-NNNN]
 
 [Monsieur / Madame],
 
@@ -188,7 +188,7 @@ N° [numéro]/FANAMBY/[année]
 # Demande de complément de dossier
 
 **Objet :** pièces et précisions manquantes
-**Référence du dossier :** [FAN-AAAA-NNNN] — aire protégée de [aire protégée]
+**Référence du dossier :** [FNB-AAAA-NNNN] — aire protégée de [aire protégée]
 
 [Monsieur / Madame],
 

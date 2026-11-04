@@ -57,8 +57,9 @@ const nbConditions = computed(() => conditionsAnalyse(props.analyse?.contraintes
         <div class="recap__bloc">
             <dt>Aire protégée et période <button type="button" class="recap__edit" @click="$emit('modifier', 'aire')">Modifier</button></dt>
             <dd><strong>{{ site?.nom ?? '—' }}</strong></dd>
+            <dd v-if="form.date_arrivee">Arrivée sur le terrain le <span class="mono">{{ formatDate(form.date_arrivee) }}</span></dd>
             <dd>
-                <span class="mono">{{ formatDate(form.date_debut) }} → {{ formatDate(form.date_fin) }}</span>
+                Activités <span class="mono">{{ formatDate(form.date_debut) }} → {{ formatDate(form.date_fin) }}</span>
                 <template v-if="joursSejour"> · {{ joursSejour }} jour{{ joursSejour > 1 ? 's' : '' }}</template>
                 · {{ form.equipe_nombre }} personne{{ form.equipe_nombre > 1 ? 's' : '' }}
             </dd>

@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import EspaceDemandeur from '@/Pages/Dashboard/Partials/EspaceDemandeur.vue';
 import EspaceValidateur from '@/Pages/Dashboard/Partials/EspaceValidateur.vue';
 import EspaceAdmin from '@/Pages/Dashboard/Partials/EspaceAdmin.vue';
+import EspaceObservateur from '@/Pages/Dashboard/Partials/EspaceObservateur.vue';
 import StatsPrincipales from '@/Pages/Dashboard/Partials/StatsPrincipales.vue';
 import { Head, usePage, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -11,6 +12,8 @@ import { pageVisible } from '@/utils/pages.js';
 
 const page = usePage();
 const role = computed(() => page.props.auth.user?.role);
+// Rôles de l'équipe qui suit les dossiers (l'observateur en lecture seule)
+const equipe = computed(() => ['admin', 'validateur', 'observateur'].includes(role.value));
 const enCours = computed(() => page.props.en_cours || []);
 const aCompleter = computed(() => page.props.a_completer || []);
 const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join(', '));
@@ -26,6 +29,7 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
                     <div class="page-title">Tableau de bord</div>
                     <div v-if="role === 'admin'" class="page-sub">Pilotage de toutes les aires protégées · {{ page.props.total_users }} comptes</div>
                     <div v-else-if="role === 'validateur'" class="page-sub">Vos aires protégées : {{ nomsSites || 'aucune aire protégée assignée' }}</div>
+                    <div v-else-if="role === 'observateur'" class="page-sub">Suivi de toutes les aires protégées, en lecture seule</div>
                     <div v-else class="page-sub">
                         {{ enCours.length }} demande{{ enCours.length > 1 ? 's' : '' }} en cours
                         <template v-if="aCompleter.length">
@@ -33,7 +37,7 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
                         </template>
                     </div>
                 </div>
-                <template v-if="role === 'admin' || role === 'validateur'">
+                <template v-if="equipe">
                     <Link v-if="pageVisible('dossiers_a_valider')" :href="route('validateur.demandes.index')" class="btn-accent">
                         <Icon name="stamp" />
                         Ouvrir les dossiers
@@ -46,11 +50,12 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
             </div>
         </template>
 
-        <div v-if="!pageVisible('tableau_de_bord_complet') && (role === 'admin' || role === 'validateur')" class="dash">
+        <div v-if="!pageVisible('tableau_de_bord_complet') && equipe" class="dash">
             <StatsPrincipales />
         </div>
         <EspaceAdmin v-else-if="role === 'admin'" />
         <EspaceValidateur v-else-if="role === 'validateur'" />
+        <EspaceObservateur v-else-if="role === 'observateur'" />
         <EspaceDemandeur v-else />
     </AuthenticatedLayout>
 </template>

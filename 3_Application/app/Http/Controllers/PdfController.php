@@ -30,6 +30,14 @@ class PdfController extends Controller
     }
 
     /**
+     * Convention de collaboration entre Fanamby et le bénéficiaire, remise avec l'autorisation.
+     */
+    public function convention(Request $request, Demande $demande)
+    {
+        return $this->document($request, $demande, 'convention');
+    }
+
+    /**
      * Formulaire de demande rempli, disponible dès l'envoi du dossier (DemandePolicy::telechargerFormulaire).
      */
     public function formulaire(Request $request, Demande $demande)

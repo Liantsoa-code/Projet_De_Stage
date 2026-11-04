@@ -6,7 +6,7 @@ import InputError from '@/Components/InputError.vue';
 import MapComponent from '@/Components/MapComponent.vue';
 import ReglesAnalyseSite from './Partials/ReglesAnalyseSite.vue';
 
-const form = useForm({ nom: '', description: '', capacite_accueil: '', conditions: [], polygone_coordonnees: [] });
+const form = useForm({ nom: '', description: '', capacite_accueil: '', lien_photos: '', conditions: [], polygone_coordonnees: [] });
 const submit = () => form.post(route('admin.sites.store'));
 
 const handleFileUpload = (event) => {
@@ -72,6 +72,12 @@ const handleFileUpload = (event) => {
                         <label class="gf-label">Description</label>
                         <textarea class="gf-textarea" v-model="form.description" rows="3" placeholder="Faune, flore, règlements particuliers..."></textarea>
                         <InputError class="gf-error" :message="form.errors.description" />
+                    </div>
+                    <div>
+                        <label class="gf-label" for="lien_photos">Banque d'images complète (lien)</label>
+                        <input id="lien_photos" type="url" class="gf-input" v-model="form.lien_photos" placeholder="https://… (album Google Photos, Drive, Flickr, site de Fanamby)" />
+                        <p class="gf-hint">Facultatif. Proposé dans la galerie « Voir les photos » pour voir toutes les photos en pleine qualité. Les photos de la galerie s'ajoutent une fois l'aire protégée enregistrée.</p>
+                        <InputError class="gf-error" :message="form.errors.lien_photos" />
                     </div>
                     <ReglesAnalyseSite :form="form" />
                     <div>

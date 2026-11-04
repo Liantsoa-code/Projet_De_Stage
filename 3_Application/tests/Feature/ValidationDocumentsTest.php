@@ -15,7 +15,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 /**
- * Validation en deux temps : « Générer » prépare l'autorisation et le cahier des charges,
+ * Validation en deux temps : « Générer » prépare l'autorisation, le cahier des charges et la convention,
  * le validateur les modifie, puis retape son nom pour valider le dossier.
  */
 class ValidationDocumentsTest extends TestCase
@@ -82,10 +82,15 @@ class ValidationDocumentsTest extends TestCase
                 'regles' => "Équipe limitée à 10 personnes\nAucun prélèvement",
                 'engagement' => 'Le demandeur respecte la faune et la flore.',
             ],
+            'convention' => array_merge(DocumentsOfficiels::defauts(Demande::firstOrFail(), 'convention'), [
+                'redevance_jour' => '4000000',
+                'modalites' => "Prises de vues au lever du soleil\nNettoyage du site",
+                'signataire' => 'La Directrice exécutive',
+            ]),
         ];
     }
 
-    public function test_generate_prepares_both_documents_without_changing_status(): void
+    public function test_generate_prepares_the_three_documents_without_changing_status(): void
     {
         $demande = $this->makeDemande();
 
@@ -94,7 +99,7 @@ class ValidationDocumentsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame('en_analyse', $demande->fresh()->statut->code);
-        $this->assertSame(2, $demande->documentsOfficiels()->count());
+        $this->assertSame(3, $demande->documentsOfficiels()->count());
         $this->assertSame('Inventaire des lémuriens', DocumentsOfficiels::contenu($demande, 'autorisation')['objet']);
         $this->assertSame('Équipe limitée à 10 personnes', DocumentsOfficiels::contenu($demande, 'cahier_charges')['regles']);
 
@@ -186,13 +191,88 @@ class ValidationDocumentsTest extends TestCase
         $this->assertStringContainsString('Aucun prélèvement', $this->texteWord($cahier));
     }
 
+    public function test_convention_uses_the_dossier_and_computes_the_fee_over_activity_days(): void
+    {
+        $demande = $this->makeDemande();
+        $demande->update(['titre' => 'Les lémuriens de nuit', 'date_arrivee' => now()->addDays(9)->toDateString()]);
+        $this->actingAs($this->validateur)->post(route('validateur.demandes.documents.generer', $demande));
+
+        // Textes proposés : aire protégée, projet et référence du dossier ; redevance à fixer
+        $defauts = DocumentsOfficiels::contenu($demande, 'convention');
+        $this->assertStringContainsString("l'aire protégée de Andasibe", $defauts['partie_fanamby']);
+        $this->assertStringContainsString('« Les lémuriens de nuit » (Recherche)', $defauts['objet']);
+        $this->assertStringContainsString($demande->reference, $defauts['avis']);
+        $this->assertSame('', $defauts['redevance_jour']);
+        $projet = view('pdf.convention', DocumentsOfficiels::donneesVue($demande->fresh(), 'convention', projet: true))->render();
+        $this->assertStringContainsString('sera communiqué par Fanamby', $projet);
+
+        // 4 000 000 Ar par jour, activités du J+10 au J+12 : 3 jours, 12 000 000 Ar
+        $this->actingAs($this->validateur)
+            ->put(route('validateur.demandes.documents.modifier', $demande), $this->contenuModifie())
+            ->assertSessionHasNoErrors();
+        $this->valider($demande, 'Hery Rakoto')->assertSessionHasNoErrors();
+
+        $html = view('pdf.convention', DocumentsOfficiels::donneesVue($demande->fresh(), 'convention'))->render();
+        $this->assertStringContainsString('<strong>4 000 000 Ariary par jour</strong>', $html);
+        $this->assertStringContainsString('soit pour 3 jours d\'activités', $html);
+        $this->assertStringContainsString('<strong>12 000 000 Ariary</strong>', $html);
+        $this->assertStringContainsString('<li>Prises de vues au lever du soleil</li>', $html);
+        $this->assertStringContainsString('Arrivée sur le terrain le <strong>' . now()->addDays(9)->format('d/m/Y') . '</strong>', $html);
+        $this->assertStringContainsString('La Directrice exécutive', $html);
+        $this->assertStringContainsString('signé électroniquement par Hery Rakoto', $html);
+
+        $this->actingAs($this->demandeur)
+            ->get(route('demandes.pdf.convention', $demande))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+        $word = $this->actingAs($this->validateur)
+            ->get(route('demandes.pdf.convention', [$demande, 'format' => 'docx']))
+            ->assertOk()
+            ->assertDownload("convention_de_collaboration_{$demande->id}.docx");
+        $this->assertStringContainsString('12 000 000 Ariary', $this->texteWord($word));
+    }
+
+    public function test_convention_fee_must_be_a_whole_amount_and_zero_means_no_fee(): void
+    {
+        $demande = $this->makeDemande();
+        $this->actingAs($this->validateur)->post(route('validateur.demandes.documents.generer', $demande));
+
+        $contenu = $this->contenuModifie();
+        $contenu['convention']['redevance_jour'] = '4 000 Ar';
+        $this->actingAs($this->validateur)
+            ->put(route('validateur.demandes.documents.modifier', $demande), $contenu)
+            ->assertSessionHasErrors('convention.redevance_jour');
+
+        $contenu['convention']['redevance_jour'] = '0';
+        $this->actingAs($this->validateur)
+            ->put(route('validateur.demandes.documents.modifier', $demande), $contenu)
+            ->assertSessionHasNoErrors();
+        $html = view('pdf.convention', DocumentsOfficiels::donneesVue($demande->fresh(), 'convention', projet: true))->render();
+        $this->assertStringContainsString('ne donne lieu à aucune redevance', $html);
+    }
+
+    public function test_a_dossier_generated_before_the_convention_only_receives_it(): void
+    {
+        $demande = $this->makeDemande();
+        $this->actingAs($this->validateur)->post(route('validateur.demandes.documents.generer', $demande));
+        $demande->documentsOfficiels()->where('type', 'autorisation')->first()->update(['contenu' => ['objet' => 'Texte relu'] + DocumentsOfficiels::defauts($demande, 'autorisation')]);
+        $demande->documentsOfficiels()->where('type', 'convention')->delete();
+
+        // Sans convention, le dossier n'est pas prêt à être validé
+        $this->valider($demande, 'Hery Rakoto')->assertSessionHasErrors('statut_id');
+
+        $this->actingAs($this->validateur)->post(route('validateur.demandes.documents.generer', $demande));
+        $this->assertSame(3, $demande->documentsOfficiels()->count());
+        $this->assertSame('Texte relu', DocumentsOfficiels::contenu($demande, 'autorisation')['objet']);
+    }
+
     public function test_the_demandeur_only_gets_documents_in_pdf(): void
     {
         $demande = $this->makeDemande();
         $this->actingAs($this->validateur)->post(route('validateur.demandes.documents.generer', $demande));
         $this->valider($demande, 'Hery Rakoto')->assertSessionHasNoErrors();
 
-        foreach (['demandes.pdf.autorisation', 'demandes.pdf.cahier-charges', 'demandes.pdf.formulaire'] as $route) {
+        foreach (['demandes.pdf.autorisation', 'demandes.pdf.cahier-charges', 'demandes.pdf.convention', 'demandes.pdf.formulaire'] as $route) {
             $this->actingAs($this->demandeur)->get(route($route, [$demande, 'format' => 'docx']))->assertForbidden();
             $this->actingAs($this->demandeur)->get(route($route, $demande))->assertOk()->assertHeader('Content-Type', 'application/pdf');
         }
@@ -264,6 +344,11 @@ class ValidationDocumentsTest extends TestCase
             ->assertForbidden();
         // Le demandeur n'a pas accès aux documents avant la validation.
         $this->actingAs($this->demandeur)->get(route('demandes.pdf.autorisation', $demande))->assertForbidden();
+        $this->actingAs($this->demandeur)->get(route('demandes.pdf.convention', $demande))->assertForbidden();
+        $this->actingAs($this->validateur)
+            ->get(route('validateur.demandes.documents.apercu', [$demande, 'convention', 'format' => 'docx']))
+            ->assertOk()
+            ->assertDownload("projet_convention_de_collaboration_{$demande->id}.docx");
     }
 
     public function test_other_validators_and_the_author_cannot_generate(): void

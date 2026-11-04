@@ -49,6 +49,8 @@ class DemandeRequest extends FormRequest
             'type_precision' => ($this->estSoumission() && $this->precisionRequise() ? 'required' : 'nullable') . '|string|max:150',
             'description' => "$requis|string",
             'objectifs' => "$requis|string",
+            // Arrivée sur le terrain, au plus tard le jour du début des activités
+            'date_arrivee' => "$requis|date|after_or_equal:today" . ($this->filled('date_debut') ? '|before_or_equal:date_debut' : ''),
             'date_debut' => "$requis|date|after_or_equal:today",
             'date_fin' => "$requis|date" . ($this->filled('date_debut') ? '|after_or_equal:date_debut' : ''),
             'equipe_nombre' => "$requis|integer|min:1",
@@ -86,6 +88,9 @@ class DemandeRequest extends FormRequest
             'type_precision.required' => 'Précisez le type de projet.',
             'description.required' => 'Résumez le synopsis du projet.',
             'objectifs.required' => 'Indiquez le ou les objectifs principaux du projet.',
+            'date_arrivee.required' => "Indiquez la date d'arrivée sur le terrain.",
+            'date_arrivee.after_or_equal' => "La date d'arrivée ne peut pas être antérieure à aujourd'hui.",
+            'date_arrivee.before_or_equal' => "L'arrivée sur le terrain doit avoir lieu au plus tard le jour du début des activités.",
             'date_debut.after_or_equal' => "La date de début ne peut pas être antérieure à aujourd'hui.",
             'date_fin.after_or_equal' => 'La date de fin doit être postérieure ou égale à la date de début.',
             'piece_identite.required' => 'Indiquez le numéro de votre CIN ou de votre passeport.',

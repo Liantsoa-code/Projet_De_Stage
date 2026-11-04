@@ -35,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
             return $user->role === 'validateur' || $user->role === 'admin';
         });
 
+        // Pages de l'instruction en lecture (liste, fiche, export) : l'équipe, observateurs compris
+        Gate::define('peut-suivre', function (User $user) {
+            return in_array($user->role, ['observateur', 'validateur', 'admin'], true);
+        });
+
         Gate::define('is-demandeur', function (User $user) {
             return $user->role === 'demandeur';
         });

@@ -12,9 +12,11 @@ const props = defineProps({
     vueDemandeur: { type: Boolean, default: false },
     // Délai habituel de décision (jours), pour estimer la décision d'un dossier en instruction
     delaiHabituel: { type: Number, default: null },
+    // Signalements internes (fiche d'instruction seulement, jamais côté demandeur)
+    signalements: { type: Array, default: () => [] },
 });
 
-const ROLES = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' };
+const ROLES = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur', observateur: 'Observateur' };
 const JOUR = 86400000;
 // Tolérance entre l'enregistrement d'une pièce et l'étape qui l'a déposée (même requête)
 const TOLERANCE_MS = 5000;
@@ -46,6 +48,7 @@ function presentation(h, precedent) {
         case 'a_completer': return { titre: 'Complément demandé', icone: 'pencil-simple-line', ton: 'att' };
         case 'validee': return { titre: 'Demande validée', icone: 'seal-check', ton: 'ok' };
         case 'rejetee': return { titre: 'Demande rejetée', icone: 'prohibit', ton: 'no' };
+        case 'retiree': return { titre: 'Demande annulée par le demandeur', icone: 'x-circle', ton: 'neutre' };
         default: return { titre: h.nouveau_statut?.libelle ?? 'Changement de statut', icone: 'stamp', ton: 'info' };
     }
 }
@@ -65,16 +68,19 @@ function decision() {
     return { ...e, texte: `${e.texte} Le délai habituel (${jours} jour${jours > 1 ? 's' : ''}) est dépassé : elle devrait arriver prochainement.` };
 }
 
-// Arrivée et fin du séjour : réalisées pour une demande validée dont les dates sont passées
+// Arrivée sur le terrain, début des activités et fin du séjour : réalisés pour une demande validée dont les dates sont passées
 function sejour() {
     const d = props.demande;
-    if (!d.date_debut || code.value === 'rejetee') return [];
+    if (!d.date_debut || ['rejetee', 'retiree'].includes(code.value)) return [];
     const valide = code.value === 'validee';
     const etat = (date) => (valide && debutJour(date) <= aujourdhui ? 'passe' : 'avenir');
     const equipe = `${d.equipe_nombre} personne${d.equipe_nombre > 1 ? 's' : ''}`;
     const sousReserve = valide ? '' : ' Prévue si la demande est validée.';
+    const arrivee = d.date_arrivee || d.date_debut;
+    const memeJour = arrivee.slice(0, 10) === d.date_debut.slice(0, 10);
     return [
-        { cle: 'arrivee', titre: 'Arrivée dans l\'aire protégée', date: d.date_debut, jourSeul: true, icone: 'map-pin', ton: valide ? 'ok' : 'neutre', etat: etat(d.date_debut), texte: `${equipe} sur le terrain jusqu'au ${formatDate(d.date_fin)}.${sousReserve}` },
+        { cle: 'arrivee', titre: memeJour ? 'Arrivée sur le terrain et début des activités' : 'Arrivée sur le terrain', date: arrivee, jourSeul: true, icone: 'map-pin', ton: valide ? 'ok' : 'neutre', etat: etat(arrivee), texte: `${equipe} sur le terrain jusqu'au ${formatDate(d.date_fin)}.${sousReserve}` },
+        ...(memeJour ? [] : [{ cle: 'activites', titre: 'Début des activités', date: d.date_debut, jourSeul: true, icone: 'film-slate', ton: valide ? 'ok' : 'neutre', etat: etat(d.date_debut), texte: `Activités jusqu'au ${formatDate(d.date_fin)}.${sousReserve}` }]),
         { cle: 'fin', titre: 'Fin du séjour', date: d.date_fin, jourSeul: true, icone: 'tree-evergreen', ton: valide ? 'ok' : 'neutre', etat: etat(d.date_fin), texte: valide && etat(d.date_fin) === 'passe' ? 'Le séjour autorisé est terminé.' : `Départ du site.${sousReserve}` },
     ];
 }
@@ -99,6 +105,21 @@ const evenements = computed(() => {
             ...presentation(entree, h[i - 1]?.nouveau_statut?.code),
         });
     });
+
+    // Signalements : signalé, puis traité, placés à leur date parmi les étapes ; jamais « étape actuelle »
+    props.signalements.forEach((s) => {
+        passes.push({
+            cle: `s${s.id}`, titre: `Signalement : ${s.partie_libelle}`, date: s.created_at, etat: 'passe', signalement: true,
+            icone: 'warning', ton: 'att', acteur: acteur({ user: s.auteur }), commentaire: s.message,
+        });
+        if (!s.ouvert) {
+            passes.push({
+                cle: `st${s.id}`, titre: 'Signalement traité', date: s.traite_le, etat: 'passe', signalement: true,
+                icone: 'check-circle', ton: 'ok', acteur: acteur({ user: s.traite_par }), commentaire: s.reponse,
+            });
+        }
+    });
+    if (props.signalements.length) passes.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     // Pièces actuelles rattachées à l'étape de dépôt qui les a apportées
     const depots = passes.filter(e => e.depot);
@@ -133,7 +154,7 @@ const evenements = computed(() => {
     }[code.value] ?? [];
 
     const liste = [...passes, ...avenir, ...sejour()];
-    const actuel = [...liste].reverse().find(e => e.etat === 'passe');
+    const actuel = [...liste].reverse().find(e => e.etat === 'passe' && !e.signalement);
     if (actuel) actuel.actuel = true;
     return liste;
 });

@@ -91,7 +91,8 @@
 
     <p class="titre"><strong>Période prévue :</strong></p>
     <table class="champs" style="width: 45%">
-        <tr><th>- Début :</th><td>{{ $date($demande->date_debut) }}</td></tr>
+        <tr><th>- Arrivée sur le terrain :</th><td>{{ $date($demande->arrivee()) }}</td></tr>
+        <tr><th>- Début des activités :</th><td>{{ $date($demande->date_debut) }}</td></tr>
         <tr><th>- Fin :</th><td>{{ $date($demande->date_fin) }}</td></tr>
     </table>
 

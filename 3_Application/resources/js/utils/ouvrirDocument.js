@@ -1,5 +1,5 @@
 /**
- * Documents produits par la plateforme (autorisation, cahier des charges, formulaire, modèles), au format
+ * Documents produits par la plateforme (autorisation, cahier des charges, convention, formulaire, modèles), au format
  * choisi, passé au serveur par le paramètre « format » (FormatDocument) : le PDF s'ouvre dans un nouvel
  * onglet, le fichier Word, que le navigateur n'affiche pas, se télécharge. Le nom du fichier est celui
  * donné par le serveur.

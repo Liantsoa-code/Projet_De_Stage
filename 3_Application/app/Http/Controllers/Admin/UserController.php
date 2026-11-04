@@ -14,20 +14,21 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $q = trim((string) $request->input('q'));
-        $role = $request->input('role');
+        // Plusieurs rôles cochés possibles (« role[]=validateur&role[]=admin »)
+        $roles = $request->collect('role')->filter(fn ($v) => is_scalar($v) && $v !== '')->map(fn ($v) => (string) $v)->values()->all();
 
         $users = User::with('sites:id,nom')
             ->when($q !== '', fn ($query) => $query->where(fn ($w) => $w
                 ->where('name', 'like', "%{$q}%")
                 ->orWhere('email', 'like', "%{$q}%")))
-            ->when($role, fn ($query) => $query->where('role', $role))
+            ->when($roles, fn ($query) => $query->whereIn('role', $roles))
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
-            'filters' => ['q' => $q, 'role' => $role],
+            'filters' => ['q' => $q, 'role' => $roles],
         ]);
     }
 
@@ -41,7 +42,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
-            'role' => 'required|in:demandeur,validateur,admin',
+            'role' => 'required|in:demandeur,validateur,admin,observateur',
             'sites' => 'nullable|array', // Identifiants des sites (si validateur)
             'sites.*' => 'integer|exists:t_sites,id',
         ], [

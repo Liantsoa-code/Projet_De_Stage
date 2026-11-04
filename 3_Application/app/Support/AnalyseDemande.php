@@ -267,7 +267,7 @@ class AnalyseDemande
     }
 
     /**
-     * Règle 7 — Arrivée proche : d'après le délai habituel de décision du site, la réponse risque
+     * Règle 7 — Début des activités proche : d'après le délai habituel de décision du site, la réponse risque
      * d'arriver après le début du séjour. Calculé à l'envoi, puis figé avec le reste de l'analyse.
      */
     private static function delai(Site $site, Carbon $debut): array
@@ -279,8 +279,8 @@ class AnalyseDemande
             return [];
         }
 
-        return [self::contrainte('delai', 'info', 'Arrivée proche',
-            'Envoi ' . self::pluriel($avant, 'jour') . " avant l'arrivée, alors que la décision prend habituellement "
+        return [self::contrainte('delai', 'info', 'Début des activités proche',
+            'Envoi ' . self::pluriel($avant, 'jour') . " avant le début des activités, alors que la décision prend habituellement "
                 . str_replace('.', ',', (string) $delai) . ' jours sur cette aire protégée (estimée vers le '
                 . self::date(today()->addDays((int) ceil($delai))) . ').')];
     }
@@ -293,7 +293,7 @@ class AnalyseDemande
         return Demande::where('user_id', $demandeurId)
             ->where('site_id', $site->id)
             ->when($demandeId, fn ($q) => $q->whereKeyNot($demandeId))
-            ->whereHas('statut', fn ($q) => $q->whereNotIn('code', ['brouillon', 'rejetee']))
+            ->whereHas('statut', fn ($q) => $q->whereNotIn('code', ['brouillon', 'rejetee', 'retiree']))
             ->where('date_debut', '<=', $fin->toDateString())
             ->where('date_fin', '>=', $debut->toDateString())
             ->orderBy('date_debut')

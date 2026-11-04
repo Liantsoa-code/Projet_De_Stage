@@ -269,6 +269,45 @@ class DemandeParcoursTest extends TestCase
         $this->assertFalse(Notification::where('user_id', $autreSite->id)->exists());
     }
 
+    // ── Arrivée sur le terrain ──
+
+    public function test_arrival_is_required_and_cannot_follow_the_start_of_activities(): void
+    {
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $this->payload(['date_arrivee' => '']))
+            ->assertSessionHasErrors('date_arrivee');
+
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $this->payload(['date_arrivee' => now()->addDays(6)->toDateString()]))
+            ->assertSessionHasErrors('date_arrivee');
+        $this->assertSame(0, Demande::count());
+
+        // Arrivée deux jours avant les activités (début à J+5)
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $this->payload(['date_arrivee' => now()->addDays(3)->toDateString()]))
+            ->assertSessionHasNoErrors();
+        $demande = Demande::firstOrFail();
+        $this->assertSame(now()->addDays(3)->toDateString(), $demande->date_arrivee->toDateString());
+        $this->assertSame(now()->addDays(5)->toDateString(), $demande->date_debut->toDateString());
+    }
+
+    public function test_validateur_file_counts_days_until_arrival_on_site(): void
+    {
+        // Arrivée dans 2 jours, activités dans 10 jours : le dossier est imminent
+        $demande = $this->makeDemande('soumise', [
+            'date_arrivee' => now()->addDays(2)->toDateString(),
+            'date_debut' => now()->addDays(10)->toDateString(),
+            'date_fin' => now()->addDays(12)->toDateString(),
+        ]);
+
+        $this->actingAs($this->validateur)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('file.0.id', $demande->id)
+                ->where('file.0.jours_avant', 2)
+                ->where('file.0.imminent', true));
+    }
+
     // ── Analyse des périodes sensibles ──
 
     public function test_submission_records_warning_overlap_and_refuses_blocking_one(): void
@@ -313,6 +352,49 @@ class DemandeParcoursTest extends TestCase
                 ->where('periodes.0.description', 'À venir'));
     }
 
+    // ── Annulation par le demandeur (statut « Retirée ») ──
+
+    public function test_demandeur_can_withdraw_sent_demande_with_motif(): void
+    {
+        Mail::fake();
+        $demande = $this->makeDemande('en_analyse');
+
+        $this->actingAs($this->demandeur)
+            ->get(route('demandes.show', $demande))
+            ->assertInertia(fn (Assert $page) => $page->where('canRetirer', true));
+
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.retirer', $demande), ['motif' => 'Tournage reporté à l\'an prochain.'])
+            ->assertRedirect(route('demandes.show', $demande))
+            ->assertSessionHas('message');
+
+        $this->assertSame('retiree', $demande->fresh()->statut->code);
+        $this->assertTrue(HistoriqueStatut::where('demande_id', $demande->id)->where('commentaire', 'Tournage reporté à l\'an prochain.')->exists());
+        $this->assertTrue(Notification::where('user_id', $this->validateur->id)->where('contenu', 'like', '%a annulé sa demande%reporté%')->exists());
+
+        // Statut définitif : plus de retrait, de modification ni de décision
+        $this->actingAs($this->demandeur)->post(route('demandes.retirer', $demande))->assertForbidden();
+        $this->actingAs($this->demandeur)->get(route('demandes.edit', $demande))->assertForbidden();
+        $this->actingAs($this->validateur)
+            ->post(route('validateur.demandes.update-statut', $demande), [
+                'statut_id' => Statut::where('code', 'validee')->value('id'),
+                'commentaire' => 'OK',
+            ]);
+        $this->assertSame('retiree', $demande->fresh()->statut->code);
+    }
+
+    public function test_withdrawal_is_limited_to_author_and_undecided_demandes(): void
+    {
+        foreach (['brouillon', 'validee', 'rejetee'] as $statut) {
+            $this->actingAs($this->demandeur)->post(route('demandes.retirer', $this->makeDemande($statut)))->assertForbidden();
+        }
+
+        $demande = $this->makeDemande('soumise');
+        $this->actingAs(User::factory()->create(['role' => 'demandeur']))->post(route('demandes.retirer', $demande))->assertForbidden();
+        $this->actingAs($this->validateur)->post(route('demandes.retirer', $demande))->assertForbidden();
+        $this->assertSame('soumise', $demande->fresh()->statut->code);
+    }
+
     // ── Filtres, pagination, export ──
 
     public function test_validateur_list_is_filtered_and_paginated(): void
@@ -328,6 +410,19 @@ class DemandeParcoursTest extends TestCase
                 ->has('demandes.data', 1)
                 ->where('demandes.data.0.user.name', 'Hery Autre')
                 ->where('demandes.total', 1));
+    }
+
+    public function test_validateur_list_accepts_several_statuts(): void
+    {
+        $this->makeDemande('en_analyse');
+        $this->makeDemande('validee');
+        $this->makeDemande('soumise');
+
+        $this->actingAs($this->validateur)
+            ->get(route('validateur.demandes.index', ['statut' => ['en_analyse', 'validee']]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('demandes.total', 2)
+                ->where('filters.statut', ['en_analyse', 'validee']));
     }
 
     public function test_export_csv_contains_filtered_rows(): void
@@ -370,7 +465,7 @@ class DemandeParcoursTest extends TestCase
     public function test_reference_is_computed_by_the_server_for_pages_and_dashboard(): void
     {
         $demande = $this->makeDemande('soumise');
-        $attendue = sprintf('FAN-%s-%04d', $demande->created_at->format('Y'), $demande->id);
+        $attendue = sprintf('FNB-%s-%04d', $demande->created_at->format('Y'), $demande->id);
 
         $this->actingAs($this->demandeur)
             ->get(route('demandes.show', $demande))

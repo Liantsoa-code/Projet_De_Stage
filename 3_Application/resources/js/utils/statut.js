@@ -6,6 +6,7 @@ const BADGES = {
     a_completer: 'badge-todo',
     validee: 'badge-ok',
     rejetee: 'badge-err',
+    retiree: 'badge-retire',
 };
 
 export function statutBadgeClass(code) {

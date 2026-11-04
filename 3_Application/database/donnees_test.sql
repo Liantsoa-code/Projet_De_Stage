@@ -30,6 +30,7 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE t_notifications;
+TRUNCATE TABLE t_signalements;
 TRUNCATE TABLE t_documents_officiels;
 TRUNCATE TABLE t_documents_reference;
 TRUNCATE TABLE t_historique_statuts;
@@ -37,6 +38,7 @@ TRUNCATE TABLE t_documents;
 TRUNCATE TABLE t_demandes;
 TRUNCATE TABLE t_periode_sensibles;
 TRUNCATE TABLE t_conditions_site;
+TRUNCATE TABLE t_photos_site;
 TRUNCATE TABLE t_site_user;
 TRUNCATE TABLE t_regles_specifiques;
 TRUNCATE TABLE t_documents_requis;
@@ -57,7 +59,8 @@ INSERT INTO t_statuts (id, code, libelle, description, created_at, updated_at) V
 (3, 'en_analyse', 'En cours d''analyse', 'Le validateur étudie la demande', NOW(), NOW()),
 (4, 'a_completer', 'À compléter', 'Des compléments sont demandés au demandeur', NOW(), NOW()),
 (5, 'validee', 'Validée', 'Demande acceptée', NOW(), NOW()),
-(6, 'rejetee', 'Rejetée', 'Demande refusée', NOW(), NOW());
+(6, 'rejetee', 'Rejetée', 'Demande refusée', NOW(), NOW()),
+(7, 'retiree', 'Retirée', 'Demande annulée par le demandeur', NOW(), NOW());
 
 -- ── Comptes ──
 INSERT INTO t_users (id, name, email, email_verified_at, password, role, organisation, fonction, adresse, telephone, piece_identite, created_at, updated_at) VALUES
@@ -67,7 +70,8 @@ INSERT INTO t_users (id, name, email, email_verified_at, password, role, organis
 (4, 'Hery Rasolofo', 'hery@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'validateur', 'Association Fanamby', 'Gestionnaire d''aires protégées', 'Lot II Y 49 J Ampasanimalo, Antananarivo', '+261 34 05 112 45', '101 241 000 404', NOW() - INTERVAL 420 DAY, NOW()),
 (5, 'Rado Rakotomalala', 'rado@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Studio Fandrika', 'Journaliste reporter d''images', 'Lot IV G 12 Ambohijatovo, Antananarivo', '+261 33 21 456 78', '102 251 078 432', NOW() - INTERVAL 420 DAY, NOW()),
 (6, 'Sarah Martin', 'sarah@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Lumière Australe Films', 'Réalisatrice', '12 rue des Lilas, 13001 Marseille, France', '+33 6 12 34 56 78', '19FR45821', NOW() - INTERVAL 420 DAY, NOW()),
-(7, 'Tiana Randria', 'tiana@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Tsara Sary', 'Photographe', 'Lot 45 Tanambao, Morondava', '+261 32 45 678 90', '501 012 345 678', NOW() - INTERVAL 420 DAY, NOW());
+(7, 'Tiana Randria', 'tiana@exemple.com', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'demandeur', 'Tsara Sary', 'Photographe', 'Lot 45 Tanambao, Morondava', '+261 32 45 678 90', '501 012 345 678', NOW() - INTERVAL 420 DAY, NOW()),
+(8, 'Nirina Observatrice', 'observateur@fanamby.org', NOW(), '$2y$12$ToGuAgBEpfbDKU/1qovn7.ewJuX5s0Re3w8epJFpEwt2I1uWWMhZO', 'observateur', 'Association Fanamby', 'Chargée de suivi et évaluation', 'Lot II Y 49 J Ampasanimalo, Antananarivo', '+261 34 05 112 33', NULL, NOW() - INTERVAL 200 DAY, NOW());
 
 -- ── Aires protégées (contours réels simplifiés à ~100 m) ──
 INSERT INTO t_sites (id, nom, description, polygone_coordonnees, created_at, updated_at) VALUES
@@ -276,6 +280,9 @@ INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_preci
 INSERT INTO t_demandes (id, user_id, site_id, type_demande_id, titre, type_precision, description, objectifs, date_debut, date_fin, equipe_nombre, statut_id, date_soumission, resultats_analyse, created_at, updated_at) VALUES
 (22, 6, 3, 3, 'Repérages pour une série documentaire', NULL, 'Repérages des lieux de tournage du littoral et de la forêt humide (année précédente).', 'Préparer le tournage d''une série documentaire en trois épisodes.', CURDATE() - INTERVAL 330 DAY, CURDATE() - INTERVAL 325 DAY, 2, 5, NOW() - INTERVAL 350 DAY, '[]', NOW() - INTERVAL 352 DAY - INTERVAL 2 HOUR, NOW() - INTERVAL 341 DAY);
 
+-- Arrivée sur le terrain : la veille du début des activités (installation)
+UPDATE t_demandes SET date_arrivee = date_debut - INTERVAL 1 DAY WHERE date_debut IS NOT NULL;
+
 -- ── Pièces jointes ──
 INSERT INTO t_documents (demande_id, document_requis_id, nom_fichier, chemin, type_document, created_at, updated_at) VALUES
 (1, 8, 'synopsis_brief_du_projet.pdf', 'demandes/1/synopsis_brief_du_projet.pdf', 'Synopsis / Brief du projet', NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR, NOW() - INTERVAL 2 DAY - INTERVAL 1 HOUR),
@@ -399,7 +406,7 @@ INSERT INTO t_notifications (user_id, demande_id, contenu, lu, date_envoi, creat
 (7, 17, 'Votre demande d''accès à « Menabe Antimena » a été acceptée. Retrouvez votre autorisation et votre cahier des charges dans Mes demandes. Message de l''équipe : « Validé. Bienvenue aux participants de l''atelier. »', 0, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY, NOW() - INTERVAL 31 DAY);
 
 -- Repartir des identifiants suivants pour les prochaines créations
-ALTER TABLE t_users AUTO_INCREMENT = 8;
+ALTER TABLE t_users AUTO_INCREMENT = 9;
 ALTER TABLE t_sites AUTO_INCREMENT = 6;
 ALTER TABLE t_type_demandes AUTO_INCREMENT = 13;
 ALTER TABLE t_documents_requis AUTO_INCREMENT = 43;

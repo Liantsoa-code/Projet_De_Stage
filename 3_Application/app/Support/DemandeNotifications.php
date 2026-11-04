@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Mail\DemandeNotificationMail;
 use App\Models\Demande;
 use App\Models\Notification;
+use App\Models\Signalement;
 use App\Models\Statut;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Mail;
 class DemandeNotifications
 {
     /**
-     * Soumission : accusé de réception au demandeur, et alerte aux décideurs du site.
+     * Soumission : accusé de réception au demandeur, alerte aux décideurs du site et aux observateurs.
      */
     public static function soumission(Demande $demande): void
     {
@@ -29,6 +30,38 @@ class DemandeNotifications
             $demande,
             DemandeNotificationMessage::forNewDemandeToValidateur($demande),
         );
+
+        self::envoyer(
+            DemandeDecisionRules::observateurs($demande)->pluck('id'),
+            $demande,
+            DemandeNotificationMessage::forNewDemandeToObservateur($demande),
+        );
+    }
+
+    /**
+     * Nouveau signalement : les validateurs du site et les admins sont prévenus.
+     */
+    public static function signalement(Signalement $signalement): void
+    {
+        $signalement->loadMissing('demande.site', 'auteur');
+
+        self::envoyer(
+            DemandeDecisionRules::notifiablesForSignalement($signalement->demande, $signalement->auteur)->pluck('id'),
+            $signalement->demande,
+            DemandeNotificationMessage::forSignalement($signalement),
+        );
+    }
+
+    /**
+     * Signalement traité : son auteur est prévenu, avec la réponse (sauf s'il l'a traité lui-même).
+     */
+    public static function signalementTraite(Signalement $signalement): void
+    {
+        $signalement->loadMissing('demande.site', 'traitePar');
+
+        if ($signalement->user_id && (int) $signalement->user_id !== (int) $signalement->traite_par) {
+            self::envoyer([$signalement->user_id], $signalement->demande, DemandeNotificationMessage::forSignalementTraite($signalement));
+        }
     }
 
     /**
@@ -47,6 +80,18 @@ class DemandeNotifications
             ->reject(fn (User $u) => (int) $u->id === (int) $demande->user_id);
 
         self::envoyer($decideurs->pluck('id'), $demande, DemandeNotificationMessage::forComplementToValidateur($demande));
+    }
+
+    /**
+     * Demande retirée par son auteur : les décideurs du site n'ont plus à l'examiner.
+     */
+    public static function retrait(Demande $demande, string $motif): void
+    {
+        self::envoyer(
+            DemandeDecisionRules::notifiableDecidersForNewDemande($demande)->pluck('id'),
+            $demande,
+            DemandeNotificationMessage::forRetraitToValidateur($demande, $motif),
+        );
     }
 
     /**

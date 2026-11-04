@@ -3,6 +3,7 @@ import InputError from '@/Components/InputError.vue';
 
 // Étape « Aire protégée et période » (section II du formulaire). L'aire protégée peut aussi
 // être choisie sur la carte de VerificationCalendrier ; l'équipe sert aux statistiques de fréquentation.
+// L'arrivée sur le terrain peut précéder le début des activités ; l'analyse porte sur les activités.
 defineProps({
     form: { type: Object, required: true },
     sites: { type: Array, required: true },
@@ -27,20 +28,26 @@ defineProps({
         <legend class="gf-label">Période prévue</legend>
         <div class="gf-row gf-row-3">
             <div>
-                <label class="gf-label gf-label--sub" for="date_debut">Début</label>
-                <input id="date_debut" v-model="form.date_debut" type="date" class="gf-input" :min="today" required />
+                <label class="gf-label gf-label--sub" for="date_arrivee">Arrivée sur le terrain</label>
+                <input id="date_arrivee" v-model="form.date_arrivee" type="date" class="gf-input" :min="today" :max="form.date_debut || undefined" required />
+                <InputError class="gf-error" :message="form.errors.date_arrivee" />
+            </div>
+            <div>
+                <label class="gf-label gf-label--sub" for="date_debut">Début des activités</label>
+                <input id="date_debut" v-model="form.date_debut" type="date" class="gf-input" :min="form.date_arrivee || today" required />
                 <InputError class="gf-error" :message="form.errors.date_debut" />
             </div>
             <div>
-                <label class="gf-label gf-label--sub" for="date_fin">Fin</label>
+                <label class="gf-label gf-label--sub" for="date_fin">Fin des activités</label>
                 <input id="date_fin" v-model="form.date_fin" type="date" class="gf-input" :min="form.date_debut || today" required />
                 <InputError class="gf-error" :message="form.errors.date_fin" />
             </div>
-            <div>
-                <label class="gf-label gf-label--sub" for="equipe_nombre">Personnes sur le terrain</label>
-                <input id="equipe_nombre" v-model="form.equipe_nombre" type="number" min="1" class="gf-input" required />
-                <InputError class="gf-error" :message="form.errors.equipe_nombre" />
-            </div>
+        </div>
+        <p class="gf-hint">L'arrivée peut précéder les activités (installation, repérage). La vérification du calendrier porte sur la période des activités.</p>
+        <div class="equipe">
+            <label class="gf-label gf-label--sub" for="equipe_nombre">Personnes sur le terrain</label>
+            <input id="equipe_nombre" v-model="form.equipe_nombre" type="number" min="1" class="gf-input" required />
+            <InputError class="gf-error" :message="form.errors.equipe_nombre" />
         </div>
     </fieldset>
 </template>
@@ -55,4 +62,6 @@ defineProps({
 .choix__case:has(input:focus-visible) { outline: 2px solid var(--water); outline-offset: 2px; }
 .choix__case input { margin-top: 2px; accent-color: var(--forest); flex-shrink: 0; }
 .gf-label--sub { font-weight: 500; color: var(--ink-3); }
+.equipe { max-width: calc((100% - 32px) / 3); min-width: 160px; margin-top: 12px; }
+@media (max-width: 640px) { .equipe { max-width: none; } }
 </style>

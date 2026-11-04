@@ -33,14 +33,16 @@ class ReferencesTest extends TestCase
         $this->get(route('references.index'))->assertRedirect(route('login'));
     }
 
-    public function test_les_cinq_modeles_d_origine_sont_repris_avec_leurs_champs(): void
+    public function test_les_modeles_d_origine_sont_repris_avec_leurs_champs(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'validateur']))
             ->get(route('references.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('References/Index')
-                ->has('modeles', 5)
+                ->has('modeles', 6)
+                ->where('modeles.5.titre', 'Convention de collaboration')
+                ->where('modeles.5.automatique', true)
                 ->where('modeles.0.titre', 'Avis favorable')
                 ->where('modeles.0.champs', fn ($champs) => collect($champs)->contains('nom du bénéficiaire')
                     && collect($champs)->duplicates()->isEmpty())
@@ -107,7 +109,7 @@ class ReferencesTest extends TestCase
 
         $this->actingAs($admin)->delete(route('references.modeles.destroy', $modele))->assertRedirect(route('references.index'));
         $this->assertModelMissing($modele);
-        $this->assertSame(5, ModeleReference::count());
+        $this->assertSame(6, ModeleReference::count());
     }
 
     public function test_un_modele_exige_un_titre_unique_une_icone_connue_et_un_contenu(): void
@@ -138,7 +140,7 @@ class ReferencesTest extends TestCase
         $this->actingAs($validateur)->delete(route('references.modeles.destroy', $modele))->assertForbidden();
         $this->actingAs($validateur)->post(route('references.modeles.apercu'), ['contenu' => 'Test'])->assertForbidden();
 
-        $this->assertSame(5, ModeleReference::count());
+        $this->assertSame(6, ModeleReference::count());
     }
 
     public function test_l_admin_obtient_un_apercu_pdf_avant_d_enregistrer(): void

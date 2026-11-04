@@ -15,6 +15,8 @@ const aCompleter = computed(() => page.props.a_completer || []);
 const sejours = computed(() => page.props.sejours || []);
 
 const joursAvant = (date) => Math.ceil((new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+// Le compte à rebours vise l'arrivée sur le terrain (le début des activités pour une ancienne demande)
+const arrivee = (d) => d.date_arrivee || d.date_debut;
 
 // Ce qu'il reste à faire ou à attendre pour chaque dossier en cours
 function suivi(d) {
@@ -78,9 +80,9 @@ function suivi(d) {
                 <div v-if="sejours.length">
                     <div v-for="d in sejours" :key="d.id" class="stay">
                         <div class="stay__when">
-                            <template v-if="joursAvant(d.date_debut) > 0">
-                                <CompteurAnime class="stay__n" :valeur="joursAvant(d.date_debut)" />
-                                <span>jour{{ joursAvant(d.date_debut) > 1 ? 's' : '' }} avant l'arrivée</span>
+                            <template v-if="joursAvant(arrivee(d)) > 0">
+                                <span class="stay__n">J-<CompteurAnime :valeur="joursAvant(arrivee(d))" :chiffres="2" /></span>
+                                <span>avant l'arrivée</span>
                             </template>
                             <template v-else>
                                 <Icon name="map-trifold" class="stay__icon" />
@@ -90,11 +92,12 @@ function suivi(d) {
                         <div class="stay__body">
                             <span class="site-label">{{ d.site?.nom }}</span>
                             <strong>{{ d.titre || d.type_demande?.libelle }}</strong>
-                            <span class="mono dates">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</span>
+                            <span class="dates">Arrivée le <span class="mono">{{ formatDate(arrivee(d)) }}</span> · activités <span class="mono">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</span></span>
                             <span v-if="verdictAnalyse(d.resultats_analyse) !== 'compatible'" class="note-hatch"><span class="hatch"></span>Séjour sous conditions : lisez l'autorisation et le cahier des charges</span>
                             <div class="btn-row">
                                 <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.autorisation', d.id)">Autorisation</BoutonDocument>
                                 <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.cahier-charges', d.id)">Cahier des charges</BoutonDocument>
+                                <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.convention', d.id)">Convention de collaboration</BoutonDocument>
                             </div>
                         </div>
                     </div>

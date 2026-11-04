@@ -63,7 +63,7 @@ class StatsDemandeur
             'sejours' => $mesDemandes
                 ->where('statut.code', 'validee')
                 ->filter(fn ($d) => $d->date_fin && $d->date_fin->gte(today()))
-                ->sortBy('date_debut')
+                ->sortBy(fn ($d) => $d->arrivee()?->toDateString())
                 ->values(),
         ];
     }

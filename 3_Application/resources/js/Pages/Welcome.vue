@@ -69,8 +69,8 @@ const carte = ref(null);
                     <li>
                         <span class="steps__n">3</span>
                         <div>
-                            <strong>Autorisation et cahier des charges</strong>
-                            <p>Les deux documents officiels sont générés à la validation et restent disponibles dans votre espace.</p>
+                            <strong>Autorisation, cahier des charges et convention</strong>
+                            <p>Les documents officiels sont générés à la validation et restent disponibles dans votre espace.</p>
                         </div>
                     </li>
                 </ol>

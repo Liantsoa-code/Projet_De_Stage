@@ -25,6 +25,7 @@ const onglets = [
     { code: 'en_analyse', label: 'En analyse' },
     { code: 'validee', label: 'Validées' },
     { code: 'rejetee', label: 'Rejetées' },
+    { code: 'retiree', label: 'Retirées' },
 ];
 
 const total = computed(() => Object.values(props.compteurs).reduce((a, b) => a + Number(b), 0));
@@ -113,6 +114,7 @@ const ouvrir = (d) => router.visit(route('demandes.show', d.id));
                                 <template v-if="d.statut.code === 'validee'">
                                     <BoutonDocument class="btn-sm-edit" :url="route('demandes.pdf.autorisation', d.id)">Autorisation</BoutonDocument>
                                     <BoutonDocument class="btn-sm-edit" :url="route('demandes.pdf.cahier-charges', d.id)">Cahier des charges</BoutonDocument>
+                                    <BoutonDocument class="btn-sm-edit" :url="route('demandes.pdf.convention', d.id)">Convention</BoutonDocument>
                                 </template>
                                 <Link v-else-if="d.statut.code === 'brouillon'" :href="route('demandes.edit', d.id)" class="btn-sm-edit">Continuer</Link>
                                 <Link v-else-if="d.statut.code === 'a_completer'" :href="route('demandes.edit', d.id)" class="btn-sm-edit btn-sm-todo">Compléter</Link>

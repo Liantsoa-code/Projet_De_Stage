@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * Base des tableaux de bord de l'instruction (StatsValidateur, StatsAdmin) :
+ * Base des tableaux de bord de l'instruction (StatsValidateur, StatsAdmin, StatsObservateur) :
  * dossiers en attente triés par urgence, compteurs et carte des sites.
  *
  * Les durées (délais, attentes, séjours) sont calculées en PHP, en jours calendaires.
@@ -47,9 +47,11 @@ abstract class StatsInstruction
         return (clone $this->base)
             ->whereHas('statut', fn ($q) => $q->whereIn('code', ['soumise', 'en_analyse']))
             ->with(['user:id,name', 'site:id,nom', 'statut:id,code,libelle'])
-            ->get(['id', 'user_id', 'site_id', 'statut_id', 'date_debut', 'date_fin', 'date_soumission', 'created_at', 'resultats_analyse'])
+            ->withCount(['signalements as signalements_ouverts' => fn ($q) => $q->whereNull('traite_le')])
+            ->get(['id', 'user_id', 'site_id', 'statut_id', 'date_arrivee', 'date_debut', 'date_fin', 'date_soumission', 'created_at', 'resultats_analyse'])
             ->map(function (Demande $d) use ($aujourdhui) {
-                $avant = $d->date_debut ? DelaiDecision::joursEntre($aujourdhui, $d->date_debut) : null;
+                // Urgence : jours avant l'arrivée de l'équipe sur le terrain
+                $avant = $d->arrivee() ? DelaiDecision::joursEntre($aujourdhui, $d->arrivee()) : null;
                 $attente = $d->date_soumission ? DelaiDecision::joursEntre($d->date_soumission, $aujourdhui) : 0;
                 // Verdict de l'analyse figée à l'envoi : un conflit appelle un arbitrage du validateur
                 $verdict = AnalyseDemande::verdict($d->resultats_analyse);
@@ -61,6 +63,7 @@ abstract class StatsInstruction
                     'site_id' => $d->site_id,
                     'site' => $d->site?->nom,
                     'statut' => $d->statut?->only(['code', 'libelle']),
+                    'date_arrivee' => $d->arrivee()?->toDateString(),
                     'date_debut' => $d->date_debut?->toDateString(),
                     'date_fin' => $d->date_fin?->toDateString(),
                     'jours_avant' => $avant,
@@ -69,6 +72,7 @@ abstract class StatsInstruction
                     'retard' => $attente > self::JOURS_RETARD,
                     'verdict' => $verdict,
                     'conflit' => $verdict === 'conflit',
+                    'signalements' => $d->signalements_ouverts,
                 ];
             })
             ->sortBy(fn ($d) => [
@@ -116,6 +120,8 @@ abstract class StatsInstruction
             'retards' => $enAttente->where('retard', true)->count(),
             'conflits' => $enAttente->where('conflit', true)->count(),
             'attente_demandeur' => (clone $this->base)->whereHas('statut', fn ($q) => $q->where('code', 'a_completer'))->count(),
+            // Dossiers avec au moins un signalement ouvert
+            'signales' => (clone $this->base)->whereHas('signalements', fn ($q) => $q->whereNull('traite_le'))->count(),
         ];
     }
 
@@ -124,8 +130,11 @@ abstract class StatsInstruction
      */
     protected function carte(Collection $enAttente): array
     {
-        $colonnes = ['t_sites.id', 't_sites.nom', 't_sites.description', 't_sites.polygone_coordonnees'];
-        $sites = $this->user->role === 'admin' ? Site::all($colonnes) : $this->user->sites()->get($colonnes);
+        $colonnes = ['t_sites.id', 't_sites.nom', 't_sites.description', 't_sites.polygone_coordonnees', 't_sites.lien_photos'];
+        $sites = ($this->user->role === 'validateur' ? $this->user->sites() : Site::query())
+            ->select($colonnes)
+            ->withCount('photos as nb_photos')
+            ->get();
 
         return [
             'sites' => $sites,

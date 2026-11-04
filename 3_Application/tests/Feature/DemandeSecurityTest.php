@@ -111,6 +111,41 @@ class DemandeSecurityTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_all_documents_download_as_one_zip(): void
+    {
+        $demandeur = User::factory()->create(['role' => 'demandeur']);
+        $demande = $this->makeDemande($demandeur);
+        $this->storeDocument($demande);
+        // Même nom de fichier renvoyé en complément : les deux restent dans le zip
+        Storage::put("demandes/{$demande->id}/protocole-v2.pdf", 'version 2');
+        Document::create([
+            'demande_id' => $demande->id,
+            'nom_fichier' => 'protocole.pdf',
+            'chemin' => "demandes/{$demande->id}/protocole-v2.pdf",
+            'document_requis_id' => $this->protocoleId,
+            'type_document' => 'Protocole',
+        ]);
+
+        $reponse = $this->actingAs($demandeur)->get(route('demandes.pieces.zip', $demande))->assertOk();
+        $this->assertStringContainsString("Pieces_{$demande->reference}.zip", $reponse->headers->get('content-disposition'));
+
+        $zip = new \ZipArchive();
+        $zip->open($reponse->baseResponse->getFile()->getPathname());
+        $this->assertSame('contenu', $zip->getFromName('Protocole - protocole.pdf'));
+        $this->assertSame('version 2', $zip->getFromName('Protocole - protocole (2).pdf'));
+        $zip->close();
+    }
+
+    public function test_zip_follows_document_access_rules(): void
+    {
+        $demande = $this->makeDemande(User::factory()->create(['role' => 'demandeur']));
+        $this->storeDocument($demande);
+
+        $this->actingAs($this->validateurDuSite($this->autreSite))->get(route('demandes.pieces.zip', $demande))->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => 'demandeur']))->get(route('demandes.pieces.zip', $demande))->assertForbidden();
+        $this->actingAs($this->validateurDuSite($this->site))->get(route('demandes.pieces.zip', $demande))->assertOk();
+    }
+
     // ── PDF officiels ──
 
     public function test_cahier_des_charges_requires_validated_demande(): void

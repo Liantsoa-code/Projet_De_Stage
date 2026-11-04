@@ -6,6 +6,7 @@ import StatutSteps from '@/Components/StatutSteps.vue';
 import TimelineDemande from '@/Components/TimelineDemande.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DocumentsGeneres from './Partials/DocumentsGeneres.vue';
+import SignalementsDossier from './Partials/SignalementsDossier.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { statutBadgeClass, formatDate, joursDepuis } from '@/utils/statut.js';
 import { computed, nextTick, ref } from 'vue';
@@ -19,12 +20,23 @@ const props = defineProps({
     delaiHabituel: { type: Number, default: null },
     documentsGeneres: { type: Object, default: null },
     peutTelechargerWord: { type: Boolean, default: false },
+    // Observateur : tout le dossier en lecture, sans décision
+    lectureSeule: { type: Boolean, default: false },
+    signalements: { type: Array, default: () => [] },
+    partiesSignalement: { type: Object, default: () => ({}) },
+    peutSignaler: { type: Boolean, default: false },
+    peutTraiterSignalements: { type: Boolean, default: false },
 });
+
+// Signalements : les liens « Signaler » des parties ouvrent le formulaire avec la partie choisie
+const blocSignalements = ref(null);
+const signaler = (partie) => blocSignalements.value?.signaler(partie);
+const signalementsOuverts = computed(() => props.signalements.filter((s) => s.ouvert).length);
 
 const CHOIX = {
     en_analyse: { label: 'Prendre en charge', sub: 'Passe le dossier en analyse et prévient le demandeur', icon: 'stamp' },
     a_completer: { label: 'Demander un complément', sub: 'Le dossier retourne au demandeur avec votre commentaire', icon: 'pencil-simple-line' },
-    validee: { label: 'Avis favorable', sub: 'Vous relisez et modifiez l\'autorisation et le cahier des charges, puis vous signez : le demandeur n\'est prévenu qu\'à la signature', icon: 'seal-check' },
+    validee: { label: 'Avis favorable', sub: 'Vous relisez et modifiez l\'autorisation, le cahier des charges et la convention, puis vous signez : le demandeur n\'est prévenu qu\'à la signature', icon: 'seal-check' },
     rejetee: { label: 'Avis défavorable', sub: 'La demande est rejetée : décision définitive, le dossier est clos', icon: 'prohibit' },
     soumise: { label: 'Remettre en file', sub: 'Le dossier repasse au statut soumis', icon: 'arrow-left' },
 };
@@ -120,15 +132,22 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
             <StatutSteps :code="code" large />
         </div>
 
-        <!-- Pleine largeur : la saisie et l'aperçu des documents côte à côte -->
+        <a v-if="signalementsOuverts" href="#signalements" class="alerte-sig">
+            <Icon name="warning" />
+            <span><strong>{{ signalementsOuverts }} signalement{{ signalementsOuverts > 1 ? 's' : '' }} ouvert{{ signalementsOuverts > 1 ? 's' : '' }}</strong> sur ce dossier</span>
+            <span class="alerte-sig__voir">Voir</span>
+        </a>
+
+        <!-- Pleine largeur : la saisie et l'aperçu des documents côte à côte (en lecture seule pour l'observateur) -->
         <DocumentsGeneres
-            v-if="documentsGeneres && canDecideOnDemande"
+            v-if="documentsGeneres && (canDecideOnDemande || lectureSeule)"
             ref="blocDocuments"
             :key="documentsGeneres.genere_le"
             v-model:modifie="docsModifies"
             class="docs-generes"
             :demande="demande"
             :documents="documentsGeneres"
+            :lecture-seule="lectureSeule"
         />
 
         <div class="show-layout">
@@ -140,7 +159,8 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                     <div><dt>CIN / Passeport</dt><dd class="mono">{{ demande.user.piece_identite || '—' }}</dd></div>
                     <div><dt>Type de projet</dt><dd>{{ demande.type_demande.libelle }}<small v-if="demande.type_precision">{{ demande.type_precision }}</small></dd></div>
                     <div><dt>Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
-                    <div><dt>Séjour</dt><dd class="mono">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }}</dd></div>
+                    <div><dt>Arrivée sur le terrain</dt><dd class="mono">{{ formatDate(demande.date_arrivee || demande.date_debut) }}</dd></div>
+                    <div><dt>Activités</dt><dd class="mono">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }}</dd></div>
                     <div><dt>Équipe</dt><dd>{{ demande.equipe_nombre }} personne{{ demande.equipe_nombre > 1 ? 's' : '' }}</dd></div>
                     <div><dt>Déposée le</dt><dd class="mono">{{ formatDate(demande.date_soumission) }}</dd></div>
                 </dl>
@@ -148,7 +168,10 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Analyse de la demande</h2>
-                        <small>Faite automatiquement à l'envoi du dossier</small>
+                        <span class="panel__fin">
+                            <small>Faite automatiquement à l'envoi du dossier</small>
+                            <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('analyse')"><Icon name="warning" />Signaler</button>
+                        </span>
                     </header>
                     <PanneauAnalyse :contraintes="demande.resultats_analyse ?? []" />
                 </section>
@@ -156,7 +179,10 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Projet</h2>
-                        <BoutonDocument class="link link-btn" :url="route('demandes.pdf.formulaire', demande.id)" :word="peutTelechargerWord">Formulaire de demande</BoutonDocument>
+                        <span class="panel__fin">
+                            <BoutonDocument class="link link-btn" :url="route('demandes.pdf.formulaire', demande.id)" :word="peutTelechargerWord">Formulaire de demande</BoutonDocument>
+                            <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('projet')"><Icon name="warning" />Signaler</button>
+                        </span>
                     </header>
                     <dl class="projet">
                         <div><dt>Titre du projet</dt><dd>{{ demande.titre || '—' }}</dd></div>
@@ -168,7 +194,11 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Pièces du dossier</h2>
-                        <small v-if="docsRequis.length">{{ docsRequis.length - docsManquants.length }} sur {{ docsRequis.length }} fournies</small>
+                        <span class="panel__fin">
+                            <small v-if="docsRequis.length">{{ docsRequis.length - docsManquants.length }} sur {{ docsRequis.length }} fournies</small>
+                            <a v-if="demande.documents?.length > 1" :href="route('demandes.pieces.zip', demande.id)" class="link"><Icon name="download-simple" />Tout télécharger</a>
+                            <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('pieces')"><Icon name="warning" />Signaler</button>
+                        </span>
                     </header>
                     <ul v-if="demande.documents?.length || docsManquants.length" class="docs">
                         <li v-for="doc in demande.documents" :key="doc.id">
@@ -192,9 +222,23 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                 </section>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Suivi du dossier</h2></header>
-                    <TimelineDemande :demande="demande" :delai-habituel="delaiHabituel" />
+                    <header class="panel__head">
+                        <h2>Suivi du dossier</h2>
+                        <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('suivi')"><Icon name="warning" />Signaler</button>
+                    </header>
+                    <TimelineDemande :demande="demande" :delai-habituel="delaiHabituel" :signalements="signalements" />
                 </section>
+
+                <SignalementsDossier
+                    v-if="peutSignaler || signalements.length"
+                    id="signalements"
+                    ref="blocSignalements"
+                    :demande="demande"
+                    :signalements="signalements"
+                    :parties="partiesSignalement"
+                    :peut-signaler="peutSignaler"
+                    :peut-traiter="peutTraiterSignalements"
+                />
             </div>
 
             <aside class="side">
@@ -202,12 +246,23 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                     <header class="panel__head"><h2>{{ code === 'validee' ? 'Demande validée' : 'Dossier clôturé' }}</h2></header>
                     <div class="panel__body">
                         <p v-if="code === 'rejetee'">Cette demande a été rejetée. Aucune modification de statut n'est possible.</p>
+                        <p v-else-if="code === 'retiree'">Le demandeur a annulé cette demande. Aucune décision n'est attendue.</p>
                         <p v-else-if="code === 'validee'">Le dossier est définitivement clôturé. Les documents officiels sont disponibles.</p>
                         <p v-else>Ce dossier ne peut plus être modifié.</p>
                         <div v-if="code === 'validee'" class="btn-col">
                             <BoutonDocument class="btn-accent" :url="route('demandes.pdf.autorisation', demande.id)" :word="peutTelechargerWord">Autorisation</BoutonDocument>
                             <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.cahier-charges', demande.id)" :word="peutTelechargerWord">Cahier des charges</BoutonDocument>
+                            <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.convention', demande.id)" :word="peutTelechargerWord">Convention de collaboration</BoutonDocument>
                         </div>
+                    </div>
+                </section>
+
+                <section v-else-if="lectureSeule" class="panel notice notice--suivi">
+                    <header class="panel__head"><h2>Suivi en lecture seule</h2></header>
+                    <div class="panel__body">
+                        <p>En tant qu'observateur, vous consultez tout le dossier sans prendre de décision.</p>
+                        <p>Une pièce illisible, une date incohérente, un dossier qui attend trop ? Signalez-le : les validateurs de l'aire protégée et les administrateurs sont prévenus.</p>
+                        <button v-if="peutSignaler" type="button" class="btn-accent" @click="signaler('autre')"><Icon name="warning" />Signaler un problème</button>
                     </div>
                 </section>
 
@@ -251,8 +306,8 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                                 <span>
                                     <strong>{{ documentsGeneres ? 'Documents prêts à relire' : 'Préparer les documents' }}</strong>
                                     <small>{{ documentsGeneres
-                                        ? 'Relisez et modifiez l\'autorisation et le cahier des charges en haut de la page.'
-                                        : 'Autorisation et cahier des charges, à relire et modifier. Rien n\'est envoyé au demandeur à cette étape.' }}</small>
+                                        ? 'Relisez et modifiez l\'autorisation, le cahier des charges et la convention en haut de la page.'
+                                        : 'Autorisation, cahier des charges et convention de collaboration, à relire et modifier. Rien n\'est envoyé au demandeur à cette étape.' }}</small>
                                     <button v-if="documentsGeneres" type="button" class="link link-btn steps__lien" @click="montrerDocuments">
                                         <Icon name="eye" />Relire et modifier les documents
                                     </button>
@@ -301,6 +356,13 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .intro { display: grid; gap: 12px; margin-bottom: 24px; }
 .intro__title { font-size: clamp(20px, 2vw, 26px); font-weight: 700; line-height: 1.15; max-width: 48ch; }
 .docs-generes { margin-bottom: 24px; }
+.alerte-sig { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 12px 16px; background: var(--ochre-soft); border: 1px solid var(--ochre-line); border-radius: var(--r); color: var(--ink); font-size: 14px; text-decoration: none; }
+.alerte-sig svg { width: 20px; height: 20px; color: var(--ochre); flex-shrink: 0; }
+.alerte-sig span:nth-child(2) { flex: 1; }
+.alerte-sig__voir { font-weight: 600; color: var(--ochre); }
+.alerte-sig:hover .alerte-sig__voir { text-decoration: underline; }
+.signaler { color: var(--ochre); }
+.notice--suivi { background: var(--surface); border-color: var(--rule); }
 
 .show-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 @media (max-width: 1000px) { .show-layout { grid-template-columns: minmax(0, 1fr); } }
@@ -318,6 +380,9 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .panel__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 12px; padding: 16px 24px 8px; }
 .panel__head h2 { font-size: 15.5px; font-weight: 700; }
 .panel__head small { font-size: 12.5px; color: var(--ink-3); }
+.panel__fin { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.panel__fin .link { display: inline-flex; align-items: center; gap: 5px; }
+.panel__fin .link svg { width: 14px; height: 14px; }
 .panel__text { padding: 16px 24px; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; }
 .panel__body { display: grid; gap: 14px; padding: 16px 24px; font-size: 14px; color: var(--ink-2); }
 .muted { color: var(--ink-3); }

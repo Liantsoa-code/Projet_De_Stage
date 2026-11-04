@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Référentiel des statuts du workflow (App\Support\DemandeStatutWorkflow). Les six statuts sont
- * insérés ici : l'application ne fonctionne pas sans eux, le code les retrouve par leur code.
+ * Référentiel des statuts du workflow (App\Support\DemandeStatutWorkflow). Les six premiers statuts sont
+ * insérés ici (« retiree » : migration 2026_11_04_100000) : l'application ne fonctionne pas sans eux, le code les retrouve par leur code.
  */
 return new class extends Migration
 {

@@ -61,6 +61,16 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                                     <div class="role-option__desc">Peut approuver/rejeter des dossiers</div>
                                 </div>
                             </label>
+                            <label class="role-option" :class="{ 'role-option--selected': form.role === 'observateur' }">
+                                <input type="radio" v-model="form.role" value="observateur" class="sr-only" />
+                                <div class="role-option__icon role-icon--observateur">
+                                    <Icon name="eye" />
+                                </div>
+                                <div>
+                                    <div class="role-option__name">Observateur</div>
+                                    <div class="role-option__desc">Suit tous les dossiers sans décider, peut signaler un problème</div>
+                                </div>
+                            </label>
                             <label class="role-option" :class="{ 'role-option--selected': form.role === 'admin' }">
                                 <input type="radio" v-model="form.role" value="admin" class="sr-only" />
                                 <div class="role-option__icon role-icon--admin">
@@ -68,7 +78,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                                 </div>
                                 <div>
                                     <div class="role-option__name">Administrateur</div>
-                                    <div class="role-option__desc">Accès complet à la plateforme</div>
+                                    <div class="role-option__desc">Gestion de la plateforme</div>
                                 </div>
                             </label>
                         </div>
@@ -170,6 +180,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
 .role-icon--demandeur { background: var(--forest-soft); color: var(--forest); }
 .role-icon--validateur { background: var(--water-line); color: var(--water); }
 .role-icon--admin { background: var(--ochre-soft); color: var(--ochre); }
+.role-icon--observateur { background: var(--sunk); color: var(--ink-2); }
 
 .role-option__name { font-size: 13.5px; font-weight: 600; color: var(--c-ink); }
 .role-option__desc { font-size: 12px; color: var(--c-muted); margin-top: 1px; }

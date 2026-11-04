@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\DecisionRequest;
 use App\Http\Requests\DocumentsOfficielsRequest;
 use App\Models\Demande;
+use App\Models\Signalement;
 use App\Models\Site;
 use App\Models\Statut;
+use App\Models\TypeDemande;
 use App\Models\HistoriqueStatut;
 use App\Support\AnalyseDemande;
 use App\Support\DelaiDecision;
@@ -40,10 +42,17 @@ class DemandeController extends Controller
 
         return Inertia::render('Validateur/Demandes/Index', [
             'demandes' => $demandes,
-            'viewAllDemandes' => $user->role === 'admin',
-            'filters' => $request->only(['q', 'statut', 'site_id', 'du', 'au']),
-            'sites' => $user->role === 'admin' ? Site::orderBy('nom')->get(['id', 'nom']) : $user->sites()->orderBy('nom')->get(['t_sites.id', 't_sites.nom']),
+            // Admin et observateur voient toutes les aires protégées ; l'observateur ne fait que consulter
+            'viewAllDemandes' => in_array($user->role, ['admin', 'observateur'], true),
+            'lectureSeule' => $user->role === 'observateur',
+            'filters' => $request->only(['q', 'du', 'au']) + [
+                'statut' => $this->choix($request, 'statut'),
+                'site_id' => $this->choix($request, 'site_id'),
+                'type_demande_id' => $this->choix($request, 'type_demande_id'),
+            ],
+            'sites' => $user->role !== 'validateur' ? Site::orderBy('nom')->get(['id', 'nom']) : $user->sites()->orderBy('nom')->get(['t_sites.id', 't_sites.nom']),
             'statuts' => Statut::where('code', '!=', 'brouillon')->get(['id', 'code', 'libelle']),
+            'types' => TypeDemande::orderBy('libelle')->get(['id', 'libelle']),
         ]);
     }
 
@@ -64,7 +73,7 @@ class DemandeController extends Controller
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF"); // BOM : Excel détecte l'UTF-8 (accents)
             fputcsv($out, [
-                'N°', 'Demandeur', 'Email', 'Aire protégée', 'Titre du projet', 'Type de projet', 'Début', 'Fin', 'Équipe',
+                'N°', 'Demandeur', 'Email', 'Aire protégée', 'Titre du projet', 'Type de projet', 'Arrivée sur le terrain', 'Début des activités', 'Fin', 'Équipe',
                 'Statut', 'Soumise le', 'Décision le', 'Délai (jours)', 'Analyse', 'Contraintes',
             ], ';');
             $verdicts = ['compatible' => 'Compatible', 'conditions' => 'Compatible sous conditions', 'conflit' => 'Conflit détecté'];
@@ -79,6 +88,7 @@ class DemandeController extends Controller
                         $d->site?->nom,
                         $d->titre,
                         $d->typeProjet(),
+                        $d->arrivee()?->format('d/m/Y'),
                         $d->date_debut?->format('d/m/Y'),
                         $d->date_fin?->format('d/m/Y'),
                         $d->equipe_nombre,
@@ -97,7 +107,8 @@ class DemandeController extends Controller
     }
 
     /**
-     * Demandes visibles (hors brouillons, sites assignés pour un validateur) filtrées selon la requête.
+     * Demandes visibles (hors brouillons ; sites assignés pour un validateur, tout pour un admin ou un observateur)
+     * filtrées selon la requête.
      */
     private function filteredQuery(Request $request): Builder
     {
@@ -105,7 +116,7 @@ class DemandeController extends Controller
 
         $query = Demande::query()->horsBrouillon();
 
-        if ($user->role !== 'admin') {
+        if ($user->role === 'validateur') {
             $siteIds = $user->sites()->pluck('t_sites.id');
             $query->whereIn('site_id', $siteIds);
         }
@@ -120,12 +131,17 @@ class DemandeController extends Controller
             });
         }
 
-        if ($statut = $request->input('statut')) {
-            $query->whereHas('statut', fn ($s) => $s->where('code', $statut));
+        // Filtres à choix multiples : une demande correspond si elle a l'une des valeurs cochées
+        if ($statuts = $this->choix($request, 'statut')) {
+            $query->whereHas('statut', fn ($s) => $s->whereIn('code', $statuts));
         }
 
-        if ($siteId = $request->input('site_id')) {
-            $query->where('site_id', $siteId);
+        if ($siteIds = $this->choix($request, 'site_id')) {
+            $query->whereIn('site_id', $siteIds);
+        }
+
+        if ($typeIds = $this->choix($request, 'type_demande_id')) {
+            $query->whereIn('type_demande_id', $typeIds);
         }
 
         // Période : demandes dont le séjour chevauche l'intervalle choisi
@@ -139,9 +155,18 @@ class DemandeController extends Controller
         return $query;
     }
 
+    /**
+     * Valeurs cochées d'un filtre multiple (« statut[]=soumise&statut[]=validee »).
+     * Une valeur seule (« statut=soumise », liens du tableau de bord) est acceptée aussi.
+     */
+    private function choix(Request $request, string $cle): array
+    {
+        return $request->collect($cle)->filter(fn ($v) => is_scalar($v) && $v !== '')->map(fn ($v) => (string) $v)->values()->all();
+    }
+
     public function show(Demande $demande)
     {
-        Gate::authorize('instruire', $demande);
+        Gate::authorize('suivre', $demande);
 
         $demande->load([
             'site:id,nom', 'typeDemande.documentsRequis', 'statut', 'documents',
@@ -149,6 +174,9 @@ class DemandeController extends Controller
             'historiqueStatuts' => fn ($q) => $q->orderBy('date_changement')->orderBy('id'),
             'historiqueStatuts.user:id,name,role',
             'historiqueStatuts.nouveauStatut',
+            'signalements' => fn ($q) => $q->latest()->latest('id'),
+            'signalements.auteur:id,name,role',
+            'signalements.traitePar:id,name,role',
         ]);
         $allStatuts = Statut::all();
 
@@ -158,13 +186,19 @@ class DemandeController extends Controller
         return Inertia::render('Validateur/Demandes/Show', [
             'demande' => $demande,
             'statuts' => DemandeStatutWorkflow::allowedTargetStatuts($demande->statut, $allStatuts),
-            'viewAllDemandes' => $user->role === 'admin',
+            'viewAllDemandes' => in_array($user->role, ['admin', 'observateur'], true),
+            // Observateur : tout le dossier en lecture, sans décision ; il peut signaler un problème
+            'lectureSeule' => $user->role === 'observateur',
+            'signalements' => $demande->signalements->map->pourPage()->values(),
+            'partiesSignalement' => Signalement::PARTIES,
+            'peutSignaler' => Gate::allows('signaler', $demande),
+            'peutTraiterSignalements' => Gate::allows('traiterSignalement', $demande),
             'canDecideOnDemande' => Gate::allows('decider', $demande) && ! $statutLocked,
             'statutLocked' => $statutLocked,
             // Version Word des documents : pas pour un validateur auteur de la demande
             'peutTelechargerWord' => Gate::allows('telechargerWord', $demande),
-            // Autorisation et cahier des charges générés, en relecture avant la validation signée
-            'documentsGeneres' => $statutLocked ? null : DocumentsOfficiels::pourEdition($demande),
+            // Autorisation, cahier des charges et convention générés, en relecture avant la validation signée
+            'documentsGeneres' => $statutLocked || Gate::denies('consulterProjets', $demande) ? null : DocumentsOfficiels::pourEdition($demande),
             // Estimation de la décision sur la timeline, tant que le dossier est en instruction
             'delaiHabituel' => in_array($demande->statut->code, ['soumise', 'en_analyse'], true)
                 ? DelaiDecision::habituelParSite()($demande->site_id)
@@ -194,7 +228,7 @@ class DemandeController extends Controller
 
             // La validation fige les documents relus : ils doivent avoir été générés.
             if ($nouveauStatut->code === 'validee' && ! DocumentsOfficiels::sontGeneres($demande)) {
-                return 'Générez et relisez l\'autorisation et le cahier des charges avant de valider le dossier.';
+                return 'Générez et relisez l\'autorisation, le cahier des charges et la convention avant de valider le dossier.';
             }
 
             // Dossier renvoyé ou refusé : les documents préparés ne servent plus (ils seront regénérés
@@ -239,7 +273,7 @@ class DemandeController extends Controller
     }
 
     /**
-     * Première étape de la validation : prépare l'autorisation et le cahier des charges à relire.
+     * Première étape de la validation : prépare l'autorisation, le cahier des charges et la convention à relire.
      * Le statut ne change pas ; la validation viendra avec la signature (updateStatut).
      */
     public function genererDocuments(Demande $demande)
@@ -281,7 +315,11 @@ class DemandeController extends Controller
      */
     public function apercuDocument(Request $request, Demande $demande, string $type)
     {
-        Gate::authorize('decider', $demande);
+        // Lecture du projet : l'équipe qui suit le dossier (observateur compris) ; le Word, modifiable, aux décideurs
+        Gate::authorize('consulterProjets', $demande);
+        if (FormatDocument::demande($request) === 'docx') {
+            Gate::authorize('telechargerWord', $demande);
+        }
         abort_unless(isset(DocumentsOfficiels::CHAMPS[$type]), 404);
         abort_unless($demande->documentsOfficiels()->where('type', $type)->exists(), 404);
 

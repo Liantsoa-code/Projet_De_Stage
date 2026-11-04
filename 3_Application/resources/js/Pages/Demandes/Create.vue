@@ -51,6 +51,7 @@ const form = useForm({
     description: props.demande?.description ?? '',
     objectifs: props.demande?.objectifs ?? '',
     site_id: props.demande?.site_id ?? '',
+    date_arrivee: props.demande?.date_arrivee?.slice(0, 10) ?? '',
     date_debut: props.demande?.date_debut?.slice(0, 10) ?? '',
     date_fin: props.demande?.date_fin?.slice(0, 10) ?? '',
     equipe_nombre: String(props.demande?.equipe_nombre ?? '1'),
@@ -222,7 +223,7 @@ const pieces = computed(() => piecesRequises.value.map((doc) => {
 const ETAPES = [
     { id: 'demandeur', titre: 'Demandeur', entete: 'I. Informations sur le demandeur', champs: ['organisation', 'fonction', 'adresse', 'telephone'] },
     { id: 'projet', titre: 'Projet', entete: 'II. Informations sur le projet', champs: ['titre', 'type_demande_id', 'type_precision', 'description', 'objectifs'] },
-    { id: 'aire', titre: 'Aire et période', entete: 'Aire protégée et période prévue', champs: ['site_id', 'date_debut', 'date_fin', 'equipe_nombre'] },
+    { id: 'aire', titre: 'Aire et période', entete: 'Aire protégée et période prévue', champs: ['site_id', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre'] },
     { id: 'pieces', titre: 'Pièces', entete: 'Pièces à joindre', champs: [] },
     { id: 'engagement', titre: 'Engagement', entete: 'Récapitulatif et engagement', champs: ['piece_identite', 'engagement', 'message_complement'] },
 ];
@@ -249,7 +250,10 @@ function erreursEtape(id) {
         if (vide(form.objectifs)) err.objectifs = 'Indiquez le ou les objectifs principaux du projet.';
     } else if (id === 'aire') {
         if (!form.site_id) err.site_id = 'Choisissez une aire protégée.';
-        if (!form.date_debut) err.date_debut = 'Indiquez la date de début.';
+        if (!form.date_arrivee) err.date_arrivee = 'Indiquez la date d\'arrivée sur le terrain.';
+        else if (form.date_arrivee < today) err.date_arrivee = 'La date d\'arrivée ne peut pas être antérieure à aujourd\'hui.';
+        else if (form.date_debut && form.date_arrivee > form.date_debut) err.date_arrivee = 'L\'arrivée sur le terrain doit avoir lieu au plus tard le jour du début des activités.';
+        if (!form.date_debut) err.date_debut = 'Indiquez la date de début des activités.';
         else if (form.date_debut < today) err.date_debut = 'La date de début ne peut pas être antérieure à aujourd\'hui.';
         else if (bloquant.value) err.date_debut = 'Ces dates chevauchent une période bloquante sur cette aire protégée : choisissez d\'autres dates.';
         if (!form.date_fin) err.date_fin = 'Indiquez la date de fin.';

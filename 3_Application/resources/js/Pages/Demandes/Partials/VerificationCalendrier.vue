@@ -57,15 +57,21 @@ const chevauche = (p) => props.chevauchements.some(c => c.id === p.id);
                     <span class="site-label">{{ site.nom }}</span>
                     <span v-if="surfaceSite" class="fiche__surface mono">≈ {{ surfaceSite }}</span>
                     <p v-if="site.description" class="fiche__desc">{{ site.description }}</p>
-                    <button v-if="surfaceSite" type="button" class="btn-sm-edit fiche__3d" @click="carte?.voir3d(site.id)">
-                        <Icon name="mountains" />
-                        Voir le terrain en 3D
-                    </button>
+                    <div v-if="surfaceSite || site.nb_photos || site.lien_photos" class="fiche__actions">
+                        <button v-if="surfaceSite" type="button" class="btn-sm-edit" @click="carte?.voir3d(site.id)">
+                            <Icon name="mountains" />
+                            Voir le terrain en 3D
+                        </button>
+                        <button v-if="site.nb_photos || site.lien_photos" type="button" class="btn-sm-edit" @click="carte?.voirPhotos(site.id)">
+                            <Icon name="image" />
+                            Voir les photos
+                        </button>
+                    </div>
                 </div>
 
                 <div v-if="calendrier === 'aucun'" class="res res--none">
                     <Icon name="calendar-blank" />
-                    <div><strong>Dates à compléter</strong>Choisissez l'arrivée et le départ pour vérifier le calendrier du site.</div>
+                    <div><strong>Dates à compléter</strong>Choisissez le début et la fin des activités pour vérifier le calendrier du site.</div>
                 </div>
                 <!-- Analyse complète par le serveur ; en attendant (ou sans date de départ), le calendrier seul -->
                 <PanneauAnalyse v-else-if="analyse" :contraintes="analyse.contraintes" compact avant-envoi :chargement="analyseEnCours" />
@@ -118,8 +124,8 @@ const chevauche = (p) => props.chevauchements.some(c => c.id === p.id);
 
 .fiche { display: grid; gap: 4px; }
 .fiche__surface { font-size: 12px; color: var(--ink-3); }
-.fiche__3d { justify-self: start; margin-top: 4px; }
-.fiche__3d svg { width: 15px; height: 15px; }
+.fiche__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.fiche__actions svg { width: 15px; height: 15px; }
 .fiche__desc { font-size: 13px; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 .res { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-sm); font-size: 13.5px; color: var(--ink-2); }

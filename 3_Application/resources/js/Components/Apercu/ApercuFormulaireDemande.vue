@@ -70,7 +70,8 @@ const reference = computed(() => props.demande.reference ?? 'attribuée à l\'en
 
         <p class="titre"><strong>Période prévue :</strong></p>
         <table class="champs champs--court">
-            <tr><th>- Début :</th><td>{{ date(demande.date_debut) }}</td></tr>
+            <tr><th>- Arrivée sur le terrain :</th><td>{{ date(demande.date_arrivee || demande.date_debut) }}</td></tr>
+            <tr><th>- Début des activités :</th><td>{{ date(demande.date_debut) }}</td></tr>
             <tr><th>- Fin :</th><td>{{ date(demande.date_fin) }}</td></tr>
         </table>
 

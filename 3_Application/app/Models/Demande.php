@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class Demande extends Model
 {
@@ -12,7 +13,7 @@ class Demande extends Model
 
     protected $fillable = [
         'user_id', 'site_id', 'type_demande_id', 'titre', 'type_precision',
-        'description', 'objectifs', 'date_debut', 'date_fin', 'equipe_nombre',
+        'description', 'objectifs', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre',
         'statut_id', 'date_soumission', 'resultats_analyse'
     ];
 
@@ -31,23 +32,33 @@ class Demande extends Model
     public const COORDONNEES = ['organisation', 'fonction', 'adresse', 'telephone', 'piece_identite'];
 
     protected $casts = [
+        'date_arrivee' => 'date',
         'date_debut' => 'date',
         'date_fin' => 'date',
         'date_soumission' => 'datetime',
         'resultats_analyse' => 'array',
     ];
 
+    /**
+     * Arrivée de l'équipe sur le terrain, ou début des activités si elle n'est pas renseignée (brouillon).
+     * Les activités (date_debut → date_fin) restent la période analysée et autorisée.
+     */
+    public function arrivee(): ?Carbon
+    {
+        return $this->date_arrivee ?? $this->date_debut;
+    }
+
     /** La référence est envoyée au front avec chaque demande. */
     protected $appends = ['reference'];
 
     /**
-     * Référence officielle FAN-AAAA-NNNN (année de création), seule source pour les pages et les PDF.
+     * Référence officielle FNB-AAAA-NNNN (année de création), seule source pour les pages et les PDF.
      * Vide si la demande est chargée sans son identifiant ou sa date de création.
      */
     protected function reference(): Attribute
     {
         return Attribute::get(fn () => $this->id && $this->created_at
-            ? sprintf('FAN-%s-%04d', $this->created_at->format('Y'), $this->id)
+            ? sprintf('FNB-%s-%04d', $this->created_at->format('Y'), $this->id)
             : null);
     }
 
@@ -68,6 +79,7 @@ class Demande extends Model
     public function documents() { return $this->hasMany(Document::class); }
     public function historiqueStatuts() { return $this->hasMany(HistoriqueStatut::class); }
     public function documentsOfficiels() { return $this->hasMany(DocumentOfficiel::class); }
+    public function signalements() { return $this->hasMany(Signalement::class); }
 
     /**
      * Exclut les brouillons : ils ne sont visibles que par leur auteur.
@@ -78,11 +90,11 @@ class Demande extends Model
     }
 
     /**
-     * Limite les statistiques tableau de bord : admin = tout, validateur = ses sites uniquement.
+     * Limite les statistiques tableau de bord : admin et observateur = tout, validateur = ses sites uniquement.
      */
     public function scopeForStatsViewer(Builder $query, User $viewer): Builder
     {
-        if ($viewer->role === 'admin') {
+        if (in_array($viewer->role, ['admin', 'observateur'], true)) {
             return $query;
         }
 

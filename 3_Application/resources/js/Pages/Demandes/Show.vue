@@ -5,7 +5,7 @@ import PanneauAnalyse from '@/Components/PanneauAnalyse.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
 import TimelineDemande from '@/Components/TimelineDemande.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { statutBadgeClass, formatDate } from '@/utils/statut.js';
 
@@ -15,6 +15,7 @@ const props = defineProps({
     delaiHabituel: { type: Number, default: null },
     canEdit: Boolean,
     canDelete: Boolean,
+    canRetirer: Boolean,
 });
 
 const code = computed(() => props.demande.statut.code);
@@ -30,6 +31,14 @@ const supprimer = () => {
     deleting.value = true;
     router.delete(route('demandes.destroy', props.demande.id), { onFinish: () => (deleting.value = false) });
 };
+
+// Annulation d'une demande envoyée (statut « Retirée »), avec un motif facultatif
+const confirmRetrait = ref(false);
+const retrait = useForm({ motif: '' });
+const retirer = () => retrait.post(route('demandes.retirer', props.demande.id), {
+    preserveScroll: true,
+    onSuccess: () => { confirmRetrait.value = false; retrait.reset(); },
+});
 </script>
 
 <template>
@@ -75,15 +84,25 @@ const supprimer = () => {
             <Link :href="route('demandes.edit', demande.id)" class="btn-accent">Reprendre le brouillon</Link>
         </section>
 
+        <section v-else-if="code === 'retiree'" class="callout callout--retire">
+            <Icon name="x-circle" class="callout__icon" />
+            <div class="callout__body">
+                <span class="callout__tag">Demande annulée</span>
+                <p>Vous avez annulé cette demande : elle ne sera pas examinée. Pour reprendre le projet, préparez une nouvelle demande.</p>
+            </div>
+            <Link :href="route('demandes.create')" class="btn-ghost"><Icon name="plus" />Nouvelle demande</Link>
+        </section>
+
         <section v-else-if="code === 'validee'" class="callout callout--ok">
             <Icon name="seal-check" class="callout__icon" />
             <div class="callout__body">
                 <span class="callout__tag">Demande validée</span>
-                <p>Présentez l'autorisation à l'arrivée dans l'aire protégée et respectez le cahier des charges.</p>
+                <p>Présentez l'autorisation à l'arrivée dans l'aire protégée et respectez le cahier des charges. La convention de collaboration est à signer avec Fanamby.</p>
             </div>
             <div class="btn-row">
                 <BoutonDocument class="btn-accent" :url="route('demandes.pdf.autorisation', demande.id)">Autorisation</BoutonDocument>
                 <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.cahier-charges', demande.id)">Cahier des charges</BoutonDocument>
+                <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.convention', demande.id)">Convention de collaboration</BoutonDocument>
             </div>
         </section>
 
@@ -92,8 +111,9 @@ const supprimer = () => {
                 <dl class="meta">
                     <div><dt>Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
                     <div><dt>Type de projet</dt><dd>{{ demande.type_demande.libelle }}<template v-if="demande.type_precision"> ({{ demande.type_precision }})</template></dd></div>
+                    <div><dt>Arrivée sur le terrain</dt><dd class="mono">{{ demande.date_arrivee ? formatDate(demande.date_arrivee) : 'À définir' }}</dd></div>
                     <div>
-                        <dt>Séjour</dt>
+                        <dt>Activités</dt>
                         <dd class="mono">
                             <template v-if="demande.date_debut">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }}</template>
                             <template v-else>À définir</template>
@@ -125,7 +145,10 @@ const supprimer = () => {
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Pièces du dossier</h2>
-                        <small v-if="docsRequis.length">{{ docsRequis.length - docsManquants.length }} sur {{ docsRequis.length }} fournies</small>
+                        <span class="panel__fin">
+                            <small v-if="docsRequis.length">{{ docsRequis.length - docsManquants.length }} sur {{ docsRequis.length }} fournies</small>
+                            <a v-if="demande.documents.length > 1" :href="route('demandes.pieces.zip', demande.id)" class="link"><Icon name="download-simple" />Tout télécharger</a>
+                        </span>
                     </header>
                     <ul v-if="demande.documents.length || docsManquants.length" class="docs">
                         <li v-for="doc in demande.documents" :key="doc.id">
@@ -175,6 +198,19 @@ const supprimer = () => {
                                 </div>
                             </div>
                         </template>
+                        <template v-if="canRetirer">
+                            <button v-if="!confirmRetrait" type="button" class="btn-sm-delete del-btn" @click="confirmRetrait = true"><Icon name="x-circle" />Annuler la demande</button>
+                            <form v-else class="del-confirm" @submit.prevent="retirer">
+                                <p>Annuler définitivement cette demande ? Elle passera au statut « Retirée » et ne sera plus examinée.</p>
+                                <label class="del-confirm__label" for="motif-retrait">Motif (facultatif, transmis à l'équipe)</label>
+                                <textarea id="motif-retrait" v-model="retrait.motif" class="gf-textarea" rows="2" maxlength="1000"></textarea>
+                                <p v-if="retrait.errors.motif" class="gf-error">{{ retrait.errors.motif }}</p>
+                                <div class="del-confirm__btns">
+                                    <button type="button" class="btn-ghost" @click="confirmRetrait = false">Garder la demande</button>
+                                    <button type="submit" class="btn-sm-delete del-btn" :disabled="retrait.processing">Oui, annuler</button>
+                                </div>
+                            </form>
+                        </template>
                     </div>
                 </section>
             </aside>
@@ -206,10 +242,12 @@ const supprimer = () => {
 .callout--draft .callout__icon, .callout--draft .callout__tag { color: var(--ink-2); }
 .callout--ok { background: var(--forest-soft); border-color: var(--forest-line); }
 .callout--ok .callout__icon, .callout--ok .callout__tag { color: var(--forest); }
+.callout--retire { background: var(--sunk); border-color: var(--rule); }
+.callout--retire .callout__icon, .callout--retire .callout__tag { color: var(--ink-2); }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 640px) {
     .callout { grid-template-columns: auto minmax(0, 1fr); }
-    .callout > .btn-accent, .callout > .btn-row { grid-column: 1 / -1; justify-self: start; }
+    .callout > .btn-accent, .callout > .btn-ghost, .callout > .btn-row { grid-column: 1 / -1; justify-self: start; }
 }
 
 .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 20px; margin: 0; padding: 16px 24px; background: var(--sunk); border-radius: var(--r); }
@@ -221,6 +259,9 @@ const supprimer = () => {
 .panel__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 12px; padding: 16px 24px 8px; }
 .panel__head h2 { font-size: 15.5px; font-weight: 700; }
 .panel__head small { font-size: 12.5px; color: var(--ink-3); }
+.panel__fin { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.panel__fin .link { display: inline-flex; align-items: center; gap: 5px; }
+.panel__fin .link svg { width: 14px; height: 14px; }
 .panel__text { padding: 16px 24px; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; }
 .muted { color: var(--ink-3); }
 .link { font-size: 13px; font-weight: 600; color: var(--water); text-decoration: none; }
@@ -243,4 +284,6 @@ const supprimer = () => {
 .del-confirm { padding: 12px; background: var(--signal-soft); border: 1px solid var(--signal-line); border-radius: var(--r-sm); }
 .del-confirm p { margin-bottom: 10px; font-size: 13px; color: var(--ink); }
 .del-confirm__btns { display: flex; justify-content: flex-end; gap: 8px; }
+.del-confirm__label { display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.del-confirm .gf-textarea { margin-bottom: 10px; font-size: 13.5px; }
 </style>

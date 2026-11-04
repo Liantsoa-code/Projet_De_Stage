@@ -26,6 +26,7 @@
         <p><strong>Monsieur / Madame :</strong> {{ $demande->user->name }} ({{ $demande->user->email }})</p>
         <p>À accéder à l'aire protégée de : <strong>{{ $demande->site->nom }}</strong></p>
         <p>Dans le cadre du projet suivant : <strong>{{ $demande->typeProjet() }}</strong>@if($demande->titre) — « {{ $demande->titre }} »@endif</p>
+        <p><strong>Arrivée sur le terrain :</strong> Le {{ \Carbon\Carbon::parse($demande->arrivee())->format('d/m/Y') }}</p>
         <p><strong>Période autorisée :</strong> Du {{ \Carbon\Carbon::parse($demande->date_debut)->format('d/m/Y') }} au {{ \Carbon\Carbon::parse($demande->date_fin)->format('d/m/Y') }}</p>
         <p><strong>Taille de l'équipe :</strong> {{ $demande->equipe_nombre }} personne(s)</p>
         <p><strong>Objet de la mission :</strong></p>

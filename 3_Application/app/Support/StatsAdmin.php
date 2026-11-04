@@ -60,18 +60,18 @@ class StatsAdmin extends StatsInstruction
     }
 
     /**
-     * Séjours validés en cours aujourd'hui : qui est sur le terrain, et combien.
+     * Séjours validés en cours aujourd'hui, de l'arrivée sur le terrain à la fin : qui est sur place, et combien.
      */
     private function surLeTerrain(): array
     {
         $jour = today()->toDateString();
         $sejours = Demande::query()
             ->whereHas('statut', fn ($q) => $q->where('code', 'validee'))
-            ->where('date_debut', '<=', $jour)
+            ->whereRaw('COALESCE(date_arrivee, date_debut) <= ?', [$jour])
             ->where('date_fin', '>=', $jour)
             ->with(['user:id,name', 'site:id,nom'])
             ->orderBy('date_fin')
-            ->get(['id', 'user_id', 'site_id', 'date_debut', 'date_fin', 'equipe_nombre', 'created_at']);
+            ->get(['id', 'user_id', 'site_id', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre', 'created_at']);
 
         return [
             'sejours' => $sejours->count(),
@@ -110,22 +110,22 @@ class StatsAdmin extends StatsInstruction
 
     /**
      * Fréquentation autorisée sur les 12 prochains mois, par site :
-     * séjours, personnes, et personnes × jours (la pression humaine réelle sur le site).
+     * séjours, personnes, et personnes × jours de présence, de l'arrivée à la fin (la pression humaine réelle sur le site).
      */
     private function frequentation(): Collection
     {
         return Demande::query()
             ->whereHas('statut', fn ($q) => $q->where('code', 'validee'))
             ->where('date_fin', '>=', today()->toDateString())
-            ->where('date_debut', '<=', today()->addYear()->toDateString())
+            ->whereRaw('COALESCE(date_arrivee, date_debut) <= ?', [today()->addYear()->toDateString()])
             ->with('site:id,nom')
-            ->get(['id', 'site_id', 'date_debut', 'date_fin', 'equipe_nombre'])
+            ->get(['id', 'site_id', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre'])
             ->groupBy('site_id')
             ->map(fn ($ds) => [
                 'nom' => $ds->first()->site?->nom,
                 'sejours' => $ds->count(),
                 'personnes' => (int) $ds->sum('equipe_nombre'),
-                'personnes_jours' => (int) $ds->sum(fn ($d) => $d->equipe_nombre * (DelaiDecision::joursEntre($d->date_debut, $d->date_fin) + 1)),
+                'personnes_jours' => (int) $ds->sum(fn ($d) => $d->equipe_nombre * (DelaiDecision::joursEntre($d->arrivee(), $d->date_fin) + 1)),
             ])
             ->sortByDesc('personnes_jours')
             ->values();

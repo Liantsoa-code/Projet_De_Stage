@@ -14,7 +14,7 @@ const arrivee = computed(() => {
     if (n === null) return null;
     if (n < 0) return `Arrivée dépassée de ${-n} j`;
     if (n === 0) return "Arrivée aujourd'hui";
-    return `Arrivée dans ${n} j`;
+    return `Arrivée J-${String(n).padStart(2, '0')}`;
 });
 </script>
 
@@ -34,6 +34,7 @@ const arrivee = computed(() => {
             <span class="tag" :class="{ 'tag--alert': d.retard }"><Icon name="clock" />{{ d.attente }} j d'attente</span>
             <span v-if="d.verdict === 'conflit'" class="tag tag--alert"><Icon name="prohibit" />Conflit détecté</span>
             <span v-else-if="d.verdict === 'conditions'" class="tag tag--warn"><Icon name="warning" />Sous conditions</span>
+            <span v-if="d.signalements" class="tag tag--warn"><Icon name="warning" />{{ d.signalements }} signalement{{ d.signalements > 1 ? 's' : '' }}</span>
         </span>
     </Link>
 </template>

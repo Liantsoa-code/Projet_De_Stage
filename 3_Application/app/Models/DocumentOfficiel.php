@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Texte modifiable d'un document officiel (autorisation ou cahier des charges), préparé à la
+ * Texte modifiable d'un document officiel (autorisation, cahier des charges ou convention), préparé à la
  * génération et figé une fois le dossier validé. Champs : voir App\Support\DocumentsOfficiels.
  */
 class DocumentOfficiel extends Model

@@ -12,7 +12,7 @@ class Site extends Model
     /** Clé de cache de la liste des sites affichée sur la page d'accueil. */
     public const CACHE_ACCUEIL = 'sites.accueil';
 
-    protected $fillable = ['nom', 'description', 'capacite_accueil', 'polygone_coordonnees'];
+    protected $fillable = ['nom', 'description', 'capacite_accueil', 'lien_photos', 'polygone_coordonnees'];
 
     protected $casts = [
         'polygone_coordonnees' => 'array',
@@ -27,13 +27,15 @@ class Site extends Model
     }
 
     /**
-     * Sites de la page d'accueil publique, avec leur contour. Ils changent rarement :
-     * la liste est gardée en cache une journée (tableau simple, le cache n'accepte pas d'objets).
+     * Sites de la page d'accueil publique, avec leur contour et de quoi proposer leurs photos. Ils changent
+     * rarement : la liste est gardée en cache une journée (tableau simple, le cache n'accepte pas d'objets).
      */
     public static function pourAccueil(): array
     {
-        return Cache::remember(self::CACHE_ACCUEIL, now()->addDay(), fn () => self::orderBy('nom')
-            ->get(['id', 'nom', 'description', 'polygone_coordonnees'])
+        return Cache::remember(self::CACHE_ACCUEIL, now()->addDay(), fn () => self::select(['id', 'nom', 'description', 'polygone_coordonnees', 'lien_photos'])
+            ->withCount('photos as nb_photos')
+            ->orderBy('nom')
+            ->get()
             ->toArray());
     }
 
@@ -56,5 +58,11 @@ class Site extends Model
     public function conditions()
     {
         return $this->hasMany(ConditionSite::class)->orderBy('id');
+    }
+
+    /** Photos de la galerie « Voir les photos », dans l'ordre choisi par l'admin. */
+    public function photos()
+    {
+        return $this->hasMany(PhotoSite::class);
     }
 }

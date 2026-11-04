@@ -12,6 +12,7 @@ Enum role_utilisateur {
   demandeur
   validateur
   admin
+  observateur [note: 'Suit tous les dossiers en lecture seule et signale les problèmes, sans décider']
 }
 
 Enum niveau_restriction {
@@ -41,6 +42,7 @@ Table t_sites {
   nom varchar(150) [not null]
   description text
   capacite_accueil smallint [note: 'Personnes présentes en même temps au plus ; vide : sans limite']
+  lien_photos varchar(500) [note: 'Banque d\'images complète, hébergée ailleurs ; facultatif']
   polygone_coordonnees json
   created_at timestamp
   updated_at timestamp
@@ -56,6 +58,22 @@ Table t_conditions_site {
   updated_at timestamp
 
   Note: 'Règles permanentes de l\'aire protégée (une ligne par règle), proposées par l\'analyse des demandes'
+}
+
+Table t_photos_site {
+  id bigint [pk, increment]
+  site_id bigint [not null]
+  chemin varchar(255) [not null, note: 'Grande image, 1600 px au plus (l\'original n\'est pas gardé)']
+  chemin_vignette varchar(255) [not null, note: 'Vignette de la galerie, 480 px au plus']
+  largeur smallint [not null]
+  hauteur smallint [not null]
+  legende varchar(255)
+  credit varchar(150)
+  ordre smallint [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+
+  Note: 'Photos de la galerie « Voir les photos » d\'une aire protégée (12 au plus)'
 }
 
 Table t_site_user {
@@ -120,7 +138,8 @@ Table t_demandes {
   type_precision varchar(150) [note: 'Précision du type « Autre »']
   description text [note: 'Résumé du synopsis']
   objectifs text [note: 'Objectif(s) principal(aux) du projet']
-  date_debut date [note: 'Facultative tant que la demande est un brouillon']
+  date_arrivee date [note: "Arrivée sur le terrain, au plus tard au début des activités ; facultative tant que la demande est un brouillon"]
+  date_debut date [note: 'Début des activités ; facultative tant que la demande est un brouillon']
   date_fin date [note: 'Facultative tant que la demande est un brouillon']
   equipe_nombre int [not null, default: 1, note: 'CHECK (equipe_nombre >= 1)']
   statut_id bigint [not null]
@@ -129,7 +148,7 @@ Table t_demandes {
   created_at timestamp
   updated_at timestamp
 
-  Note: 'CHECK (date_fin >= date_debut). statut_id = dernier statut historisé (brouillon si aucun historique)'
+  Note: 'CHECK (date_fin >= date_debut), CHECK (date_arrivee <= date_debut). statut_id = dernier statut historisé (brouillon si aucun historique)'
 }
 
 Table t_documents {
@@ -153,6 +172,25 @@ Table t_historique_statuts {
   date_changement timestamp [not null, default: `CURRENT_TIMESTAMP`]
   created_at timestamp
   updated_at timestamp
+}
+
+Table t_signalements {
+  id bigint [pk, increment]
+  demande_id bigint [not null]
+  user_id bigint [note: 'Auteur ; vide si son compte a été supprimé']
+  partie varchar(20) [not null, note: 'CHECK : demandeur, projet, sejour, pieces, analyse, documents, suivi ou autre']
+  message text [not null]
+  reponse text
+  traite_par bigint [note: 'Validateur du site ou admin ; vide si son compte a été supprimé']
+  traite_le timestamp [note: 'Vide : signalement ouvert']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (demande_id, traite_le)
+  }
+
+  Note: 'Problèmes signalés sur un dossier, internes à l\'équipe (le demandeur ne les voit pas)'
 }
 
 Table t_periode_sensibles {
@@ -201,7 +239,7 @@ Table t_modeles_reference {
 Table t_documents_officiels {
   id bigint [pk, increment]
   demande_id bigint [not null]
-  type varchar(30) [not null, note: 'CHECK : autorisation ou cahier_charges']
+  type varchar(30) [not null, note: 'CHECK : autorisation, cahier_charges ou convention']
   contenu json [not null, note: 'Textes relus par le validateur ; les données du dossier sont lues sur la demande']
   genere_par bigint [note: 'Auteur de la génération, vide si son compte est supprimé']
   created_at timestamp
@@ -248,9 +286,13 @@ Ref: t_historique_statuts.demande_id > t_demandes.id [delete: cascade]
 Ref: t_historique_statuts.user_id >? t_users.id [delete: set null]
 Ref: t_historique_statuts.ancien_statut_id >? t_statuts.id
 Ref: t_historique_statuts.nouveau_statut_id > t_statuts.id
+Ref: t_signalements.demande_id > t_demandes.id [delete: cascade]
+Ref: t_signalements.user_id >? t_users.id [delete: set null]
+Ref: t_signalements.traite_par >? t_users.id [delete: set null]
 
 Ref: t_periode_sensibles.site_id > t_sites.id [delete: cascade]
 Ref: t_conditions_site.site_id > t_sites.id [delete: cascade]
+Ref: t_photos_site.site_id > t_sites.id [delete: cascade]
 
 Ref: t_notifications.user_id > t_users.id [delete: cascade]
 Ref: t_notifications.demande_id >? t_demandes.id [delete: cascade]

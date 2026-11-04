@@ -12,6 +12,21 @@ export function lignes(texte) {
     return String(texte ?? '').split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean);
 }
 
+// Redevance de la convention : montant par jour saisi, jours d'activités (début → fin, inclus) et total,
+// comme DocumentsOfficiels::redevance. Montant vide : pas encore fixé (null) ; 0 : aucune redevance.
+export function redevance(demande, contenu) {
+    const saisie = String(contenu.redevance_jour ?? '').trim();
+    const parJour = /^\d+$/.test(saisie) ? Number(saisie) : null;
+    const jour = (v) => new Date(`${String(v).slice(0, 10)}T00:00:00`);
+    const jours = demande.date_debut && demande.date_fin ? Math.round((jour(demande.date_fin) - jour(demande.date_debut)) / 86400000) + 1 : 0;
+    return { parJour, jours, total: parJour === null ? null : parJour * jours };
+}
+
+// Montant en ariary, chiffres groupés par trois (« 8 000 000 »), comme DocumentsOfficiels::montant
+export function montant(valeur) {
+    return String(valeur).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
 // Date et heure au format des PDF (d/m/Y à H:i)
 export function horodatage(valeur = new Date()) {
     const date = new Date(valeur);

@@ -26,6 +26,7 @@ const conditions = computed(() => lignes(props.contenu.conditions));
             <p><strong>Monsieur / Madame :</strong> {{ demande.user.name }} ({{ demande.user.email }})</p>
             <p>À accéder à l'aire protégée de : <strong>{{ demande.site.nom }}</strong></p>
             <p>Dans le cadre du projet suivant : <strong>{{ typeProjet(demande) }}</strong><template v-if="demande.titre"> — « {{ demande.titre }} »</template></p>
+            <p><strong>Arrivée sur le terrain :</strong> Le {{ formatDate(demande.date_arrivee || demande.date_debut) }}</p>
             <p><strong>Période autorisée :</strong> Du {{ formatDate(demande.date_debut) }} au {{ formatDate(demande.date_fin) }}</p>
             <p><strong>Taille de l'équipe :</strong> {{ demande.equipe_nombre }} personne(s)</p>
             <p><strong>Objet de la mission :</strong></p>

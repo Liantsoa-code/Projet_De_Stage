@@ -63,6 +63,7 @@ class DocumentsWord
         self::ligne($section, [['Monsieur / Madame :', self::GRAS], " {$demande->user->name} ({$demande->user->email})"]);
         self::ligne($section, ["À accéder à l'aire protégée de : ", [$demande->site->nom, self::GRAS]]);
         self::ligne($section, ['Dans le cadre du projet suivant : ', [$demande->typeProjet(), self::GRAS], $demande->titre ? " — « {$demande->titre} »" : '']);
+        self::ligne($section, [['Arrivée sur le terrain :', self::GRAS], ' Le ' . self::date($demande->arrivee())]);
         self::ligne($section, [['Période autorisée :', self::GRAS], ' Du ' . self::date($demande->date_debut) . ' au ' . self::date($demande->date_fin)]);
         self::ligne($section, [["Taille de l'équipe :", self::GRAS], " {$demande->equipe_nombre} personne(s)"]);
         self::ligne($section, [['Objet de la mission :', self::GRAS]]);
@@ -134,6 +135,119 @@ class DocumentsWord
     }
 
     /**
+     * Convention de collaboration, comme pdf/convention.blade.php.
+     *
+     * @param  array  $donnees  variables de la vue (DocumentsOfficiels::donneesVue)
+     */
+    public static function convention(array $donnees): PhpWord
+    {
+        ['demande' => $demande, 'contenu' => $contenu, 'validation' => $validation] = $donnees;
+        [$word, $section] = self::nouveau('Convention de collaboration', 'Arial', 10);
+        $beneficiaire = $demande->user;
+        $redevance = DocumentsOfficiels::redevance($demande, $contenu);
+        $jours = $redevance['jours'] . ' jour' . ($redevance['jours'] > 1 ? 's' : '');
+        $modalites = DocumentsOfficiels::lignes($contenu['modalites']);
+
+        $section->addImage(public_path('assets/logo-fanamby-192.png'), ['width' => 54, 'height' => 54, 'alignment' => Jc::CENTER]);
+        self::titre($section, 'CONVENTION DE COLLABORATION');
+
+        $section->addText('Entre les soussignés :');
+        self::texte($section, $contenu['partie_fanamby'] . ' ;');
+        $section->addText('Et');
+        self::ligne($section, [[$beneficiaire->name, self::GRAS], implode('', array_filter([
+            $beneficiaire->fonction ? ", {$beneficiaire->fonction}" : '',
+            $beneficiaire->organisation ? ", {$beneficiaire->organisation}" : '',
+            $beneficiaire->adresse ? ", demeurant à {$beneficiaire->adresse}" : '',
+            $beneficiaire->telephone ? ", Tél. {$beneficiaire->telephone}" : '',
+            ", e-mail : {$beneficiaire->email}",
+            $beneficiaire->piece_identite ? ", CIN / passeport : {$beneficiaire->piece_identite}" : '',
+            ', ci-après désigné(e) « le Bénéficiaire » ;',
+        ]))]);
+        $section->addText('Il a été convenu ce qui suit :');
+
+        self::partie($section, 'Article 1 – Objet de la convention');
+        self::texte($section, $contenu['objet']);
+
+        self::partie($section, 'Article 2 – Avis favorable');
+        self::texte($section, $contenu['avis']);
+
+        self::partie($section, 'Article 3 – Période et modalités des opérations');
+        self::ligne($section, [
+            'Arrivée sur le terrain le ', [self::date($demande->arrivee()), self::GRAS], ' ; activités du ', [self::date($demande->date_debut), self::GRAS],
+            ' au ', [self::date($demande->date_fin), self::GRAS], " ({$jours}) ; équipe de {$demande->equipe_nombre} personne(s).",
+            $modalites ? ' Les opérations comprennent notamment :' : '',
+        ]);
+        self::liste($section, $modalites);
+        $section->addText('Toute modification substantielle du calendrier devra être validée préalablement par Fanamby.');
+
+        self::partie($section, 'Article 4 – Redevance financière');
+        if ($redevance['par_jour'] === null) {
+            $section->addText('Le montant de la redevance due par le Bénéficiaire sera communiqué par Fanamby.');
+        } elseif ($redevance['par_jour'] === 0) {
+            $section->addText('La présente convention ne donne lieu à aucune redevance.');
+        } else {
+            self::ligne($section, [
+                "En contrepartie de l'autorisation d'exploitation temporaire du site pour les besoins du projet, le Bénéficiaire s'engage à verser à Fanamby la somme de ",
+                [DocumentsOfficiels::montant($redevance['par_jour']) . ' Ariary par jour', self::GRAS],
+                ", soit pour {$jours} d'activités : ",
+                [DocumentsOfficiels::montant($redevance['total']) . ' Ariary', self::GRAS], '.',
+            ]);
+        }
+        self::texte($section, $contenu['paiement']);
+
+        self::partie($section, 'Article 5 – Affectation des recettes');
+        self::texte($section, $contenu['affectation']);
+
+        self::partie($section, 'Article 6 – Obligations du Bénéficiaire');
+        $section->addText("Le Bénéficiaire s'engage à :");
+        self::liste($section, DocumentsOfficiels::lignes($contenu['obligations_beneficiaire']));
+
+        self::partie($section, 'Article 7 – Obligations de Fanamby');
+        $section->addText("Fanamby s'engage à :");
+        self::liste($section, DocumentsOfficiels::lignes($contenu['obligations_fanamby']));
+
+        self::partie($section, 'Article 8 – Responsabilité');
+        $section->addText('Le Bénéficiaire demeure seul responsable :');
+        self::liste($section, DocumentsOfficiels::lignes($contenu['responsabilite']));
+
+        self::partie($section, 'Article 9 – Litiges');
+        self::texte($section, $contenu['litiges']);
+
+        self::partie($section, 'Article 10 – Entrée en vigueur');
+        self::texte($section, $contenu['entree_vigueur']);
+
+        $section->addText(
+            "Fait à {$contenu['lieu']}, le " . ($validation ? $validation->date_changement->format('d/m/Y') : '___ / ___ / ______') . ', en deux exemplaires originaux.',
+            [], ['spaceBefore' => 240],
+        );
+
+        $signatures = $section->addTable(['cellMarginTop' => 120])->addRow(null, ['cantSplit' => true]);
+        $fanamby = $signatures->addCell(intdiv(self::LARGEUR, 2), self::CELLULE)->addTextRun();
+        $fanamby->addText('Pour Fanamby', self::GRAS);
+        $fanamby->addTextBreak();
+        $fanamby->addText($contenu['signataire']);
+        $fanamby->addTextBreak();
+        $fanamby->addText('Signature et cachet :');
+        if ($validation) {
+            $fanamby->addTextBreak();
+            $fanamby->addText(
+                'Validé et signé électroniquement par ' . ($validation->user?->name ?? 'un validateur') . ' le ' . $validation->date_changement->format('d/m/Y à H:i'),
+                ['size' => 8, 'color' => self::GRIS],
+            );
+        }
+        $partie = $signatures->addCell(intdiv(self::LARGEUR, 2), self::CELLULE)->addTextRun();
+        $partie->addText('Le Bénéficiaire', self::GRAS);
+        $partie->addTextBreak();
+        $partie->addText($beneficiaire->name);
+        $partie->addTextBreak();
+        $partie->addText('Signature :');
+
+        self::pied($section, 'Document officiel généré le ' . now()->format('d/m/Y à H:i') . " par la plateforme de gestion Fanamby. Référence : {$demande->reference}");
+
+        return $word;
+    }
+
+    /**
      * Formulaire de demande rempli, comme pdf/formulaire_demande.blade.php.
      *
      * @param  array  $donnees  variables de la vue (FormulaireDemande::donnees)
@@ -180,7 +294,7 @@ class DocumentsWord
         self::cases($section, $donnees['sites']->map(fn ($site) => [$site->nom, $site->id == $demande->site_id])->all());
 
         self::ligne($section, [['Période prévue :', self::GRAS]]);
-        self::champs($section, ['- Début :' => self::date($demande->date_debut), '- Fin :' => self::date($demande->date_fin)], 1000, [], 4200);
+        self::champs($section, ['- Arrivée sur le terrain :' => self::date($demande->arrivee()), '- Début des activités :' => self::date($demande->date_debut), '- Fin :' => self::date($demande->date_fin)], 1000, [], 4200);
 
         $section->addPageBreak();
 
