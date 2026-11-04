@@ -18,14 +18,14 @@
 
 SET NAMES utf8mb4;
 
--- ── Utilisateurs (RG01) ──
+-- ── Utilisateurs (RG01 ; RG21 pour l'observateur) ──
 CREATE TABLE t_users (
     id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     name              VARCHAR(255) NOT NULL,
     email             VARCHAR(255) NOT NULL,
     email_verified_at TIMESTAMP NULL,
     password          VARCHAR(255) NOT NULL,
-    role              ENUM('demandeur', 'validateur', 'admin') NOT NULL DEFAULT 'demandeur',
+    role              ENUM('demandeur', 'validateur', 'admin', 'observateur') NOT NULL DEFAULT 'demandeur',
     -- Coordonnées du formulaire de demande (sections I et V), exigées à la soumission d'une demande
     organisation      VARCHAR(150) NULL,
     fonction          VARCHAR(100) NULL,        -- pour un décideur : reprise dans la section VI
@@ -39,15 +39,50 @@ CREATE TABLE t_users (
     UNIQUE KEY t_users_email_unique (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── Aires protégées ──
+-- ── Aires protégées (RG03, RG15, RG19) ──
 CREATE TABLE t_sites (
     id                   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     nom                  VARCHAR(150) NOT NULL,
     description          TEXT NULL,
-    polygone_coordonnees JSON NULL,            -- un contour géographique = une seule valeur
+    capacite_accueil     SMALLINT UNSIGNED NULL,   -- personnes présentes en même temps au plus ; vide : sans limite
+    lien_photos          VARCHAR(500) NULL,        -- banque d'images complète, hébergée ailleurs
+    polygone_coordonnees JSON NULL,                -- un contour géographique = une seule valeur
     created_at           TIMESTAMP NULL,
     updated_at           TIMESTAMP NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    CONSTRAINT chk_t_sites_capacite CHECK (capacite_accueil >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── Règles permanentes d'une aire protégée (RG15) — 1NF : une ligne par règle ──
+-- Proposées par l'analyse dans les conditions particulières de chaque autorisation.
+CREATE TABLE t_conditions_site (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    site_id    BIGINT UNSIGNED NOT NULL,
+    libelle    VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    PRIMARY KEY (id),
+    KEY t_conditions_site_site_id_foreign (site_id),
+    CONSTRAINT t_conditions_site_site_id_foreign FOREIGN KEY (site_id) REFERENCES t_sites (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── Photos de la galerie d'une aire protégée (RG19) ──
+-- L'original n'est pas gardé : seulement une grande image et une vignette, réduites à l'envoi.
+CREATE TABLE t_photos_site (
+    id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    site_id         BIGINT UNSIGNED NOT NULL,
+    chemin          VARCHAR(255) NOT NULL,       -- grande image, 1600 px au plus
+    chemin_vignette VARCHAR(255) NOT NULL,       -- vignette de la galerie, 480 px au plus
+    largeur         SMALLINT UNSIGNED NOT NULL,
+    hauteur         SMALLINT UNSIGNED NOT NULL,
+    legende         VARCHAR(255) NULL,
+    credit          VARCHAR(150) NULL,
+    ordre           SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP NULL,
+    updated_at      TIMESTAMP NULL,
+    PRIMARY KEY (id),
+    KEY t_photos_site_site_id_foreign (site_id),
+    CONSTRAINT t_photos_site_site_id_foreign FOREIGN KEY (site_id) REFERENCES t_sites (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── Association GÉRER (n,m) entre validateur et site (RG04) ──
@@ -63,7 +98,7 @@ CREATE TABLE t_site_user (
 -- ── Statuts du workflow (RG07, RG08) ──
 CREATE TABLE t_statuts (
     id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    code        VARCHAR(50) NOT NULL,          -- brouillon, soumise, en_analyse, a_completer, validee, rejetee
+    code        VARCHAR(50) NOT NULL,          -- brouillon, soumise, en_analyse, a_completer, validee, rejetee, retiree
     libelle     VARCHAR(100) NOT NULL,
     description TEXT NULL,
     created_at  TIMESTAMP NULL,
@@ -107,7 +142,7 @@ CREATE TABLE t_regles_specifiques (
     CONSTRAINT t_regles_specifiques_type_demande_id_foreign FOREIGN KEY (type_demande_id) REFERENCES t_type_demandes (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── Demandes d'autorisation (RG02, RG03, RG05, RG07) ──
+-- ── Demandes d'autorisation (RG02, RG03, RG05, RG07, RG16, RG17) ──
 CREATE TABLE t_demandes (
     id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id           BIGINT UNSIGNED NOT NULL,
@@ -118,8 +153,9 @@ CREATE TABLE t_demandes (
     type_precision    VARCHAR(150) NULL,        -- précision du type « Autre »
     description       TEXT NULL,                -- résumé du synopsis
     objectifs         TEXT NULL,
-    date_debut        DATE NULL,                -- facultative tant que la demande est un brouillon
-    date_fin          DATE NULL,
+    date_arrivee      DATE NULL,                -- arrivée de l'équipe sur le terrain (RG17)
+    date_debut        DATE NULL,                -- début des activités, facultatif tant que la demande est un brouillon
+    date_fin          DATE NULL,                -- fin des activités
     equipe_nombre     INT NOT NULL DEFAULT 1,
     -- Dénormalisation maîtrisée : copie du dernier statut de t_historique_statuts
     -- (brouillon tant qu'il n'y a pas d'historique), mise à jour dans la même transaction.
@@ -139,7 +175,8 @@ CREATE TABLE t_demandes (
     CONSTRAINT t_demandes_type_demande_id_foreign FOREIGN KEY (type_demande_id) REFERENCES t_type_demandes (id) ON DELETE RESTRICT,
     CONSTRAINT t_demandes_statut_id_foreign FOREIGN KEY (statut_id) REFERENCES t_statuts (id) ON DELETE RESTRICT,
     CONSTRAINT chk_t_demandes_dates CHECK (date_fin >= date_debut),
-    CONSTRAINT chk_t_demandes_equipe CHECK (equipe_nombre >= 1)
+    CONSTRAINT chk_t_demandes_equipe CHECK (equipe_nombre >= 1),
+    CONSTRAINT chk_t_demandes_arrivee CHECK (date_arrivee <= date_debut)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── Pièces jointes (RG10) ──
@@ -189,6 +226,7 @@ CREATE TABLE t_periode_sensibles (
     date_fin           DATE NOT NULL,
     description        VARCHAR(255) NOT NULL,
     niveau_restriction ENUM('bloquant', 'avertissement') NOT NULL,
+    condition_proposee VARCHAR(255) NULL,       -- condition proposée par l'analyse pour une période d'avertissement
     created_at         TIMESTAMP NULL,
     updated_at         TIMESTAMP NULL,
     PRIMARY KEY (id),
@@ -216,12 +254,35 @@ CREATE TABLE t_notifications (
     CONSTRAINT t_notifications_demande_id_foreign FOREIGN KEY (demande_id) REFERENCES t_demandes (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── Documents officiels préparés avant la validation (autorisation, cahier des charges) ──
+-- ── Signalements internes à l'équipe (RG20) ; ouvert tant que traite_le est vide ──
+CREATE TABLE t_signalements (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    demande_id BIGINT UNSIGNED NOT NULL,
+    user_id    BIGINT UNSIGNED NULL,            -- auteur ; vide si son compte a été supprimé
+    partie     VARCHAR(20) NOT NULL,            -- partie du dossier concernée
+    message    TEXT NOT NULL,
+    reponse    TEXT NULL,
+    traite_par BIGINT UNSIGNED NULL,            -- validateur du site ou admin ; vide si son compte a été supprimé
+    traite_le  TIMESTAMP NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    PRIMARY KEY (id),
+    KEY t_signalements_user_id_foreign (user_id),
+    KEY t_signalements_traite_par_foreign (traite_par),
+    -- Signalements ouverts d'un dossier (bandeau, compteurs) ; sert aussi à la clé étrangère demande_id
+    KEY t_signalements_demande_id_traite_le_index (demande_id, traite_le),
+    CONSTRAINT t_signalements_demande_id_foreign FOREIGN KEY (demande_id) REFERENCES t_demandes (id) ON DELETE CASCADE,
+    CONSTRAINT t_signalements_user_id_foreign FOREIGN KEY (user_id) REFERENCES t_users (id) ON DELETE SET NULL,
+    CONSTRAINT t_signalements_traite_par_foreign FOREIGN KEY (traite_par) REFERENCES t_users (id) ON DELETE SET NULL,
+    CONSTRAINT chk_t_signalements_partie CHECK (partie IN ('demandeur', 'projet', 'sejour', 'pieces', 'analyse', 'documents', 'suivi', 'autre'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── Documents officiels préparés avant la validation (RG18) : autorisation, cahier des charges, convention ──
 -- Seuls les textes modifiables sont stockés ; les données du dossier sont lues sur la demande.
 CREATE TABLE t_documents_officiels (
     id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     demande_id BIGINT UNSIGNED NOT NULL,
-    type       VARCHAR(30) NOT NULL,            -- autorisation, cahier_charges
+    type       VARCHAR(30) NOT NULL,            -- autorisation, cahier_charges, convention
     contenu    JSON NOT NULL,                   -- textes relus par le validateur
     genere_par BIGINT UNSIGNED NULL,            -- vide si le compte de l'auteur a été supprimé
     created_at TIMESTAMP NULL,
@@ -232,7 +293,7 @@ CREATE TABLE t_documents_officiels (
     KEY t_documents_officiels_genere_par_foreign (genere_par),
     CONSTRAINT t_documents_officiels_demande_id_foreign FOREIGN KEY (demande_id) REFERENCES t_demandes (id) ON DELETE CASCADE,
     CONSTRAINT t_documents_officiels_genere_par_foreign FOREIGN KEY (genere_par) REFERENCES t_users (id) ON DELETE SET NULL,
-    CONSTRAINT chk_t_documents_officiels_type CHECK (type IN ('autorisation', 'cahier_charges'))
+    CONSTRAINT chk_t_documents_officiels_type CHECK (type IN ('autorisation', 'cahier_charges', 'convention'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── Documents déposés par l'équipe sur la page Références ──
@@ -268,11 +329,12 @@ CREATE TABLE t_modeles_reference (
     UNIQUE KEY t_modeles_reference_titre_unique (titre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── Référentiel des statuts (inséré par la migration de t_statuts) ──
+-- ── Référentiel des statuts (insérés par la migration de t_statuts, puis celle du statut « Retirée ») ──
 INSERT INTO t_statuts (code, libelle, description, created_at, updated_at) VALUES
 ('brouillon', 'Brouillon', 'Demande en cours de rédaction', NOW(), NOW()),
 ('soumise', 'Soumise', 'Demande envoyée pour validation', NOW(), NOW()),
 ('en_analyse', 'En cours d''analyse', 'Le validateur étudie la demande', NOW(), NOW()),
 ('validee', 'Validée', 'Demande acceptée', NOW(), NOW()),
 ('rejetee', 'Rejetée', 'Demande refusée', NOW(), NOW()),
-('a_completer', 'À compléter', 'Des compléments sont demandés au demandeur', NOW(), NOW());
+('a_completer', 'À compléter', 'Des compléments sont demandés au demandeur', NOW(), NOW()),
+('retiree', 'Retirée', 'Demande annulée par le demandeur', NOW(), NOW());

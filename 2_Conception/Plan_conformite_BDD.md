@@ -86,8 +86,8 @@ Un seul écart a été relevé : `demandes.statut_id` était déclaré `RESTRICT
 
 ### Restant en cours (à terminer)
 
-- [x] **Diagramme MCD** : [MCD.svg](MCD.svg), généré par Mocodo à partir de [mcd.mcd](mcd.mcd). Il compte 12 entités et 17 associations, et sa disposition ne laisse que 2 croisements de liens. Pour l'ajuster, collez **mcd.mcd** (pas schema.dbml) sur [mocodo.net](https://www.mocodo.net).
-- [ ] **Chevauchements du MCD** : 3 paires de cardinalités se superposent (autour de DEMANDE et de HISTORIQUE_STATUT). Il faut les déplacer à la main sur mocodo.net avant l'export final.
+- [x] **Diagramme MCD** : [MCD.svg](MCD.svg) et [MCD.png](MCD.png), générés par Mocodo à partir de [mcd.mcd](mcd.mcd). Depuis le 04/11/2026, il couvre les 18 tables métier : 17 entités et 24 associations, **sans aucun croisement** ni lien qui traverse une entité (voir section 7). Pour l'ajuster, collez **mcd.mcd** (pas schema.dbml) sur [mocodo.net](https://www.mocodo.net).
+- [x] **Chevauchements du MCD** : réglés. Les cinq cardinalités qui se superposaient (sous UTILISATEUR et sous DEMANDE) sont décalées le long de leur lien ; le décalage est gardé dans [mcd_geo.json](mcd_geo.json).
 - [x] **[STRUCTURE.md](../3_Application/STRUCTURE.md)** : soumission historisée, écran des types ligne par ligne, modèles `DocumentRequis` et `RegleSpecifique`, migrations 15 à 17, jeu de test, 86 tests avec `ConceptionBddTest`, composant `ListeEditable.vue`, lien vers `2_Conception/`.
 - [x] **[regle.txt](../1_Gestion_Projet/regle.txt)** : la stack réelle (Vue 3, Inertia, Tailwind, Gates Laravel) et le modèle de données actuel, avec un renvoi vers `Conception_BDD.md`.
 
@@ -139,3 +139,40 @@ Les 20 migrations accumulées (création, puis corrections successives) sont rem
 ### Point d'attention
 
 `php artisan migrate:fresh` ne vide la base que s'il y trouve sa table de suivi, désormais `t_migrations`. Sur une base qui a encore les anciennes tables (sans préfixe), il crée les tables `t_` **à côté** des anciennes. Il faut donc lancer `php artisan db:wipe` avant `php artisan migrate`.
+
+---
+
+## 7. Évolutions de l'application (04/11/2026)
+
+De nouvelles fonctionnalités ont changé la base : annulation d'une demande par le demandeur, arrivée sur le terrain distincte du début des activités, convention de collaboration, photos des aires protégées, rôle observateur et signalements. La conception a été remise en phase avec elles.
+
+### Ce qui a changé dans la base (5 migrations)
+
+| Migration | Changement | Règle |
+|---|---|---|
+| `2026_11_04_100000_ajouter_statut_retiree` | Statut `retiree` (« Retirée »), définitif | RG07, RG16 |
+| `2026_11_04_110000_ajouter_date_arrivee_demandes` | `t_demandes.date_arrivee`, remplie avec `date_debut` pour les demandes existantes ; CHECK `date_arrivee <= date_debut` | RG17 |
+| `2026_11_04_120000_ajouter_convention_collaboration` | Type `convention` ajouté au CHECK de `t_documents_officiels` ; modèle « Convention de collaboration » dans `t_modeles_reference` | RG18 |
+| `2026_11_04_130000_ajouter_photos_sites` | `t_sites.lien_photos` et table `t_photos_site` (CASCADE avec le site) | RG19 |
+| `2026_11_04_140000_ajouter_observateur_et_signalements` | Rôle `observateur` dans l'ENUM de `t_users.role` ; table `t_signalements` (CHECK sur la partie, SET NULL sur l'auteur et le traitant, index `demande_id, traite_le`) | RG01, RG20, RG21 |
+
+### Ce qui a été mis à jour dans la conception
+
+- [x] [Etape1_Analyse_Besoins.md](../1_Gestion_Projet/Etape1_Analyse_Besoins.md) : RG01 et RG07 complétées ; **RG15 à RG22** ajoutées (RG15 était déjà citée par le MCD sans être écrite) ; dictionnaire complété (capacité, lien des photos, règles permanentes, condition proposée, arrivée sur le terrain, photos, documents officiels, signalements, documents et modèles de référence, pièce réutilisable).
+- [x] **MCD** ([mcd.mcd](mcd.mcd), [MCD.svg](MCD.svg), [MCD.png](MCD.png)) : 5 entités de plus (PHOTO_SITE, SIGNALEMENT, DOCUMENT_OFFICIEL, DOCUMENT_REFERENCE, MODELE_REFERENCE ; les trois dernières existaient en base sans figurer au MCD) et 7 associations (ILLUSTRER, ACCOMPAGNER, PRÉPARER, VISER, SIGNALER, TRAITER, DÉPOSER). Le placement automatique de Mocodo donnait 40 croisements et 26 liens à travers des entités : la disposition a été refaite à la main, en « échelle » entre UTILISATEUR et DEMANDE, puis vérifiée par un script qui compte les croisements dans le SVG (0 et 0).
+- [x] [Conception_BDD.md](Conception_BDD.md) : entités, associations, choix de modélisation (SIGNALEMENT relié deux fois à UTILISATEUR, MODELE_REFERENCE isolée), MLD à 18 tables et 8 clés étrangères facultatives, normalisation des nouvelles tables (1NF de `t_documents_officiels.contenu`, 3NF, BCNF), correspondance dictionnaire → colonnes, types, contraintes, règles ON DELETE et index.
+- [x] [base_de_donnees.sql](base_de_donnees.sql) : les 18 tables métier (avec `t_conditions_site`, oubliée depuis le 03/11, `t_photos_site` et `t_signalements`), les nouvelles colonnes et contraintes, et le statut `retiree`.
+- [x] [schema.dbml](../3_Application/database/schema.dbml) : rôle observateur, `t_photos_site`, `t_signalements`, `date_arrivee`, `lien_photos` et leurs relations.
+- [x] [regle.txt](../1_Gestion_Projet/regle.txt) : rôle observateur et modèle de données actuel.
+
+### Vérifications
+
+- [x] **Base de développement `projet_stage` migrée** : les 5 migrations sont passées, aucune n'est en attente.
+- [x] **Script MPD identique à la base migrée** : exécuté sur une base temporaire puis comparé automatiquement (18 tables, 149 colonnes, 51 lignes d'index, 25 clés étrangères avec leurs règles, 10 CHECK) — **aucun écart** ; la base temporaire a ensuite été supprimée.
+- [x] **Invariant `statut_id`** : 24 demandes, 0 écart avec le dernier statut historisé ; aucune demande datée sans arrivée sur le terrain.
+- [x] **210 tests au vert**, dont les nouveaux tests de l'annulation, de l'arrivée sur le terrain, de la convention, des photos et de l'observateur.
+
+### À faire vous-même
+
+- [ ] **Régénérer `Base.pdf`** à partir de [schema.dbml](../3_Application/database/schema.dbml) sur [dbdiagram.io](https://dbdiagram.io) (il manque aussi les tables du 03/11).
+- [ ] **Mettre à jour le mémoire** : remplacer l'ancien MCD par [MCD.png](MCD.png) et reprendre les règles RG15 à RG22.
