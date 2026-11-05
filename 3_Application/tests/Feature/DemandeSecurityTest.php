@@ -20,22 +20,20 @@ class DemandeSecurityTest extends TestCase
     private Site $site;
     private Site $autreSite;
     private TypeDemande $type;
+    private int $protocoleId;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         foreach (['soumise' => 'Soumise', 'en_analyse' => 'En analyse', 'validee' => 'Validée', 'rejetee' => 'Rejetée'] as $code => $libelle) {
-            Statut::create(['code' => $code, 'libelle' => $libelle, 'description' => '']);
+            Statut::firstOrCreate(['code' => $code], ['libelle' => $libelle, 'description' => '']);
         }
 
         $this->site = Site::create(['nom' => 'Site A', 'description' => '', 'polygone_coordonnees' => []]);
         $this->autreSite = Site::create(['nom' => 'Site B', 'description' => '', 'polygone_coordonnees' => []]);
-        $this->type = TypeDemande::create([
-            'libelle' => 'Recherche',
-            'documents_requis' => ['Protocole'],
-            'regles_specifiques' => [],
-        ]);
+        $this->type = TypeDemande::create(['libelle' => 'Recherche']);
+        $this->protocoleId = $this->type->documentsRequis()->create(['libelle' => 'Protocole'])->id;
     }
 
     private function makeDemande(User $demandeur, string $statut = 'soumise', ?Site $site = null): Demande
@@ -71,6 +69,7 @@ class DemandeSecurityTest extends TestCase
             'demande_id' => $demande->id,
             'nom_fichier' => 'protocole.pdf',
             'chemin' => "demandes/{$demande->id}/protocole.pdf",
+            'document_requis_id' => $this->protocoleId,
             'type_document' => 'Protocole',
         ]);
     }
@@ -112,6 +111,41 @@ class DemandeSecurityTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_all_documents_download_as_one_zip(): void
+    {
+        $demandeur = User::factory()->create(['role' => 'demandeur']);
+        $demande = $this->makeDemande($demandeur);
+        $this->storeDocument($demande);
+        // Même nom de fichier renvoyé en complément : les deux restent dans le zip
+        Storage::put("demandes/{$demande->id}/protocole-v2.pdf", 'version 2');
+        Document::create([
+            'demande_id' => $demande->id,
+            'nom_fichier' => 'protocole.pdf',
+            'chemin' => "demandes/{$demande->id}/protocole-v2.pdf",
+            'document_requis_id' => $this->protocoleId,
+            'type_document' => 'Protocole',
+        ]);
+
+        $reponse = $this->actingAs($demandeur)->get(route('demandes.pieces.zip', $demande))->assertOk();
+        $this->assertStringContainsString("Pieces_{$demande->reference}.zip", $reponse->headers->get('content-disposition'));
+
+        $zip = new \ZipArchive();
+        $zip->open($reponse->baseResponse->getFile()->getPathname());
+        $this->assertSame('contenu', $zip->getFromName('Protocole - protocole.pdf'));
+        $this->assertSame('version 2', $zip->getFromName('Protocole - protocole (2).pdf'));
+        $zip->close();
+    }
+
+    public function test_zip_follows_document_access_rules(): void
+    {
+        $demande = $this->makeDemande(User::factory()->create(['role' => 'demandeur']));
+        $this->storeDocument($demande);
+
+        $this->actingAs($this->validateurDuSite($this->autreSite))->get(route('demandes.pieces.zip', $demande))->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => 'demandeur']))->get(route('demandes.pieces.zip', $demande))->assertForbidden();
+        $this->actingAs($this->validateurDuSite($this->site))->get(route('demandes.pieces.zip', $demande))->assertOk();
+    }
+
     // ── PDF officiels ──
 
     public function test_cahier_des_charges_requires_validated_demande(): void
@@ -146,16 +180,16 @@ class DemandeSecurityTest extends TestCase
 
     // ── Soumission ──
 
-    private function payload(array $overrides = []): array
+    private function payload(array $overrides = [], ?User $demandeur = null): array
     {
-        return array_merge([
+        return array_merge($this->champsFormulaire($demandeur), [
             'site_id' => $this->site->id,
             'type_demande_id' => $this->type->id,
             'date_debut' => now()->addDays(5)->toDateString(),
             'date_fin' => now()->addDays(7)->toDateString(),
             'equipe_nombre' => 3,
             'description' => 'Inventaire de la faune',
-            'doc_0' => UploadedFile::fake()->create('protocole.pdf', 100, 'application/pdf'),
+            'doc_' . $this->protocoleId => UploadedFile::fake()->create('protocole.pdf', 100, 'application/pdf'),
         ], $overrides);
     }
 
@@ -178,9 +212,9 @@ class DemandeSecurityTest extends TestCase
 
         $this->actingAs(User::factory()->create(['role' => 'demandeur']))
             ->post(route('demandes.store'), $this->payload([
-                'doc_0' => UploadedFile::fake()->create('virus.exe', 10, 'application/x-msdownload'),
+                'doc_' . $this->protocoleId => UploadedFile::fake()->create('virus.exe', 10, 'application/x-msdownload'),
             ]))
-            ->assertSessionHasErrors('doc_0');
+            ->assertSessionHasErrors('doc_' . $this->protocoleId);
 
         $this->assertSame(0, Demande::count());
     }
@@ -189,8 +223,10 @@ class DemandeSecurityTest extends TestCase
     {
         Storage::fake();
 
-        $this->actingAs(User::factory()->create(['role' => 'demandeur']))
-            ->post(route('demandes.store'), $this->payload())
+        $demandeur = User::factory()->create(['role' => 'demandeur']);
+
+        $this->actingAs($demandeur)
+            ->post(route('demandes.store'), $this->payload([], $demandeur))
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('demandes.show', Demande::first()));
 

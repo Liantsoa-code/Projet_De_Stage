@@ -4,8 +4,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
 import MapComponent from '@/Components/MapComponent.vue';
+import ReglesAnalyseSite from './Partials/ReglesAnalyseSite.vue';
 
-const form = useForm({ nom: '', description: '', polygone_coordonnees: [] });
+const form = useForm({ nom: '', description: '', capacite_accueil: '', lien_photos: '', conditions: [], polygone_coordonnees: [] });
 const submit = () => form.post(route('admin.sites.store'));
 
 const handleFileUpload = (event) => {
@@ -48,7 +49,7 @@ const handleFileUpload = (event) => {
 </script>
 
 <template>
-    <Head title="Nouveau site protégé" />
+    <Head title="Nouvelle aire protégée" />
     <AuthenticatedLayout>
         <template #header>
             <div style="display:flex;align-items:center;gap:12px">
@@ -56,14 +57,14 @@ const handleFileUpload = (event) => {
                     <Icon name="arrow-left" />
                     Retour
                 </Link>
-                <span class="ph-title">Nouveau site protégé</span>
+                <span class="ph-title">Nouvelle aire protégée</span>
             </div>
         </template>
         <div style="max-width:720px">
             <div class="glass-form-wrap">
                 <form @submit.prevent="submit" class="gf-body">
                     <div>
-                        <label class="gf-label">Nom du site *</label>
+                        <label class="gf-label">Nom de l'aire protégée *</label>
                         <input type="text" class="gf-input" v-model="form.nom" required placeholder="Ex : Parc National d'Ankarafantsika" autofocus />
                         <InputError class="gf-error" :message="form.errors.nom" />
                     </div>
@@ -72,6 +73,13 @@ const handleFileUpload = (event) => {
                         <textarea class="gf-textarea" v-model="form.description" rows="3" placeholder="Faune, flore, règlements particuliers..."></textarea>
                         <InputError class="gf-error" :message="form.errors.description" />
                     </div>
+                    <div>
+                        <label class="gf-label" for="lien_photos">Banque d'images complète (lien)</label>
+                        <input id="lien_photos" type="url" class="gf-input" v-model="form.lien_photos" placeholder="https://… (album Google Photos, Drive, Flickr, site de Fanamby)" />
+                        <p class="gf-hint">Facultatif. Proposé dans la galerie « Voir les photos » pour voir toutes les photos en pleine qualité. Les photos de la galerie s'ajoutent une fois l'aire protégée enregistrée.</p>
+                        <InputError class="gf-error" :message="form.errors.lien_photos" />
+                    </div>
+                    <ReglesAnalyseSite :form="form" />
                     <div>
                         <div style="display:flex; justify-content: space-between; align-items:flex-end; margin-bottom: 8px;">
                             <label class="gf-label" style="margin-bottom:0;">Délimitation géographique</label>
@@ -90,7 +98,7 @@ const handleFileUpload = (event) => {
                     <div class="gf-footer">
                         <Link :href="route('admin.sites.index')" class="btn-ghost">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="btn-accent">
-                            {{ form.processing ? 'Enregistrement...' : 'Enregistrer le site' }}
+                            {{ form.processing ? 'Enregistrement...' : 'Enregistrer l\'aire protégée' }}
                         </button>
                     </div>
                 </form>

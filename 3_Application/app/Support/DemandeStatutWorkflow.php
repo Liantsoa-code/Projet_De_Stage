@@ -20,13 +20,24 @@ class DemandeStatutWorkflow
     /** Statuts depuis lesquels un validateur peut renvoyer le dossier au demandeur. */
     private const PEUT_DEMANDER_COMPLEMENT = ['soumise', 'en_analyse'];
 
+    /** Statuts depuis lesquels le demandeur peut annuler sa demande envoyée : avant toute décision. */
+    private const PEUT_ETRE_RETIREE = ['soumise', 'en_analyse', 'a_completer'];
+
     public static function isTerminal(?Statut $statut): bool
     {
         if ($statut === null) {
             return false;
         }
 
-        return in_array($statut->code, ['validee', 'rejetee'], true);
+        return in_array($statut->code, ['validee', 'rejetee', 'retiree'], true);
+    }
+
+    /**
+     * Le demandeur peut retirer sa demande : envoyée, mais pas encore décidée.
+     */
+    public static function peutEtreRetiree(?Statut $statut): bool
+    {
+        return $statut !== null && in_array($statut->code, self::PEUT_ETRE_RETIREE, true);
     }
 
     /**

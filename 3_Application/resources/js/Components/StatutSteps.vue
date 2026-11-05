@@ -11,12 +11,13 @@ const steps = computed(() => {
     return [
         { label: c === 'brouillon' ? 'Brouillon' : 'Déposée', state: c === 'brouillon' ? 'draft' : 'done' },
         {
-            label: c === 'a_completer' ? 'Complément' : c === 'soumise' ? 'En file' : 'Analyse',
-            state: c === 'brouillon' ? '' : c === 'soumise' ? 'wait' : c === 'en_analyse' ? 'cur' : c === 'a_completer' ? 'att' : 'done',
+            // Dossier envoyé mais pas encore pris en charge : « Analyse » en bleu pâle (« Déposée » le dit déjà)
+            label: c === 'a_completer' ? 'Complément' : 'Analyse',
+            state: ['brouillon', 'retiree'].includes(c) ? '' : c === 'soumise' ? 'wait' : c === 'en_analyse' ? 'cur' : c === 'a_completer' ? 'att' : 'done',
         },
         {
-            label: c === 'validee' ? 'Validée' : c === 'rejetee' ? 'Rejetée' : 'Décision',
-            state: c === 'validee' ? 'done' : c === 'rejetee' ? 'no' : '',
+            label: c === 'validee' ? 'Validée' : c === 'rejetee' ? 'Rejetée' : c === 'retiree' ? 'Retirée' : 'Décision',
+            state: c === 'validee' ? 'done' : c === 'rejetee' ? 'no' : c === 'retiree' ? 'retire' : '',
         },
     ];
 });
@@ -41,8 +42,9 @@ const steps = computed(() => {
 .step--wait i { background: var(--water); opacity: 0.4; }
 .step--att i { background: var(--ochre); }
 .step--no i { background: var(--signal); }
+.step--retire i { background: var(--ink-3); }
 .step--draft i { background: repeating-linear-gradient(90deg, var(--ink-3) 0 4px, transparent 4px 7px); }
-.step--cur span, .step--att span, .step--no span, .step--wait span { color: var(--ink); font-weight: 600; }
+.step--cur span, .step--att span, .step--no span, .step--retire span { color: var(--ink); font-weight: 600; }
 .steps--lg { max-width: 560px; }
 .steps--lg .step { font-size: 12.5px; }
 .steps--lg .step i { height: 6px; border-radius: 3px; }

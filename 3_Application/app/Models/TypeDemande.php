@@ -6,15 +6,24 @@ use Illuminate\Database\Eloquent\Model;
 
 class TypeDemande extends Model
 {
-    protected $fillable = ['libelle', 'documents_requis', 'regles_specifiques'];
+    protected $table = 't_type_demandes';
 
-    protected $casts = [
-        'documents_requis' => 'array',
-        'regles_specifiques' => 'array',
-    ];
+    protected $fillable = ['libelle', 'precision_requise'];
+
+    protected $casts = ['precision_requise' => 'boolean'];
 
     public function demandes()
     {
         return $this->hasMany(Demande::class);
+    }
+
+    public function documentsRequis()
+    {
+        return $this->hasMany(DocumentRequis::class)->orderBy('id');
+    }
+
+    public function reglesSpecifiques()
+    {
+        return $this->hasMany(RegleSpecifique::class)->orderBy('id');
     }
 }

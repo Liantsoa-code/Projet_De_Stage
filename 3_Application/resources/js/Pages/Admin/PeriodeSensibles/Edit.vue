@@ -13,6 +13,7 @@ const form = useForm({
     date_fin: props.periode.date_fin,
     description: props.periode.description,
     niveau_restriction: props.periode.niveau_restriction,
+    condition_proposee: props.periode.condition_proposee ?? '',
 });
 
 const submit = () => form.put(route('admin.periode-sensibles.update', props.periode.id));
@@ -36,7 +37,7 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
             <div class="form-card">
                 <form @submit.prevent="submit" class="form-body">
                     <div class="field-group">
-                        <InputLabel for="site_id" value="Site protégé *" class="field-label" />
+                        <InputLabel for="site_id" value="Aire protégée *" class="field-label" />
                         <select id="site_id" v-model="form.site_id" class="field-select" required>
                             <option v-for="site in sites" :key="site.id" :value="site.id">{{ site.nom }}</option>
                         </select>
@@ -69,6 +70,13 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
                         <InputLabel for="description" value="Description / Motif *" class="field-label" />
                         <textarea id="description" class="field-textarea" v-model="form.description" rows="3" required></textarea>
                         <InputError class="field-error" :message="form.errors.description" />
+                    </div>
+
+                    <div v-if="form.niveau_restriction === 'avertissement'" class="field-group">
+                        <InputLabel for="condition_proposee" value="Condition proposée" class="field-label" />
+                        <input id="condition_proposee" type="text" class="field-input" v-model="form.condition_proposee" maxlength="255" placeholder="Ex : Aucune approche à moins de 30 m des sites de ponte" />
+                        <p class="field-hint">Proposée par l'analyse quand un séjour chevauche la période ; à défaut, une condition générale.</p>
+                        <InputError class="field-error" :message="form.errors.condition_proposee" />
                     </div>
 
                     <div class="form-footer">

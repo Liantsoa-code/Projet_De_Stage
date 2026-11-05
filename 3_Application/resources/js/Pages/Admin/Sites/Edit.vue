@@ -4,11 +4,16 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
 import MapComponent from '@/Components/MapComponent.vue';
+import PhotosSite from './Partials/PhotosSite.vue';
+import ReglesAnalyseSite from './Partials/ReglesAnalyseSite.vue';
 
-const props = defineProps({ site: Object });
+const props = defineProps({ site: Object, photosMax: { type: Number, default: 12 } });
 const form = useForm({
     nom: props.site.nom,
     description: props.site.description || '',
+    capacite_accueil: props.site.capacite_accueil ?? '',
+    lien_photos: props.site.lien_photos ?? '',
+    conditions: (props.site.conditions ?? []).map(({ id, libelle }) => ({ id, libelle })),
     polygone_coordonnees: props.site.polygone_coordonnees || [],
 });
 const submit = () => form.put(route('admin.sites.update', props.site.id));
@@ -53,7 +58,7 @@ const handleFileUpload = (event) => {
 </script>
 
 <template>
-    <Head title="Modifier le site" />
+    <Head title="Modifier l'aire protégée" />
     <AuthenticatedLayout>
         <template #header>
             <div style="display:flex;align-items:center;gap:12px">
@@ -68,7 +73,7 @@ const handleFileUpload = (event) => {
             <div class="glass-form-wrap">
                 <form @submit.prevent="submit" class="gf-body">
                     <div>
-                        <label class="gf-label">Nom du site *</label>
+                        <label class="gf-label">Nom de l'aire protégée *</label>
                         <input type="text" class="gf-input" v-model="form.nom" required />
                         <InputError class="gf-error" :message="form.errors.nom" />
                     </div>
@@ -77,6 +82,13 @@ const handleFileUpload = (event) => {
                         <textarea class="gf-textarea" v-model="form.description" rows="3"></textarea>
                         <InputError class="gf-error" :message="form.errors.description" />
                     </div>
+                    <div>
+                        <label class="gf-label" for="lien_photos">Banque d'images complète (lien)</label>
+                        <input id="lien_photos" type="url" class="gf-input" v-model="form.lien_photos" placeholder="https://… (album Google Photos, Drive, Flickr, site de Fanamby)" />
+                        <p class="gf-hint">Facultatif. Proposé dans la galerie « Voir les photos » pour voir toutes les photos en pleine qualité.</p>
+                        <InputError class="gf-error" :message="form.errors.lien_photos" />
+                    </div>
+                    <ReglesAnalyseSite :form="form" />
                     <div>
                         <div style="display:flex; justify-content: space-between; align-items:flex-end; margin-bottom: 8px;">
                             <label class="gf-label" style="margin-bottom:0;">Délimitation géographique</label>
@@ -99,6 +111,7 @@ const handleFileUpload = (event) => {
                     </div>
                 </form>
             </div>
+            <PhotosSite :site="site" :max="photosMax" />
         </div>
     </AuthenticatedLayout>
 </template>

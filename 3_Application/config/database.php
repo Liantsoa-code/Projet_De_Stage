@@ -116,7 +116,7 @@ return [
     */
 
     'migrations' => [
-        'table' => 'migrations',
+        'table' => 't_migrations', // toutes les tables portent le préfixe t_
         'update_date_on_publish' => true,
     ],
 

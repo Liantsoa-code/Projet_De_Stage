@@ -20,10 +20,7 @@ class DemandeForStatsViewerTest extends TestCase
             ['code' => 'soumise'],
             ['libelle' => 'Soumise', 'description' => '']
         );
-        $type = TypeDemande::firstOrCreate(
-            ['libelle' => 'Test stats'],
-            ['documents_requis' => [], 'regles_specifiques' => []]
-        );
+        $type = TypeDemande::firstOrCreate(['libelle' => 'Test stats']);
         $demandeur = User::factory()->create(['role' => 'demandeur']);
 
         Demande::create([

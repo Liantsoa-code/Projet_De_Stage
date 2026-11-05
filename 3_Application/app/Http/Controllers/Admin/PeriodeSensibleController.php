@@ -12,12 +12,13 @@ class PeriodeSensibleController extends Controller
 {
     public function index(Request $request)
     {
-        $siteId = $request->input('site_id');
+        // Plusieurs aires protégées cochées possibles (« site_id[]=1&site_id[]=3 »)
+        $siteIds = $request->collect('site_id')->filter(fn ($v) => is_scalar($v) && $v !== '')->map(fn ($v) => (string) $v)->values()->all();
         // Par défaut, seules les périodes en cours ou à venir ; « passees=1 » affiche aussi l'historique.
         $avecPassees = $request->boolean('passees');
 
         $periodes = PeriodeSensible::with('site:id,nom')
-            ->when($siteId, fn ($q) => $q->where('site_id', $siteId))
+            ->when($siteIds, fn ($q) => $q->whereIn('site_id', $siteIds))
             ->when(! $avecPassees, fn ($q) => $q->where('date_fin', '>=', now()->toDateString()))
             ->orderBy('date_debut')
             ->paginate(15)
@@ -26,7 +27,7 @@ class PeriodeSensibleController extends Controller
         return Inertia::render('Admin/PeriodeSensibles/Index', [
             'periodes' => $periodes,
             'sites' => Site::orderBy('nom')->get(['id', 'nom']),
-            'filters' => ['site_id' => $siteId, 'passees' => $avecPassees],
+            'filters' => ['site_id' => $siteIds, 'passees' => $avecPassees],
         ]);
     }
 
@@ -38,13 +39,7 @@ class PeriodeSensibleController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'site_id' => 'required|exists:sites,id',
-            'date_debut' => 'required|date',
-            'date_fin' => 'required|date|after_or_equal:date_debut',
-            'description' => 'required|string|max:255',
-            'niveau_restriction' => 'required|in:bloquant,avertissement',
-        ]);
+        $validated = $this->valider($request);
 
         PeriodeSensible::create($validated);
         return redirect()->route('admin.periode-sensibles.index')->with('message', 'Période ajoutée avec succès.');
@@ -58,16 +53,31 @@ class PeriodeSensibleController extends Controller
 
     public function update(Request $request, PeriodeSensible $periode_sensible)
     {
+        $validated = $this->valider($request);
+
+        $periode_sensible->update($validated);
+        return redirect()->route('admin.periode-sensibles.index')->with('message', 'Période modifiée avec succès.');
+    }
+
+    /**
+     * La condition proposée n'a de sens que pour un avertissement : une période bloquante refuse l'envoi.
+     */
+    private function valider(Request $request): array
+    {
         $validated = $request->validate([
-            'site_id' => 'required|exists:sites,id',
+            'site_id' => 'required|exists:t_sites,id',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
             'description' => 'required|string|max:255',
             'niveau_restriction' => 'required|in:bloquant,avertissement',
-        ]);
+            'condition_proposee' => 'nullable|string|max:255',
+        ], [], ['condition_proposee' => 'condition proposée']);
 
-        $periode_sensible->update($validated);
-        return redirect()->route('admin.periode-sensibles.index')->with('message', 'Période modifiée avec succès.');
+        if ($validated['niveau_restriction'] === 'bloquant') {
+            $validated['condition_proposee'] = null;
+        }
+
+        return $validated;
     }
 
     public function destroy(PeriodeSensible $periode_sensible)

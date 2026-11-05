@@ -4,11 +4,16 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import EspaceDemandeur from '@/Pages/Dashboard/Partials/EspaceDemandeur.vue';
 import EspaceValidateur from '@/Pages/Dashboard/Partials/EspaceValidateur.vue';
 import EspaceAdmin from '@/Pages/Dashboard/Partials/EspaceAdmin.vue';
+import EspaceObservateur from '@/Pages/Dashboard/Partials/EspaceObservateur.vue';
+import StatsPrincipales from '@/Pages/Dashboard/Partials/StatsPrincipales.vue';
 import { Head, usePage, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { pageVisible } from '@/utils/pages.js';
 
 const page = usePage();
 const role = computed(() => page.props.auth.user?.role);
+// Rôles de l'équipe qui suit les dossiers (l'observateur en lecture seule)
+const equipe = computed(() => ['admin', 'validateur', 'observateur'].includes(role.value));
 const enCours = computed(() => page.props.en_cours || []);
 const aCompleter = computed(() => page.props.a_completer || []);
 const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join(', '));
@@ -23,7 +28,8 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
                 <div>
                     <div class="page-title">Tableau de bord</div>
                     <div v-if="role === 'admin'" class="page-sub">Pilotage de toutes les aires protégées · {{ page.props.total_users }} comptes</div>
-                    <div v-else-if="role === 'validateur'" class="page-sub">Vos sites : {{ nomsSites || 'aucun site assigné' }}</div>
+                    <div v-else-if="role === 'validateur'" class="page-sub">Vos aires protégées : {{ nomsSites || 'aucune aire protégée assignée' }}</div>
+                    <div v-else-if="role === 'observateur'" class="page-sub">Suivi de toutes les aires protégées, en lecture seule</div>
                     <div v-else class="page-sub">
                         {{ enCours.length }} demande{{ enCours.length > 1 ? 's' : '' }} en cours
                         <template v-if="aCompleter.length">
@@ -31,19 +37,25 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
                         </template>
                     </div>
                 </div>
-                <Link v-if="role === 'admin' || role === 'validateur'" :href="route('validateur.demandes.index')" class="btn-accent">
-                    <Icon name="stamp" />
-                    Ouvrir les dossiers
-                </Link>
-                <Link v-else :href="route('demandes.create')" class="btn-accent">
+                <template v-if="equipe">
+                    <Link v-if="pageVisible('dossiers_a_valider')" :href="route('validateur.demandes.index')" class="btn-accent">
+                        <Icon name="stamp" />
+                        Ouvrir les dossiers
+                    </Link>
+                </template>
+                <Link v-else-if="pageVisible('nouvelle_demande')" :href="route('demandes.create')" class="btn-accent">
                     <Icon name="plus" />
                     Nouvelle demande
                 </Link>
             </div>
         </template>
 
-        <EspaceAdmin v-if="role === 'admin'" />
+        <div v-if="!pageVisible('tableau_de_bord_complet') && equipe" class="dash">
+            <StatsPrincipales />
+        </div>
+        <EspaceAdmin v-else-if="role === 'admin'" />
         <EspaceValidateur v-else-if="role === 'validateur'" />
+        <EspaceObservateur v-else-if="role === 'observateur'" />
         <EspaceDemandeur v-else />
     </AuthenticatedLayout>
 </template>
@@ -78,6 +90,12 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
 .dash .kpi__s { font-size: 12.5px; color: var(--ink-3); }
 .dash .kpi--alert .kpi__n { color: var(--signal); }
 .dash .kpi--warn .kpi__n { color: var(--ochre); }
+/* Indicateurs secondaires, sous les statistiques principales */
+.dash .kpis--sec { margin-top: -12px; }
+.dash .kpis--sec .kpi { padding: 12px 20px; gap: 2px; background: var(--sunk); border-color: transparent; }
+.dash .kpis--sec .kpi__n { font-size: 22px; }
+.dash .kpis--sec .kpi__n small { font-size: 14px; }
+.dash .kpis--sec .kpi__l { font-size: 13px; }
 
 .dash .rows { display: grid; align-content: start; }
 .dash .row { display: grid; align-items: center; gap: 14px; padding: 12px 24px; border-bottom: 1px solid var(--rule-soft); color: inherit; text-decoration: none; }
@@ -97,7 +115,9 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
 .dash .bars__label { display: grid; gap: 2px; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
 .dash .bars__label small { font-size: 12px; color: var(--ink-3); text-transform: none; letter-spacing: 0; font-family: var(--f-body); font-weight: 400; }
 .dash .bars__track { height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
-.dash .bars__track i { display: block; height: 100%; background: var(--forest); border-radius: 4px; }
+.dash .bars__track i { display: block; height: 100%; background: var(--forest); border-radius: 4px; animation: barre-pousse 0.9s cubic-bezier(0.33, 1, 0.68, 1); }
+@keyframes barre-pousse { from { width: 0; } }
+@media (prefers-reduced-motion: reduce) { .dash .bars__track i { animation: none; } }
 .dash .bars__n { font-size: 13px; text-align: right; color: var(--ink); }
 
 .dash .empty { display: grid; justify-items: center; gap: 10px; padding: 36px 20px; text-align: center; color: var(--ink-3); }

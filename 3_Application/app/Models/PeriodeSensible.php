@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class PeriodeSensible extends Model
 {
-    protected $fillable = ['site_id', 'date_debut', 'date_fin', 'description', 'niveau_restriction'];
+    protected $table = 't_periode_sensibles';
+
+    protected $fillable = ['site_id', 'date_debut', 'date_fin', 'description', 'niveau_restriction', 'condition_proposee'];
 
     protected $casts = [
         'date_debut' => 'date',

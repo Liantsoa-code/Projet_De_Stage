@@ -1,0 +1,111 @@
+%%mocodo
+
+:
+:
+PHOTO_SITE: id_photo, chemin_photo, chemin_vignette, largeur_photo, hauteur_photo, legende_photo, credit_photo, ordre_photo
+:
+CONDITION_SITE: id_condition_site, libelle_condition_site
+:
+REGLE_SPECIFIQUE: id_regle, libelle_regle
+IMPOSER, 0N TYPE_DEMANDE, 11 REGLE_SPECIFIQUE
+TYPE_DEMANDE: id_type_demande, libelle_type, precision_requise
+
+:
+:
+:
+ILLUSTRER, 0N SITE, 11 PHOTO_SITE
+FIXER, 0N SITE, 11 CONDITION_SITE
+CONNAÎTRE, 0N SITE, 11 PERIODE_SENSIBLE
+PERIODE_SENSIBLE: id_periode, date_debut_periode, date_fin_periode, description_periode, niveau_restriction, condition_proposee
+:
+EXIGER, 0N TYPE_DEMANDE, 11 DOCUMENT_REQUIS
+
+:
+:
+:
+GÉRER, 0N UTILISATEUR, 0N SITE
+SITE: id_site, nom_site, description_site, capacite_accueil, lien_photos, coordonnees_site
+CONCERNER, 0N SITE, 11 DEMANDE
+:
+RELEVER DE, 0N TYPE_DEMANDE, 11 DEMANDE
+DOCUMENT_REQUIS: id_document_requis, libelle_document_requis, reutilisable
+
+:
+:
+:
+RECEVOIR, 0N UTILISATEUR, 11 NOTIFICATION
+NOTIFICATION: id_notification, contenu_notification, lu_notification, date_envoi
+PORTER SUR, 0N DEMANDE, 01 NOTIFICATION
+:
+:
+FOURNIR, 0N DOCUMENT_REQUIS, 01 DOCUMENT
+
+DOCUMENT_REFERENCE: id_document_reference, titre_document_reference, description_document_reference, nom_fichier_reference, chemin_reference, type_mime, taille_fichier
+DÉPOSER, 0N UTILISATEUR, 01 DOCUMENT_REFERENCE
+UTILISATEUR: id_utilisateur, nom_utilisateur, email_utilisateur, mot_de_passe, role_utilisateur, organisation_utilisateur, fonction_utilisateur, adresse_utilisateur, telephone_utilisateur, piece_identite
+:
+SOUMETTRE, 0N UTILISATEUR, 11 DEMANDE
+:
+DEMANDE: id_demande, titre_projet, precision_type, description_demande, objectifs_projet, date_arrivee_terrain, date_debut_activite, date_fin_activite, nombre_personnes, date_soumission, resultats_analyse
+CONTENIR, 0N DEMANDE, 11 DOCUMENT
+DOCUMENT: id_document, nom_fichier, chemin_fichier, type_document
+
+:
+:
+:
+PRÉPARER, 0N UTILISATEUR, 01 DOCUMENT_OFFICIEL
+DOCUMENT_OFFICIEL: id_document_officiel, type_document_officiel, contenu_document_officiel
+ACCOMPAGNER, 0N DEMANDE, 11 DOCUMENT_OFFICIEL
+:
+:
+:
+
+:
+:
+:
+SIGNALER, 0N UTILISATEUR, 01 SIGNALEMENT
+SIGNALEMENT: id_signalement, partie_concernee, message_signalement, date_signalement, reponse_signalement, date_traitement
+VISER, 0N DEMANDE, 11 SIGNALEMENT
+:
+:
+:
+
+:
+:
+TRAITER, 0N UTILISATEUR, 01 SIGNALEMENT
+:
+:
+:
+AVOIR POUR STATUT, 0N STATUT, 11 DEMANDE
+:
+:
+
+:
+DÉCIDER, 0N UTILISATEUR, 01 HISTORIQUE_STATUT
+:
+:
+HISTORIQUE_STATUT: id_historique, commentaire_statut, date_changement
+TRACER, 0N DEMANDE, 11 HISTORIQUE_STATUT
+:
+:
+:
+
+:
+:
+:
+:
+:
+QUITTER, 0N STATUT, 01 HISTORIQUE_STATUT
+:
+:
+:
+
+MODELE_REFERENCE: id_modele, titre_modele, description_modele, usage_modele, icone_modele, automatique, contenu_modele
+:
+:
+:
+ATTEINDRE, 0N STATUT, 11 HISTORIQUE_STATUT
+:
+STATUT: id_statut, code_statut, libelle_statut, description_statut
+:
+:

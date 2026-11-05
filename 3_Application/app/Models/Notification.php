@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
 {
+    protected $table = 't_notifications';
+
     protected $fillable = ['user_id', 'demande_id', 'contenu', 'lu', 'date_envoi'];
 
     protected $casts = [

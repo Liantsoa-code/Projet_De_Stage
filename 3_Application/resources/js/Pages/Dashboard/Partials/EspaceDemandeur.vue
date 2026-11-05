@@ -1,10 +1,12 @@
 <script setup>
+import BoutonDocument from '@/Components/BoutonDocument.vue';
+import CompteurAnime from '@/Components/CompteurAnime.vue';
 import Icon from '@/Components/Icon.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { refDemande, formatDate } from '@/utils/statut.js';
-import { openAuthenticatedPdf } from '@/utils/openPdf.js';
+import { formatDate } from '@/utils/statut.js';
+import { verdictAnalyse } from '@/utils/analyse.js';
 
 // Espace demandeur : où en sont mes dossiers, et que dois-je faire ?
 const page = usePage();
@@ -13,6 +15,8 @@ const aCompleter = computed(() => page.props.a_completer || []);
 const sejours = computed(() => page.props.sejours || []);
 
 const joursAvant = (date) => Math.ceil((new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+// Le compte à rebours vise l'arrivée sur le terrain (le début des activités pour une ancienne demande)
+const arrivee = (d) => d.date_arrivee || d.date_debut;
 
 // Ce qu'il reste à faire ou à attendre pour chaque dossier en cours
 function suivi(d) {
@@ -28,14 +32,6 @@ function suivi(d) {
     }
     return null;
 }
-
-const openPdf = async (url, filename) => {
-    try {
-        await openAuthenticatedPdf(url, filename);
-    } catch (e) {
-        alert(e.message || 'Erreur lors de l\'ouverture du PDF.');
-    }
-};
 </script>
 
 <template>
@@ -43,8 +39,8 @@ const openPdf = async (url, filename) => {
         <section v-for="d in aCompleter" :key="`todo-${d.id}`" class="callout callout--att">
             <Icon name="pencil-simple-line" class="callout__icon" />
             <div class="callout__body">
-                <span class="callout__tag">Complément demandé · <span class="mono">{{ refDemande(d) }}</span></span>
-                <h2>{{ d.type_demande?.libelle }} · {{ d.site?.nom }}</h2>
+                <span class="callout__tag">Complément demandé · <span class="mono">{{ d.reference }}</span></span>
+                <h2>{{ d.titre || d.type_demande?.libelle }} · {{ d.site?.nom }}</h2>
                 <q v-if="d.dernier_commentaire">{{ d.dernier_commentaire }}</q>
                 <small v-if="d.commentaire_par">{{ d.commentaire_par }}, le {{ formatDate(d.commentaire_le) }}</small>
             </div>
@@ -60,8 +56,8 @@ const openPdf = async (url, filename) => {
                 <div v-if="enCours.length" class="rows">
                     <Link v-for="d in enCours" :key="d.id" :href="route('demandes.show', d.id)" class="row row--mine">
                         <span class="row__main">
-                            <span class="mono ref">{{ refDemande(d) }}</span>
-                            <strong>{{ d.type_demande?.libelle }}</strong>
+                            <span class="mono ref">{{ d.reference }}</span>
+                            <strong>{{ d.titre || d.type_demande?.libelle }}</strong>
                         </span>
                         <span class="row__main">
                             <span class="site-label">{{ d.site?.nom }}</span>
@@ -84,9 +80,9 @@ const openPdf = async (url, filename) => {
                 <div v-if="sejours.length">
                     <div v-for="d in sejours" :key="d.id" class="stay">
                         <div class="stay__when">
-                            <template v-if="joursAvant(d.date_debut) > 0">
-                                <span class="stay__n">{{ joursAvant(d.date_debut) }}</span>
-                                <span>jour{{ joursAvant(d.date_debut) > 1 ? 's' : '' }} avant l'arrivée</span>
+                            <template v-if="joursAvant(arrivee(d)) > 0">
+                                <span class="stay__n">J-<CompteurAnime :valeur="joursAvant(arrivee(d))" :chiffres="2" /></span>
+                                <span>avant l'arrivée</span>
                             </template>
                             <template v-else>
                                 <Icon name="map-trifold" class="stay__icon" />
@@ -95,12 +91,13 @@ const openPdf = async (url, filename) => {
                         </div>
                         <div class="stay__body">
                             <span class="site-label">{{ d.site?.nom }}</span>
-                            <strong>{{ d.type_demande?.libelle }}</strong>
-                            <span class="mono dates">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</span>
-                            <span v-if="d.resultats_analyse?.length" class="note-hatch"><span class="hatch"></span>Période sensible : précautions au cahier des charges</span>
+                            <strong>{{ d.titre || d.type_demande?.libelle }}</strong>
+                            <span class="dates">Arrivée le <span class="mono">{{ formatDate(arrivee(d)) }}</span> · activités <span class="mono">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</span></span>
+                            <span v-if="verdictAnalyse(d.resultats_analyse) !== 'compatible'" class="note-hatch"><span class="hatch"></span>Séjour sous conditions : lisez l'autorisation et le cahier des charges</span>
                             <div class="btn-row">
-                                <button type="button" class="btn-ghost btn--sm" @click="openPdf(route('demandes.pdf.autorisation', d.id), `autorisation_${d.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
-                                <button type="button" class="btn-ghost btn--sm" @click="openPdf(route('demandes.pdf.cahier-charges', d.id), `cahier_des_charges_${d.id}.pdf`)"><Icon name="file-pdf" />Cahier des charges</button>
+                                <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.autorisation', d.id)">Autorisation</BoutonDocument>
+                                <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.cahier-charges', d.id)">Cahier des charges</BoutonDocument>
+                                <BoutonDocument class="btn-ghost btn--sm" :url="route('demandes.pdf.convention', d.id)">Convention de collaboration</BoutonDocument>
                             </div>
                         </div>
                     </div>

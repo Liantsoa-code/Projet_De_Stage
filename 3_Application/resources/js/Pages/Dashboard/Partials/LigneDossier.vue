@@ -2,9 +2,9 @@
 import Icon from '@/Components/Icon.vue';
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { refDemande, statutBadgeClass } from '@/utils/statut.js';
+import { statutBadgeClass } from '@/utils/statut.js';
 
-// Dossier en attente, tel que calculé par DashboardController::dossiersEnAttente
+// Dossier en attente, tel que calculé par StatsInstruction::dossiersEnAttente
 const props = defineProps({
     d: { type: Object, required: true },
 });
@@ -14,14 +14,14 @@ const arrivee = computed(() => {
     if (n === null) return null;
     if (n < 0) return `Arrivée dépassée de ${-n} j`;
     if (n === 0) return "Arrivée aujourd'hui";
-    return `Arrivée dans ${n} j`;
+    return `Arrivée J-${String(n).padStart(2, '0')}`;
 });
 </script>
 
 <template>
     <Link :href="route('validateur.demandes.show', d.id)" class="row ligne">
         <span class="row__main">
-            <span class="mono ref">{{ refDemande(d) }}</span>
+            <span class="mono ref">{{ d.reference }}</span>
             <span :class="statutBadgeClass(d.statut?.code)">{{ d.statut?.libelle }}</span>
         </span>
         <span class="row__main">
@@ -32,7 +32,9 @@ const arrivee = computed(() => {
             <span v-if="d.imminent" class="tag tag--alert"><Icon name="calendar-x" />{{ arrivee }}</span>
             <span v-else-if="arrivee" class="tag">{{ arrivee }}</span>
             <span class="tag" :class="{ 'tag--alert': d.retard }"><Icon name="clock" />{{ d.attente }} j d'attente</span>
-            <span v-if="d.conflit" class="tag tag--warn"><span class="hatch"></span>Période sensible</span>
+            <span v-if="d.verdict === 'conflit'" class="tag tag--alert"><Icon name="prohibit" />Conflit détecté</span>
+            <span v-else-if="d.verdict === 'conditions'" class="tag tag--warn"><Icon name="warning" />Sous conditions</span>
+            <span v-if="d.signalements" class="tag tag--warn"><Icon name="warning" />{{ d.signalements }} signalement{{ d.signalements > 1 ? 's' : '' }}</span>
         </span>
     </Link>
 </template>

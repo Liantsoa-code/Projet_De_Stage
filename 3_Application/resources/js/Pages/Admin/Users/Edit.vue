@@ -3,6 +3,8 @@ import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
+import InputError from '@/Components/InputError.vue';
+import { computed } from 'vue';
 
 const props = defineProps({ userEdit: Object, sites: Array });
 
@@ -12,6 +14,9 @@ const form = useForm({
     role: props.userEdit.role,
     sites: currentSiteIds,
 });
+
+// Les erreurs de sites arrivent sous les clés « sites » ou « sites.0 », « sites.1 »…
+const sitesError = computed(() => Object.entries(form.errors).find(([key]) => key === 'sites' || key.startsWith('sites.'))?.[1]);
 
 const submit = () => form.put(route('admin.users.update', props.userEdit.id));
 </script>
@@ -56,6 +61,16 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                                     <div class="role-option__desc">Peut approuver/rejeter des dossiers</div>
                                 </div>
                             </label>
+                            <label class="role-option" :class="{ 'role-option--selected': form.role === 'observateur' }">
+                                <input type="radio" v-model="form.role" value="observateur" class="sr-only" />
+                                <div class="role-option__icon role-icon--observateur">
+                                    <Icon name="eye" />
+                                </div>
+                                <div>
+                                    <div class="role-option__name">Observateur</div>
+                                    <div class="role-option__desc">Suit tous les dossiers sans décider, peut signaler un problème</div>
+                                </div>
+                            </label>
                             <label class="role-option" :class="{ 'role-option--selected': form.role === 'admin' }">
                                 <input type="radio" v-model="form.role" value="admin" class="sr-only" />
                                 <div class="role-option__icon role-icon--admin">
@@ -63,16 +78,17 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                                 </div>
                                 <div>
                                     <div class="role-option__name">Administrateur</div>
-                                    <div class="role-option__desc">Accès complet à la plateforme</div>
+                                    <div class="role-option__desc">Gestion de la plateforme</div>
                                 </div>
                             </label>
                         </div>
+                        <InputError :message="form.errors.role" />
                     </div>
 
                     <div v-if="form.role === 'validateur'" class="sites-section">
                         <div class="sites-section__header">
                             <Icon name="map-pin" />
-                            Sites gérés par ce validateur
+                            Aires protégées gérées par ce validateur
                         </div>
                         <div class="sites-grid">
                             <label v-for="site in sites" :key="site.id" class="site-checkbox" :class="{ 'site-checkbox--checked': form.sites.includes(site.id) }">
@@ -83,6 +99,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                                 <span>{{ site.nom }}</span>
                             </label>
                         </div>
+                        <InputError :message="sitesError" />
                     </div>
 
                     <div class="form-footer">
@@ -163,6 +180,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
 .role-icon--demandeur { background: var(--forest-soft); color: var(--forest); }
 .role-icon--validateur { background: var(--water-line); color: var(--water); }
 .role-icon--admin { background: var(--ochre-soft); color: var(--ochre); }
+.role-icon--observateur { background: var(--sunk); color: var(--ink-2); }
 
 .role-option__name { font-size: 13.5px; font-weight: 600; color: var(--c-ink); }
 .role-option__desc { font-size: 12px; color: var(--c-muted); margin-top: 1px; }

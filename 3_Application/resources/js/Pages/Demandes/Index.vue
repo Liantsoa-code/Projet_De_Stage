@@ -1,11 +1,11 @@
 <script setup>
+import BoutonDocument from '@/Components/BoutonDocument.vue';
 import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import { openAuthenticatedPdf } from '@/utils/openPdf.js';
-import { statutBadgeClass, formatDate, refDemande } from '@/utils/statut.js';
+import { computed, ref, watch } from 'vue';
+import { statutBadgeClass, formatDate } from '@/utils/statut.js';
 import TableSkeleton from '@/Components/TableSkeleton.vue';
 import { useNavigation } from '@/composables/useNavigation.js';
 
@@ -25,6 +25,7 @@ const onglets = [
     { code: 'en_analyse', label: 'En analyse' },
     { code: 'validee', label: 'Validées' },
     { code: 'rejetee', label: 'Rejetées' },
+    { code: 'retiree', label: 'Retirées' },
 ];
 
 const total = computed(() => Object.values(props.compteurs).reduce((a, b) => a + Number(b), 0));
@@ -32,19 +33,16 @@ const compte = (code) => (code === '' ? total.value : Number(props.compteurs[cod
 // On masque les onglets vides, sauf « Toutes » et l'onglet sélectionné
 const ongletsVisibles = computed(() => onglets.filter(o => o.code === '' || o.code === props.filters.statut || compte(o.code) > 0));
 
+// Onglet marqué actif dès le clic, sans attendre la réponse : la pastille glisse tout de suite
+const ongletActif = ref(props.filters.statut || '');
+watch(() => props.filters.statut, (statut) => { ongletActif.value = statut || ''; });
+
 const filtrer = (code) => {
+    ongletActif.value = code;
     router.get(route('demandes.index'), code ? { statut: code } : {}, { preserveScroll: true, preserveState: true, replace: true });
 };
 
 const ouvrir = (d) => router.visit(route('demandes.show', d.id));
-
-const openPdf = async (url, filename) => {
-    try {
-        await openAuthenticatedPdf(url, filename);
-    } catch (e) {
-        alert(e.message || 'Erreur lors de l\'ouverture du PDF.');
-    }
-};
 </script>
 
 <template>
@@ -69,15 +67,15 @@ const openPdf = async (url, filename) => {
             <button type="button" class="todo-banner__btn" @click="filtrer('a_completer')">Voir</button>
         </div>
 
-        <div class="tabs" role="tablist">
+        <div v-glisse="'demandes'" class="tabs" role="tablist">
             <button
                 v-for="o in ongletsVisibles"
                 :key="o.code"
                 type="button"
                 role="tab"
                 class="tab"
-                :class="{ 'tab--active': (filters.statut || '') === o.code }"
-                :aria-selected="(filters.statut || '') === o.code"
+                :class="{ 'tab--active': ongletActif === o.code }"
+                :aria-selected="ongletActif === o.code"
                 @click="filtrer(o.code)"
             >
                 {{ o.label }}
@@ -90,8 +88,8 @@ const openPdf = async (url, filename) => {
                 <thead>
                     <tr>
                         <th>Référence</th>
-                        <th>Site</th>
-                        <th>Type d'activité</th>
+                        <th>Aire protégée</th>
+                        <th>Projet</th>
                         <th>Période</th>
                         <th>Statut</th>
                         <th class="text-right">Actions</th>
@@ -100,9 +98,12 @@ const openPdf = async (url, filename) => {
                 <TableSkeleton v-if="navLoading && samePage" :cols="6" />
                 <tbody v-else>
                     <tr v-for="d in demandes.data" :key="d.id" class="row-link" @click="ouvrir(d)">
-                        <td class="mono text-sm nowrap">{{ refDemande(d) }}</td>
+                        <td class="mono text-sm nowrap">{{ d.reference }}</td>
                         <td><span class="site-label">{{ d.site.nom }}</span></td>
-                        <td class="text-dim">{{ d.type_demande.libelle }}</td>
+                        <td>
+                            <div v-if="d.titre" class="fw-strong">{{ d.titre }}</div>
+                            <div class="text-dim text-sm">{{ d.type_demande.libelle }}</div>
+                        </td>
                         <td class="mono text-sm nowrap">
                             <template v-if="d.date_debut">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</template>
                             <span v-else style="font-style:italic">À définir</span>
@@ -111,8 +112,9 @@ const openPdf = async (url, filename) => {
                         <td class="text-right" @click.stop>
                             <div class="doc-btns">
                                 <template v-if="d.statut.code === 'validee'">
-                                    <button type="button" class="btn-sm-edit" @click="openPdf(route('demandes.pdf.autorisation', d.id), `autorisation_${d.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
-                                    <button type="button" class="btn-sm-edit" @click="openPdf(route('demandes.pdf.cahier-charges', d.id), `cahier_des_charges_${d.id}.pdf`)"><Icon name="file-pdf" />Cahier des charges</button>
+                                    <BoutonDocument class="btn-sm-edit" :url="route('demandes.pdf.autorisation', d.id)">Autorisation</BoutonDocument>
+                                    <BoutonDocument class="btn-sm-edit" :url="route('demandes.pdf.cahier-charges', d.id)">Cahier des charges</BoutonDocument>
+                                    <BoutonDocument class="btn-sm-edit" :url="route('demandes.pdf.convention', d.id)">Convention</BoutonDocument>
                                 </template>
                                 <Link v-else-if="d.statut.code === 'brouillon'" :href="route('demandes.edit', d.id)" class="btn-sm-edit">Continuer</Link>
                                 <Link v-else-if="d.statut.code === 'a_completer'" :href="route('demandes.edit', d.id)" class="btn-sm-edit btn-sm-todo">Compléter</Link>

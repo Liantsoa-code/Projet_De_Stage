@@ -1,5 +1,6 @@
 <script setup>
 import DangerButton from '@/Components/DangerButton.vue';
+import Icon from '@/Components/Icon.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
@@ -39,18 +40,22 @@ const closeModal = () => {
 </script>
 
 <template>
-    <section class="space-y-6">
-        <header>
-            <h2 class="section-title">
-                Supprimer mon compte
-            </h2>
+    <section class="profile-card profile-card--danger">
+        <header class="profile-card__head">
+            <div>
+                <h2 class="section-title">
+                    Supprimer mon compte
+                </h2>
 
-            <p class="section-text">
-                La suppression efface définitivement votre compte, vos demandes et leurs pièces jointes. Téléchargez d'abord les autorisations que vous souhaitez conserver.
-            </p>
+                <p class="section-text">
+                    La suppression efface définitivement votre compte, vos demandes et leurs pièces jointes. Téléchargez d'abord les autorisations que vous souhaitez conserver.
+                </p>
+            </div>
+
+            <button type="button" class="btn-sm-delete" @click="confirmUserDeletion">
+                Supprimer <Icon name="trash" />
+            </button>
         </header>
-
-        <DangerButton @click="confirmUserDeletion">Supprimer mon compte</DangerButton>
 
         <Modal :show="confirmingUserDeletion" @close="closeModal">
             <div class="p-6">

@@ -17,17 +17,27 @@ class NotificationController extends Controller
         $notification->update(['lu' => true]);
 
         if ($notification->demande) {
-            // Sa propre demande → fiche demandeur ; sinon → fiche d'analyse (validateur / admin).
+            // Sa propre demande → fiche demandeur ; sinon → fiche d'analyse (validateur, admin, observateur).
             if ((int) $notification->demande->user_id === (int) auth()->id()) {
                 return redirect()->route('demandes.show', $notification->demande_id);
             }
 
-            if (in_array(auth()->user()->role, ['admin', 'validateur'], true)) {
+            if (in_array(auth()->user()->role, ['admin', 'validateur', 'observateur'], true)) {
                 return redirect()->route('validateur.demandes.show', $notification->demande_id);
             }
 
             return redirect()->route('demandes.index');
         }
+
+        return back();
+    }
+
+    public function markAllAsRead()
+    {
+        // Seules les notifications de l'utilisateur connecté sont concernées
+        Notification::where('user_id', auth()->id())
+            ->where('lu', false)
+            ->update(['lu' => true]);
 
         return back();
     }

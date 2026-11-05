@@ -1,4 +1,5 @@
 <script setup>
+import FiltreMultiple from '@/Components/FiltreMultiple.vue';
 import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
@@ -12,8 +13,14 @@ const { loading: navLoading, samePage } = useNavigation();
 const props = defineProps({ users: Object, filters: { type: Object, default: () => ({}) } });
 const { filters, reset, isActive } = useListFilters('admin.users.index', {
     q: props.filters.q ?? '',
-    role: props.filters.role ?? '',
+    role: props.filters.role ?? [],
 });
+const optionsRole = [
+    { value: 'demandeur', label: 'Demandeurs' },
+    { value: 'validateur', label: 'Validateurs' },
+    { value: 'admin', label: 'Administrateurs' },
+    { value: 'observateur', label: 'Observateurs' },
+];
 
 const roleClass = (role) => ({
     'role-badge--admin': role === 'admin',
@@ -37,12 +44,7 @@ const roleClass = (role) => ({
                 <Icon name="magnifying-glass" />
                 <input v-model="filters.q" type="search" class="gf-input" placeholder="Nom ou email…" aria-label="Rechercher un utilisateur" />
             </div>
-            <select v-model="filters.role" class="gf-select" aria-label="Rôle">
-                <option value="">Tous les rôles</option>
-                <option value="demandeur">Demandeurs</option>
-                <option value="validateur">Validateurs</option>
-                <option value="admin">Administrateurs</option>
-            </select>
+            <FiltreMultiple v-model="filters.role" :options="optionsRole" tous="Tous les rôles" pluriel="rôles" />
             <button v-if="isActive()" type="button" class="filter-reset" @click="reset">Réinitialiser</button>
         </div>
 
@@ -53,7 +55,7 @@ const roleClass = (role) => ({
                         <th>Nom</th>
                         <th>Email</th>
                         <th>Rôle</th>
-                        <th>Sites assignés</th>
+                        <th>Aires protégées assignées</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
@@ -63,13 +65,13 @@ const roleClass = (role) => ({
                         <td class="fw-strong">{{ user.name }}</td>
                         <td class="text-dim text-sm">{{ user.email }}</td>
                         <td>
-                            <span class="role" :class="`role--${user.role}`">{{ { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' }[user.role] ?? user.role }}</span>
+                            <span class="role" :class="`role--${user.role}`">{{ { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur', observateur: 'Observateur' }[user.role] ?? user.role }}</span>
                         </td>
                         <td class="text-dim text-sm">
                             <span v-if="user.role !== 'validateur'">—</span>
                             <span v-else>
                                 <span v-for="site in user.sites" :key="site.id" class="chip">{{ site.nom }}</span>
-                                <span v-if="user.sites.length === 0" class="warn-chip">Aucun site assigné</span>
+                                <span v-if="user.sites.length === 0" class="warn-chip">Aucune aire protégée assignée</span>
                             </span>
                         </td>
                         <td class="text-right">
@@ -92,6 +94,7 @@ const roleClass = (role) => ({
 .role { display: inline-flex; padding: 3px 8px; border-radius: var(--r-sm); font-size: 12px; font-weight: 600; background: var(--sunk); color: var(--ink-2); }
 .role--validateur { background: var(--forest-soft); color: var(--forest); }
 .role--admin { background: var(--ink); color: var(--paper); }
+.role--observateur { background: var(--water-soft); color: var(--water); }
 .chip { display: inline-flex; margin: 2px 4px 2px 0; padding: 3px 8px; border-radius: var(--r-sm); background: var(--sunk); color: var(--ink-2); font-size: 12px; }
 .warn-chip { display: inline-flex; padding: 3px 8px; border-radius: var(--r-sm); background: var(--ochre-soft); color: var(--ochre); font-size: 12px; font-weight: 600; }
 </style>

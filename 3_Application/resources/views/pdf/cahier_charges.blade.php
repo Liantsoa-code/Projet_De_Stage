@@ -3,10 +3,12 @@
 <head>
     <meta charset="utf-8">
     <title>Cahier des Charges</title>
+    {{-- Aperçu en direct dans le navigateur : resources/js/Components/Apercu/ApercuCahierCharges.vue, à garder en phase --}}
     <style>
-        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #15201A; }
-        .header { text-align: center; border-bottom: 2px solid #9A5F0C; padding-bottom: 20px; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: bold; color: #00683A; }
+        /* Un mot trop long pour la ligne est coupé au lieu de sortir de la page */
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #15201A; overflow-wrap: anywhere; }
+        .logo { text-align: right; }
+        .logo img { width: 72px; height: 72px; }
         .content { margin: 20px; line-height: 1.6; }
         .footer { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 12px; color: #6E7A72; border-top: 1px solid #D3DAD1; padding-top: 10px; }
         h1 { font-size: 20px; text-transform: uppercase; text-align: center; margin-bottom: 40px; }
@@ -14,46 +16,46 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="logo">FONDATION FANAMBY</div>
-        <p>Cahier des Charges - {{ $demande->typeDemande->libelle }}</p>
-    </div>
+    <div class="logo"><img src="{{ public_path('assets/logo-fanamby-192.png') }}" alt="Fanamby"></div>
 
     <h1>CAHIER DES CHARGES À RESPECTER</h1>
 
     <div class="content">
-        <p>Ce document est une annexe obligatoire à l'autorisation d'accès pour <strong>{{ $demande->user->name }}</strong> sur le site de <strong>{{ $demande->site->nom }}</strong>.</p>
-        
-        <h3>Règles spécifiques liées à l'activité :</h3>
+        <p>Ce document est une annexe obligatoire à l'autorisation d'accès pour <strong>{{ $demande->user->name }}</strong> dans l'aire protégée de <strong>{{ $demande->site->nom }}</strong>.</p>
+
+        <h3>Règles spécifiques liées au type de projet :</h3>
         <ul>
-            @if(is_array($demande->typeDemande->regles_specifiques))
-                @foreach($demande->typeDemande->regles_specifiques as $key => $regle)
-                    <li><strong>{{ is_string($key) ? ucfirst($key) . ' :' : '' }}</strong> {{ is_string($regle) ? $regle : json_encode($regle) }}</li>
-                @endforeach
-            @else
+            @forelse(\App\Support\DocumentsOfficiels::lignes($contenu['regles']) as $regle)
+                <li>{{ $regle }}</li>
+            @empty
                 <li>Aucune règle spécifique supplémentaire enregistrée.</li>
-            @endif
+            @endforelse
         </ul>
 
-        @if(!empty($demande->resultats_analyse))
+        @php($alertes = \App\Support\AnalyseDemande::contraintesRelevees($demande->resultats_analyse))
+        @if($alertes)
         <div class="alert">
             <strong>Avertissements lors de l'analyse :</strong>
             <ul>
-                @foreach($demande->resultats_analyse as $alerte)
+                @foreach($alertes as $alerte)
                     <li>{{ $alerte['message'] }}</li>
                 @endforeach
             </ul>
         </div>
         @endif
-        
+
         <h3>Engagement du demandeur</h3>
-        <p>Le demandeur certifie avoir pris connaissance des règlements internes de l'aire protégée et s'engage à respecter la faune, la flore et les communautés locales. Tout non-respect de ce cahier des charges entraînera des poursuites.</p>
+        <p>{!! nl2br(e($contenu['engagement'])) !!}</p>
         <br><br>
-        <p><strong>Signature du demandeur :</strong> ___________________________</p>
+        @if($demande->date_soumission)
+            <p><strong>Signature du demandeur :</strong> engagements acceptés en ligne par {{ $demande->user->name }} lors de l'envoi du dossier, le {{ $demande->date_soumission->format('d/m/Y') }}.</p>
+        @else
+            <p><strong>Signature du demandeur :</strong> ___________________________</p>
+        @endif
     </div>
 
     <div class="footer">
-        Document généré automatiquement le {{ now()->format('d/m/Y à H:i') }} - Réf. : FAN-{{ ($demande->created_at ?? now())->format('Y') }}-{{ str_pad($demande->id, 4, '0', STR_PAD_LEFT) }}
+        Document généré le {{ now()->format('d/m/Y à H:i') }} - Réf. : {{ $demande->reference }}
     </div>
 </body>
 </html>

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class HistoriqueStatut extends Model
 {
+    protected $table = 't_historique_statuts';
+
     protected $fillable = ['demande_id', 'user_id', 'ancien_statut_id', 'nouveau_statut_id', 'commentaire', 'date_changement'];
 
     protected $casts = [

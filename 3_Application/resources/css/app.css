@@ -215,7 +215,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
     text-decoration: none;
     white-space: nowrap;
     cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s, color 0.15s, filter 0.15s;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, filter 0.15s, transform 0.15s var(--ease-out);
 }
 .btn-accent { background: var(--forest); border: 1px solid var(--forest); color: var(--on-forest); }
 .btn-accent:hover { background: var(--forest-dark); border-color: var(--forest-dark); }
@@ -223,7 +223,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .btn-ghost { background: var(--surface); border: 1px solid var(--rule); color: var(--ink); }
 .btn-ghost:hover { border-color: var(--ink-3); }
 .btn-accent svg, .btn-ghost svg { width: 16px; height: 16px; }
-.btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 14px; border-radius: var(--r-sm); border: 1px solid var(--signal); background: var(--signal); color: #fff; font: 600 14px/1 var(--f-body); cursor: pointer; }
+.btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 14px; border-radius: var(--r-sm); border: 1px solid var(--signal); background: var(--signal); color: #fff; font: 600 14px/1 var(--f-body); cursor: pointer; transition: filter 0.15s, transform 0.15s var(--ease-out); }
 .btn-sm-edit, .btn-sm-delete {
     display: inline-flex;
     align-items: center;
@@ -233,8 +233,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
     font: 600 12.5px/1.2 var(--f-body);
     text-decoration: none;
     cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.15s var(--ease-out);
 }
+.btn-sm-edit svg, .btn-sm-delete svg, .btn-danger svg { width: 14px; height: 14px; flex-shrink: 0; }
+/* Léger enfoncement au clic */
+.btn-accent:not(:disabled):active, .btn-ghost:active, .btn-danger:active,
+.btn-sm-edit:active, .btn-sm-delete:not(:disabled):active { transform: scale(0.97); }
 .btn-sm-edit { background: var(--surface); color: var(--ink); border: 1px solid var(--rule); }
 .btn-sm-edit:hover { border-color: var(--forest); color: var(--forest); }
 .btn-sm-delete { background: var(--surface); color: var(--signal); border: 1px solid var(--signal-line); }
@@ -284,6 +288,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 }
 .badge-err { color: var(--signal); background: var(--signal-soft); }
 .badge-err::before { border-radius: 0; width: 8px; height: 2px; }
+/* Retirée par le demandeur : gris, carré vide */
+.badge-retire { color: var(--ink-2); background: var(--sunk); }
+.badge-retire::before { background: transparent; border: 1.5px solid currentColor; border-radius: 1px; width: 6px; height: 6px; }
 
 /* Hachures des périodes sensibles */
 .hatch {
@@ -360,6 +367,26 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .tab__count { font: 500 12px var(--f-mono); color: var(--ink); }
 @media (max-width: 640px) { .tabs { border-radius: var(--r); } }
 
+/* Pastille qui glisse sous l'onglet actif (directive v-glisse, utils/glisse.js) */
+.glisse { position: relative; isolation: isolate; }
+.glisse::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    width: var(--glisse-w, 0);
+    height: var(--glisse-h, 0);
+    transform: translate(var(--glisse-x, 0), var(--glisse-y, 0));
+    border-radius: var(--glisse-r, var(--r-pill));
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--rule);
+    opacity: var(--glisse-o, 0);
+    transition: transform 0.35s var(--ease-out), width 0.35s var(--ease-out), height 0.35s var(--ease-out), opacity 0.2s;
+}
+.glisse--fixe::before { transition: none; }
+.glisse > [aria-selected='true'], .glisse > [aria-current='page'] { background: transparent; border-color: transparent; box-shadow: none; }
+
 /* Lien retour */
 .back-link {
     display: inline-flex;
@@ -377,6 +404,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 .back-link svg { width: 16px; height: 16px; transition: transform 0.2s var(--ease-out); }
 .back-link:hover { color: var(--ink); }
 .back-link:hover svg { transform: translateX(-2px); }
+
+/* Feuilles d'aperçu des documents (Components/Apercu/FeuilleA4.vue) : marges et graisses d'un document
+   imprimé, comme les rend DomPDF, que le reset de Tailwind retire. Spécificité d'une seule classe :
+   les styles de chaque document passent devant. */
+.feuille-a4 :where(h1, h2, h3) { font-family: inherit; font-weight: bold; letter-spacing: normal; text-wrap: wrap; }
+.feuille-a4 :where(h1) { font-size: 2em; margin: 0.67em 0; }
+.feuille-a4 :where(h2) { font-size: 1.5em; margin: 0.83em 0; }
+.feuille-a4 :where(h3) { font-size: 1.17em; margin: 1em 0; }
+.feuille-a4 :where(p) { margin: 1em 0; }
+.feuille-a4 :where(ul) { margin: 1em 0; padding-left: 40px; list-style: disc; }
+.feuille-a4 :where(strong, b) { font-weight: bold; }
 
 /* Messages flash */
 .flash-ok, .flash-err {

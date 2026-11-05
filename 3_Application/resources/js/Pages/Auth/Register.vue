@@ -35,7 +35,7 @@ const submit = () => {
             <ul class="caption-list">
                 <li><Icon name="check-circle" />Déposer des demandes de recherche ou de tournage</li>
                 <li><Icon name="check-circle" />Suivre l'instruction et répondre aux compléments</li>
-                <li><Icon name="check-circle" />Télécharger l'autorisation et le cahier des charges</li>
+                <li><Icon name="check-circle" />Télécharger l'autorisation, le cahier des charges et la convention</li>
             </ul>
         </template>
 

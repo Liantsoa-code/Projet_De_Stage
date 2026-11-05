@@ -22,14 +22,14 @@ defineProps({
             </header>
 
             <main class="guest__main">
-                <nav v-if="onglet" class="guest__tabs" aria-label="Accès au compte">
+                <nav v-if="onglet" v-glisse="'acces'" class="guest__tabs" aria-label="Accès au compte">
                     <Link :href="route('login')" class="guest__tab" :aria-current="onglet === 'connexion' ? 'page' : undefined">Se connecter</Link>
                     <Link :href="route('register')" class="guest__tab" :aria-current="onglet === 'inscription' ? 'page' : undefined">Créer un compte</Link>
                 </nav>
                 <slot />
             </main>
 
-            <footer class="guest__foot">Fondation FANAMBY · Antananarivo, Madagascar</footer>
+            <footer class="guest__foot">Association FANAMBY · Antananarivo, Madagascar</footer>
         </div>
 
         <figure class="guest__visual">
@@ -43,7 +43,7 @@ defineProps({
             <figcaption class="guest__caption">
                 <slot name="caption">
                     <span class="eyebrow">Demandes d'accès</span>
-                    <p>Recherche scientifique et tournage dans les aires protégées gérées par la Fondation, avec vérification du calendrier de chaque site.</p>
+                    <p>Recherche scientifique et tournage dans les aires protégées gérées par l'Association, avec vérification du calendrier de chaque site.</p>
                 </slot>
                 <span class="guest__credit">Indri (Indri indri)</span>
             </figcaption>
@@ -90,7 +90,8 @@ defineProps({
     transition: background-color 0.15s, color 0.15s;
 }
 .guest__tab:hover { color: var(--ink); }
-.guest__tab[aria-current='page'] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--rule); }
+/* Le fond blanc de l'onglet actif est la pastille glissante (v-glisse) */
+.guest__tab[aria-current='page'] { color: var(--ink); }
 
 .guest__foot { font-size: 12.5px; color: var(--ink-3); }
 

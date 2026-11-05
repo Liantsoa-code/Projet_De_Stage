@@ -1,11 +1,15 @@
 <script setup>
+import BoutonDocument from '@/Components/BoutonDocument.vue';
 import Icon from '@/Components/Icon.vue';
+import PanneauAnalyse from '@/Components/PanneauAnalyse.vue';
 import StatutSteps from '@/Components/StatutSteps.vue';
+import TimelineDemande from '@/Components/TimelineDemande.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { openAuthenticatedPdf } from '@/utils/openPdf.js';
-import { statutBadgeClass, formatDate, refDemande, joursDepuis } from '@/utils/statut.js';
-import { computed } from 'vue';
+import DocumentsGeneres from './Partials/DocumentsGeneres.vue';
+import SignalementsDossier from './Partials/SignalementsDossier.vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { statutBadgeClass, formatDate, joursDepuis } from '@/utils/statut.js';
+import { computed, nextTick, ref } from 'vue';
 
 const props = defineProps({
     demande: Object,
@@ -13,56 +17,95 @@ const props = defineProps({
     viewAllDemandes: { type: Boolean, default: false },
     canDecideOnDemande: { type: Boolean, default: true },
     statutLocked: { type: Boolean, default: false },
+    delaiHabituel: { type: Number, default: null },
+    documentsGeneres: { type: Object, default: null },
+    peutTelechargerWord: { type: Boolean, default: false },
+    // Observateur : tout le dossier en lecture, sans décision
+    lectureSeule: { type: Boolean, default: false },
+    signalements: { type: Array, default: () => [] },
+    partiesSignalement: { type: Object, default: () => ({}) },
+    peutSignaler: { type: Boolean, default: false },
+    peutTraiterSignalements: { type: Boolean, default: false },
 });
 
-const ROLES = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' };
+// Signalements : les liens « Signaler » des parties ouvrent le formulaire avec la partie choisie
+const blocSignalements = ref(null);
+const signaler = (partie) => blocSignalements.value?.signaler(partie);
+const signalementsOuverts = computed(() => props.signalements.filter((s) => s.ouvert).length);
 
 const CHOIX = {
     en_analyse: { label: 'Prendre en charge', sub: 'Passe le dossier en analyse et prévient le demandeur', icon: 'stamp' },
     a_completer: { label: 'Demander un complément', sub: 'Le dossier retourne au demandeur avec votre commentaire', icon: 'pencil-simple-line' },
-    validee: { label: 'Valider la demande', sub: 'Génère l\'autorisation et le cahier des charges en PDF', icon: 'seal-check' },
-    rejetee: { label: 'Rejeter la demande', sub: 'Décision définitive, le dossier est clos', icon: 'prohibit' },
+    validee: { label: 'Avis favorable', sub: 'Vous relisez et modifiez l\'autorisation, le cahier des charges et la convention, puis vous signez : le demandeur n\'est prévenu qu\'à la signature', icon: 'seal-check' },
+    rejetee: { label: 'Avis défavorable', sub: 'La demande est rejetée : décision définitive, le dossier est clos', icon: 'prohibit' },
     soumise: { label: 'Remettre en file', sub: 'Le dossier repasse au statut soumis', icon: 'arrow-left' },
 };
 
+const nomValidateur = computed(() => usePage().props.auth.user.name);
+const fonctionValidateur = computed(() => usePage().props.auth.user.fonction);
+const idValidee = computed(() => props.statuts.find((s) => s.code === 'validee')?.id);
+
+// Documents déjà générés : la décision en cours est la validation.
 const form = useForm({
-    statut_id: props.demande.statut_id,
+    statut_id: props.documentsGeneres && idValidee.value ? idValidee.value : props.demande.statut_id,
     commentaire: '',
+    signature: '',
+});
+
+// Validation en deux temps : « Préparer » génère les documents à relire, la signature valide le dossier.
+const docsModifies = ref(false);
+const generation = useForm({});
+// Les documents s'affichent en haut de la page : le validateur y est amené dès qu'ils sont prêts.
+const blocDocuments = ref(null);
+const montrerDocuments = () => blocDocuments.value?.montrer();
+const generer = () => generation.post(route('validateur.demandes.documents.generer', props.demande.id), {
+    preserveScroll: true,
+    onSuccess: () => nextTick(montrerDocuments),
 });
 
 const submit = () => {
+    if (statutChoisi.value === 'validee' && !props.documentsGeneres) {
+        generer();
+        return;
+    }
     form.post(route('validateur.demandes.update-statut', props.demande.id), {
-        onSuccess: () => form.reset('commentaire'),
+        onSuccess: () => form.reset('commentaire', 'signature'),
     });
 };
 
-const openPdf = async (url, filename) => {
-    try {
-        await openAuthenticatedPdf(url, filename);
-    } catch (e) {
-        alert(e.message || 'Erreur lors de l\'ouverture du PDF.');
-    }
-};
-
-const reference = computed(() => refDemande(props.demande));
+const reference = computed(() => props.demande.reference);
 const code = computed(() => props.demande.statut?.code);
 const options = computed(() => props.statuts.filter((s) => s.id !== props.demande.statut_id));
 const statutChoisi = computed(() => props.statuts.find((s) => s.id === form.statut_id)?.code);
 const aChoisi = computed(() => form.statut_id !== props.demande.statut_id);
 
 const docsRequis = computed(() => props.demande.type_demande?.documents_requis ?? []);
-const docsManquants = computed(() => docsRequis.value.filter((n) => !(props.demande.documents ?? []).some((d) => d.type_document === n)));
+const docsManquants = computed(() => docsRequis.value
+    .filter((r) => !(props.demande.documents ?? []).some((d) => d.document_requis_id === r.id))
+    .map((r) => r.libelle));
 const attente = computed(() => (['soumise', 'en_analyse'].includes(code.value) ? joursDepuis(props.demande.date_soumission) : null));
 
+const etapeSignature = computed(() => statutChoisi.value === 'validee' && !!props.documentsGeneres);
+const boutonDesactive = computed(() => {
+    if (form.processing || generation.processing || !aChoisi.value) return true;
+    return etapeSignature.value && (docsModifies.value || !form.signature.trim());
+});
+
 const boutonLabel = computed(() => {
-    if (form.processing) return 'Enregistrement…';
+    if (form.processing || generation.processing) return 'Enregistrement…';
+    if (statutChoisi.value === 'validee') return props.documentsGeneres ? 'Signer et valider le dossier' : 'Préparer les documents à relire';
     return {
-        validee: 'Valider et générer l\'autorisation',
         a_completer: 'Envoyer la demande de complément',
-        rejetee: 'Rejeter la demande',
+        rejetee: 'Émettre l\'avis défavorable',
         en_analyse: 'Prendre en charge',
         soumise: 'Remettre en file',
     }[statutChoisi.value] ?? 'Choisissez une décision';
+});
+// Section VI du formulaire : un avis favorable (validation) ou défavorable (rejet) s'accompagne d'observations
+const avis = computed(() => ['validee', 'rejetee'].includes(statutChoisi.value));
+const libelleCommentaire = computed(() => {
+    if (statutChoisi.value === 'a_completer') return 'Compléments attendus';
+    return avis.value ? 'Observations' : 'Commentaire pour le demandeur';
 });
 const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-danger' }[statutChoisi.value] ?? 'btn-accent'));
 </script>
@@ -85,43 +128,77 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
         </template>
 
         <div class="intro">
-            <h1 class="intro__title">{{ demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
+            <h1 class="intro__title">{{ demande.titre || demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
             <StatutSteps :code="code" large />
         </div>
+
+        <a v-if="signalementsOuverts" href="#signalements" class="alerte-sig">
+            <Icon name="warning" />
+            <span><strong>{{ signalementsOuverts }} signalement{{ signalementsOuverts > 1 ? 's' : '' }} ouvert{{ signalementsOuverts > 1 ? 's' : '' }}</strong> sur ce dossier</span>
+            <span class="alerte-sig__voir">Voir</span>
+        </a>
+
+        <!-- Pleine largeur : la saisie et l'aperçu des documents côte à côte (en lecture seule pour l'observateur) -->
+        <DocumentsGeneres
+            v-if="documentsGeneres && (canDecideOnDemande || lectureSeule)"
+            ref="blocDocuments"
+            :key="documentsGeneres.genere_le"
+            v-model:modifie="docsModifies"
+            class="docs-generes"
+            :demande="demande"
+            :documents="documentsGeneres"
+            :lecture-seule="lectureSeule"
+        />
 
         <div class="show-layout">
             <div class="stack">
                 <dl class="meta">
                     <div><dt>Demandeur</dt><dd>{{ demande.user.name }}<small>{{ demande.user.email }}</small></dd></div>
-                    <div><dt>Site</dt><dd>{{ demande.site.nom }}</dd></div>
-                    <div><dt>Séjour</dt><dd class="mono">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }}</dd></div>
+                    <div><dt>Organisation</dt><dd>{{ demande.user.organisation || '—' }}<small>{{ demande.user.fonction }}</small></dd></div>
+                    <div><dt>Contact</dt><dd>{{ demande.user.telephone || '—' }}<small>{{ demande.user.adresse }}</small></dd></div>
+                    <div><dt>CIN / Passeport</dt><dd class="mono">{{ demande.user.piece_identite || '—' }}</dd></div>
+                    <div><dt>Type de projet</dt><dd>{{ demande.type_demande.libelle }}<small v-if="demande.type_precision">{{ demande.type_precision }}</small></dd></div>
+                    <div><dt>Aire protégée</dt><dd>{{ demande.site.nom }}</dd></div>
+                    <div><dt>Arrivée sur le terrain</dt><dd class="mono">{{ formatDate(demande.date_arrivee || demande.date_debut) }}</dd></div>
+                    <div><dt>Activités</dt><dd class="mono">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }}</dd></div>
                     <div><dt>Équipe</dt><dd>{{ demande.equipe_nombre }} personne{{ demande.equipe_nombre > 1 ? 's' : '' }}</dd></div>
                     <div><dt>Déposée le</dt><dd class="mono">{{ formatDate(demande.date_soumission) }}</dd></div>
                 </dl>
 
-                <template v-if="demande.resultats_analyse?.length">
-                    <div v-for="(a, i) in demande.resultats_analyse" :key="i" class="conflict">
-                        <div class="conflict__band"></div>
-                        <div class="conflict__body">
-                            <span class="conflict__tag"><Icon name="warning" />Période sensible</span>
-                            <p>{{ a.message }}</p>
-                        </div>
-                    </div>
-                </template>
-                <div v-else class="res-ok">
-                    <Icon name="check-circle" />
-                    <span>Aucune période sensible ne chevauche ces dates.</span>
-                </div>
+                <section class="panel">
+                    <header class="panel__head">
+                        <h2>Analyse de la demande</h2>
+                        <span class="panel__fin">
+                            <small>Faite automatiquement à l'envoi du dossier</small>
+                            <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('analyse')"><Icon name="warning" />Signaler</button>
+                        </span>
+                    </header>
+                    <PanneauAnalyse :contraintes="demande.resultats_analyse ?? []" />
+                </section>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Description du projet</h2></header>
-                    <p class="panel__text">{{ demande.description }}</p>
+                    <header class="panel__head">
+                        <h2>Projet</h2>
+                        <span class="panel__fin">
+                            <BoutonDocument class="link link-btn" :url="route('demandes.pdf.formulaire', demande.id)" :word="peutTelechargerWord">Formulaire de demande</BoutonDocument>
+                            <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('projet')"><Icon name="warning" />Signaler</button>
+                        </span>
+                    </header>
+                    <dl class="projet">
+                        <div><dt>Titre du projet</dt><dd>{{ demande.titre || '—' }}</dd></div>
+                        <div><dt>Résumé du synopsis</dt><dd>{{ demande.description || '—' }}</dd></div>
+                        <div><dt>Objectif(s) principal(aux)</dt><dd>{{ demande.objectifs || '—' }}</dd></div>
+                    </dl>
                 </section>
 
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Pièces du dossier</h2>
-                        <small v-if="docsRequis.length">{{ docsRequis.length - docsManquants.length }} sur {{ docsRequis.length }} fournies</small>
+                        <span class="panel__fin">
+                            <small v-if="docsRequis.length">{{ docsRequis.length - docsManquants.length }} sur {{ docsRequis.length }} fournies</small>
+                            <a v-if="demande.documents?.length > 1" :href="route('demandes.pieces.zip', demande.id)" class="link"><Icon name="download-simple" />Tout télécharger</a>
+                            <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('pieces')"><Icon name="warning" />Signaler</button>
+                        </span>
                     </header>
                     <ul v-if="demande.documents?.length || docsManquants.length" class="docs">
                         <li v-for="doc in demande.documents" :key="doc.id">
@@ -145,22 +222,23 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                 </section>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Historique</h2></header>
-                    <ol v-if="demande.historique_statuts?.length" class="hist">
-                        <li v-for="(h, i) in demande.historique_statuts" :key="h.id" :class="{ 'hist--now': i === demande.historique_statuts.length - 1 }">
-                            <span class="hist__dot"></span>
-                            <div>
-                                <strong>{{ h.nouveau_statut.libelle }}</strong>
-                                <small>
-                                    <span class="mono">{{ new Date(h.date_changement).toLocaleDateString('fr-FR') }}</span>
-                                    · {{ h.user.name }}<template v-if="h.user.role"> ({{ ROLES[h.user.role] }})</template>
-                                </small>
-                                <q v-if="h.commentaire">{{ h.commentaire }}</q>
-                            </div>
-                        </li>
-                    </ol>
-                    <p v-else class="panel__text muted">Aucun historique pour le moment.</p>
+                    <header class="panel__head">
+                        <h2>Suivi du dossier</h2>
+                        <button v-if="peutSignaler" type="button" class="link link-btn signaler" @click="signaler('suivi')"><Icon name="warning" />Signaler</button>
+                    </header>
+                    <TimelineDemande :demande="demande" :delai-habituel="delaiHabituel" :signalements="signalements" />
                 </section>
+
+                <SignalementsDossier
+                    v-if="peutSignaler || signalements.length"
+                    id="signalements"
+                    ref="blocSignalements"
+                    :demande="demande"
+                    :signalements="signalements"
+                    :parties="partiesSignalement"
+                    :peut-signaler="peutSignaler"
+                    :peut-traiter="peutTraiterSignalements"
+                />
             </div>
 
             <aside class="side">
@@ -168,18 +246,29 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                     <header class="panel__head"><h2>{{ code === 'validee' ? 'Demande validée' : 'Dossier clôturé' }}</h2></header>
                     <div class="panel__body">
                         <p v-if="code === 'rejetee'">Cette demande a été rejetée. Aucune modification de statut n'est possible.</p>
+                        <p v-else-if="code === 'retiree'">Le demandeur a annulé cette demande. Aucune décision n'est attendue.</p>
                         <p v-else-if="code === 'validee'">Le dossier est définitivement clôturé. Les documents officiels sont disponibles.</p>
                         <p v-else>Ce dossier ne peut plus être modifié.</p>
                         <div v-if="code === 'validee'" class="btn-col">
-                            <button type="button" class="btn-accent" @click="openPdf(route('demandes.pdf.autorisation', demande.id), `autorisation_${demande.id}.pdf`)"><Icon name="file-pdf" />Autorisation</button>
-                            <button type="button" class="btn-ghost" @click="openPdf(route('demandes.pdf.cahier-charges', demande.id), `cahier_des_charges_${demande.id}.pdf`)"><Icon name="file-pdf" />Cahier des charges</button>
+                            <BoutonDocument class="btn-accent" :url="route('demandes.pdf.autorisation', demande.id)" :word="peutTelechargerWord">Autorisation</BoutonDocument>
+                            <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.cahier-charges', demande.id)" :word="peutTelechargerWord">Cahier des charges</BoutonDocument>
+                            <BoutonDocument class="btn-ghost" :url="route('demandes.pdf.convention', demande.id)" :word="peutTelechargerWord">Convention de collaboration</BoutonDocument>
                         </div>
+                    </div>
+                </section>
+
+                <section v-else-if="lectureSeule" class="panel notice notice--suivi">
+                    <header class="panel__head"><h2>Suivi en lecture seule</h2></header>
+                    <div class="panel__body">
+                        <p>En tant qu'observateur, vous consultez tout le dossier sans prendre de décision.</p>
+                        <p>Une pièce illisible, une date incohérente, un dossier qui attend trop ? Signalez-le : les validateurs de l'aire protégée et les administrateurs sont prévenus.</p>
+                        <button v-if="peutSignaler" type="button" class="btn-accent" @click="signaler('autre')"><Icon name="warning" />Signaler un problème</button>
                     </div>
                 </section>
 
                 <section v-else-if="!canDecideOnDemande" class="panel notice">
                     <header class="panel__head"><h2>Décision indisponible</h2></header>
-                    <p class="panel__body">Vous êtes le demandeur de ce dossier. Un autre administrateur ou un validateur rattaché au site doit l'examiner.</p>
+                    <p class="panel__body">Vous êtes le demandeur de ce dossier. Un autre administrateur ou un validateur rattaché à l'aire protégée doit l'examiner.</p>
                 </section>
 
                 <form v-else class="panel decision" @submit.prevent="submit">
@@ -206,15 +295,50 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                         <p v-if="statutChoisi === 'validee' && docsManquants.length" class="hint hint--att">
                             Attention : {{ docsManquants.length }} pièce{{ docsManquants.length > 1 ? 's' : '' }} obligatoire{{ docsManquants.length > 1 ? 's' : '' }} manque{{ docsManquants.length > 1 ? 'nt' : '' }} au dossier.
                         </p>
+                        <p v-if="documentsGeneres && ['a_completer', 'rejetee'].includes(statutChoisi)" class="hint hint--att">
+                            Les documents générés seront supprimés.
+                        </p>
 
-                        <div>
-                            <label class="gf-label" for="commentaire">{{ statutChoisi === 'a_completer' ? 'Compléments attendus' : 'Commentaire pour le demandeur' }}</label>
-                            <textarea id="commentaire" v-model="form.commentaire" rows="4" class="gf-textarea" required :placeholder="statutChoisi === 'a_completer' ? 'Pièces ou précisions à fournir' : 'Motif de la décision'"></textarea>
-                            <p v-if="form.errors.commentaire" class="gf-error">{{ form.errors.commentaire }}</p>
-                        </div>
+                        <!-- Étape 1 de la validation : documents à relire et modifier, rien n'est encore envoyé -->
+                        <ol v-if="statutChoisi === 'validee'" class="steps">
+                            <li :class="documentsGeneres ? 'steps__done' : 'steps__now'">
+                                <Icon :name="documentsGeneres ? 'check-circle' : 'file-text'" />
+                                <span>
+                                    <strong>{{ documentsGeneres ? 'Documents prêts à relire' : 'Préparer les documents' }}</strong>
+                                    <small>{{ documentsGeneres
+                                        ? 'Relisez et modifiez l\'autorisation, le cahier des charges et la convention en haut de la page.'
+                                        : 'Autorisation, cahier des charges et convention de collaboration, à relire et modifier. Rien n\'est envoyé au demandeur à cette étape.' }}</small>
+                                    <button v-if="documentsGeneres" type="button" class="link link-btn steps__lien" @click="montrerDocuments">
+                                        <Icon name="eye" />Relire et modifier les documents
+                                    </button>
+                                </span>
+                            </li>
+                            <li :class="documentsGeneres ? 'steps__now' : ''">
+                                <Icon name="seal-check" />
+                                <span><strong>Signer pour valider</strong><small>Retapez votre nom : l'avis favorable et les documents sont alors envoyés au demandeur</small></span>
+                            </li>
+                        </ol>
 
-                        <button type="submit" :disabled="form.processing || !aChoisi" :class="boutonClasse" class="decision__submit">
-                            <Icon v-if="form.processing" name="circle-notch" class="spin" />
+                        <template v-if="statutChoisi !== 'validee' || documentsGeneres">
+                            <div>
+                                <label class="gf-label" for="commentaire">{{ libelleCommentaire }}</label>
+                                <textarea id="commentaire" v-model="form.commentaire" rows="4" class="gf-textarea" required :placeholder="statutChoisi === 'a_completer' ? 'Pièces ou précisions à fournir' : 'Motif de la décision'"></textarea>
+                                <p v-if="avis" class="hint">Reprises dans la section VI « Décision de Fanamby » du formulaire de demande, avec votre nom{{ fonctionValidateur ? ` et votre fonction (${fonctionValidateur})` : '' }}.</p>
+                                <p v-if="form.errors.commentaire" class="gf-error">{{ form.errors.commentaire }}</p>
+                            </div>
+
+                            <!-- Étape 2 : signature par le nom du validateur -->
+                            <div v-if="etapeSignature" class="signature">
+                                <label class="gf-label" for="signature">Signature</label>
+                                <p class="hint">Retapez votre nom, <strong>{{ nomValidateur }}</strong>, pour valider définitivement le dossier. Cette action ne peut pas être annulée.</p>
+                                <input id="signature" v-model="form.signature" type="text" class="gf-input" autocomplete="off" spellcheck="false" required :placeholder="nomValidateur" />
+                                <p v-if="form.errors.signature" class="gf-error">{{ form.errors.signature }}</p>
+                                <p v-if="docsModifies" class="hint hint--att">Enregistrez d'abord les modifications des documents.</p>
+                            </div>
+                        </template>
+
+                        <button type="submit" :disabled="boutonDesactive" :class="boutonClasse" class="decision__submit">
+                            <Icon v-if="form.processing || generation.processing" name="circle-notch" class="spin" />
                             {{ boutonLabel }}
                         </button>
                     </div>
@@ -231,6 +355,14 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .late svg { width: 14px; height: 14px; }
 .intro { display: grid; gap: 12px; margin-bottom: 24px; }
 .intro__title { font-size: clamp(20px, 2vw, 26px); font-weight: 700; line-height: 1.15; max-width: 48ch; }
+.docs-generes { margin-bottom: 24px; }
+.alerte-sig { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 12px 16px; background: var(--ochre-soft); border: 1px solid var(--ochre-line); border-radius: var(--r); color: var(--ink); font-size: 14px; text-decoration: none; }
+.alerte-sig svg { width: 20px; height: 20px; color: var(--ochre); flex-shrink: 0; }
+.alerte-sig span:nth-child(2) { flex: 1; }
+.alerte-sig__voir { font-weight: 600; color: var(--ochre); }
+.alerte-sig:hover .alerte-sig__voir { text-decoration: underline; }
+.signaler { color: var(--ochre); }
+.notice--suivi { background: var(--surface); border-color: var(--rule); }
 
 .show-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
 @media (max-width: 1000px) { .show-layout { grid-template-columns: minmax(0, 1fr); } }
@@ -248,20 +380,19 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .panel__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 12px; padding: 16px 24px 8px; }
 .panel__head h2 { font-size: 15.5px; font-weight: 700; }
 .panel__head small { font-size: 12.5px; color: var(--ink-3); }
+.panel__fin { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.panel__fin .link { display: inline-flex; align-items: center; gap: 5px; }
+.panel__fin .link svg { width: 14px; height: 14px; }
 .panel__text { padding: 16px 24px; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; }
 .panel__body { display: grid; gap: 14px; padding: 16px 24px; font-size: 14px; color: var(--ink-2); }
 .muted { color: var(--ink-3); }
+.link-btn { display: inline-flex; align-items: center; gap: 5px; padding: 0; background: none; border: 0; cursor: pointer; }
+.link-btn :deep(svg) { width: 14px; height: 14px; }
+.projet { display: grid; gap: 12px; margin: 0; padding: 8px 24px 18px; }
+.projet dt { font: 600 10.5px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
+.projet dd { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; overflow-wrap: anywhere; }
 .link { font-size: 13px; font-weight: 600; color: var(--water); text-decoration: none; }
 .link:hover { text-decoration: underline; }
-
-.conflict { border: 1px solid var(--ochre); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
-.conflict__band { height: 10px; background: repeating-linear-gradient(45deg, var(--ochre) 0 2px, transparent 2px 7px); }
-.conflict__body { display: grid; gap: 6px; padding: 14px 16px; }
-.conflict__tag { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
-.conflict__tag svg { width: 14px; height: 14px; }
-.conflict__body p { font-size: 14px; color: var(--ink-2); }
-.res-ok { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--forest-soft); border-radius: var(--r-sm); font-size: 14px; }
-.res-ok svg { width: 20px; height: 20px; color: var(--forest); flex-shrink: 0; }
 
 .docs { list-style: none; margin: 0; padding: 0; }
 .docs li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--rule-soft); }
@@ -271,16 +402,6 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .docs__body strong { font-weight: 500; font-size: 14px; }
 .docs__body small { font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
 .docs__missing .docs__icon, .docs__missing strong { color: var(--ochre); }
-
-.hist { list-style: none; margin: 0; padding: 4px 24px 24px; display: grid; }
-.hist li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 12px; padding-top: 12px; }
-.hist li::before { content: ''; position: absolute; left: 6px; top: 26px; bottom: -12px; border-left: 1px solid var(--rule); }
-.hist li:last-child::before { display: none; }
-.hist__dot { position: relative; z-index: 1; width: 13px; height: 13px; margin-top: 4px; border: 2px solid var(--ink-3); border-radius: 50%; background: var(--surface); }
-.hist--now .hist__dot { border-color: var(--water); background: var(--water); }
-.hist strong { display: block; font-weight: 600; font-size: 14px; }
-.hist small { font-size: 12.5px; color: var(--ink-3); }
-.hist q { display: block; margin-top: 4px; font-size: 13px; font-style: italic; color: var(--ink-2); quotes: "« " " »"; }
 
 .notice { background: var(--ochre-soft); border-color: var(--ochre-line); }
 .notice--closed { background: var(--surface); border-color: var(--rule); }
@@ -300,6 +421,16 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .choice strong { display: block; font-weight: 600; font-size: 14px; color: var(--ink); }
 .choice small { font-size: 12.5px; color: var(--ink-3); }
 .decision__submit { width: 100%; }
+.steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.steps li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px dashed var(--rule); border-radius: var(--r-sm); color: var(--ink-3); }
+.steps li svg { width: 18px; height: 18px; margin-top: 1px; }
+.steps strong { display: block; font-weight: 600; font-size: 13.5px; }
+.steps small { font-size: 12.5px; }
+.steps__now { border-style: solid !important; border-color: var(--forest) !important; color: var(--ink-2) !important; }
+.steps__now svg { color: var(--forest); }
+.steps__done { color: var(--forest) !important; }
+.steps__lien { margin-top: 6px; }
+.signature { display: grid; gap: 6px; }
 .btn-warn, .btn-danger {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     padding: 10px 16px; border-radius: var(--r-sm); font: 600 14px/1 var(--f-body); color: #fff; cursor: pointer;

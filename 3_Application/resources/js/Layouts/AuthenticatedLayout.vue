@@ -2,6 +2,7 @@
 import Icon from '@/Components/Icon.vue';
 import PageSkeleton from '@/Components/PageSkeleton.vue';
 import { useNavigation, skeletonVariant } from '@/composables/useNavigation.js';
+import { pageVisible } from '@/utils/pages.js';
 import { ref, computed, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
@@ -11,6 +12,8 @@ const notifications = computed(() => page.props.notifications || []);
 const isValidateurOrAdmin = computed(
     () => user.value?.role === 'validateur' || user.value?.role === 'admin',
 );
+// L'équipe qui suit les dossiers : validateurs, admins et observateurs (en lecture seule)
+const suitLesDossiers = computed(() => isValidateurOrAdmin.value || user.value?.role === 'observateur');
 const { loading: navLoading, samePage, target } = useNavigation();
 const changementDePage = computed(() => navLoading.value && !samePage.value);
 const notifOpen = ref(false);
@@ -21,30 +24,34 @@ watch(() => page.url, () => {
     notifOpen.value = false;
 });
 
-const ROLE_LABELS = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur' };
+const ROLE_LABELS = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur', observateur: 'Observateur' };
 
 const navGroups = computed(() => {
-    const groups = [
-        {
-            label: 'Mon espace',
-            items: [
-                { label: 'Tableau de bord', route: 'dashboard', match: ['dashboard'], icon: 'squares-four' },
-                { label: 'Mes demandes', route: 'demandes.index', match: ['demandes.index', 'demandes.show', 'demandes.edit'], icon: 'file-text' },
-                { label: 'Nouvelle demande', route: 'demandes.create', match: ['demandes.create'], icon: 'plus' },
-            ],
-        },
+    // Mon espace : tableau de bord, puis l'instruction (en lecture seule pour l'observateur)
+    const monEspace = [
+        { label: 'Tableau de bord', route: 'dashboard', match: ['dashboard'], icon: 'squares-four' },
     ];
-
+    if (suitLesDossiers.value) {
+        monEspace.push({
+            label: user.value?.role === 'validateur' ? 'Dossiers à valider' : 'Toutes les demandes',
+            route: 'validateur.demandes.index',
+            match: ['validateur.demandes.*'],
+            icon: 'stamp',
+            page: 'dossiers_a_valider',
+        });
+    }
     if (isValidateurOrAdmin.value) {
+        monEspace.push({ label: 'Références', route: 'references.index', match: ['references.*'], icon: 'books', page: 'references' });
+    }
+
+    const groups = [{ label: 'Mon espace', items: monEspace }];
+    // L'observateur suit les demandes des autres : il n'en dépose pas
+    if (user.value?.role !== 'observateur') {
         groups.push({
-            label: 'Instruction',
+            label: 'Demandes',
             items: [
-                {
-                    label: user.value?.role === 'admin' ? 'Toutes les demandes' : 'Dossiers à valider',
-                    route: 'validateur.demandes.index',
-                    match: ['validateur.demandes.*'],
-                    icon: 'stamp',
-                },
+                { label: 'Mes demandes', route: 'demandes.index', match: ['demandes.index', 'demandes.show', 'demandes.edit'], icon: 'file-text', page: 'mes_demandes' },
+                { label: 'Nouvelle demande', route: 'demandes.create', match: ['demandes.create'], icon: 'plus', page: 'nouvelle_demande' },
             ],
         });
     }
@@ -53,14 +60,18 @@ const navGroups = computed(() => {
         groups.push({
             label: 'Administration',
             items: [
-                { label: 'Sites protégés', route: 'admin.sites.index', match: ['admin.sites.*'], icon: 'map-trifold' },
-                { label: 'Périodes sensibles', route: 'admin.periode-sensibles.index', match: ['admin.periode-sensibles.*'], icon: 'calendar-x' },
-                { label: 'Types de demandes', route: 'admin.type-demandes.index', match: ['admin.type-demandes.*'], icon: 'stack' },
-                { label: 'Utilisateurs', route: 'admin.users.index', match: ['admin.users.*'], icon: 'users' },
+                { label: 'Aires protégées', route: 'admin.sites.index', match: ['admin.sites.*'], icon: 'map-trifold', page: 'aires_protegees' },
+                { label: 'Périodes sensibles', route: 'admin.periode-sensibles.index', match: ['admin.periode-sensibles.*'], icon: 'calendar-x', page: 'periodes_sensibles' },
+                { label: 'Types de demandes', route: 'admin.type-demandes.index', match: ['admin.type-demandes.*'], icon: 'stack', page: 'types_demandes' },
+                { label: 'Utilisateurs', route: 'admin.users.index', match: ['admin.users.*'], icon: 'users', page: 'utilisateurs' },
             ],
         });
     }
-    return groups;
+
+    // Pages masquées dans config/pages.php, puis groupes devenus vides
+    return groups
+        .map((group) => ({ ...group, items: group.items.filter((item) => !item.page || pageVisible(item.page)) }))
+        .filter((group) => group.items.length);
 });
 
 const isActive = (match) => match.some((m) => route().current(m));
@@ -113,13 +124,17 @@ function formatNotifDate(value) {
             </nav>
 
             <div class="side-foot">
-                <Link :href="route('profile.edit')" class="who" title="Mon profil">
+                <component
+                    :is="pageVisible('profil') ? Link : 'span'"
+                    v-bind="pageVisible('profil') ? { href: route('profile.edit'), title: 'Mon profil' } : {}"
+                    class="who"
+                >
                     <span class="avatar">{{ initials }}</span>
                     <span class="who__text">
                         <span class="who__name">{{ user?.name }}</span>
                         <span class="who__role">{{ ROLE_LABELS[user?.role] ?? user?.role }}</span>
                     </span>
-                </Link>
+                </component>
                 <Link :href="route('logout')" method="post" as="button" class="icon-btn" aria-label="Se déconnecter" title="Se déconnecter">
                     <Icon name="sign-out" />
                 </Link>
@@ -155,9 +170,19 @@ function formatNotifDate(value) {
                     <div v-if="notifOpen" class="notif-panel" role="dialog" aria-label="Notifications" @click.stop>
                         <div class="notif-panel__header">
                             <strong>Notifications</strong>
-                            <button type="button" class="icon-btn icon-btn--sm" aria-label="Fermer" @click="notifOpen = false">
-                                <Icon name="x" />
-                            </button>
+                            <div class="notif-panel__actions">
+                                <Link
+                                    v-if="notifications.length > 0"
+                                    :href="route('notifications.read-all')"
+                                    method="post"
+                                    as="button"
+                                    preserve-scroll
+                                    class="notif-read-all"
+                                >Tout marquer comme lu</Link>
+                                <button type="button" class="icon-btn icon-btn--sm" aria-label="Fermer" @click="notifOpen = false">
+                                    <Icon name="x" />
+                                </button>
+                            </div>
                         </div>
                         <p v-if="notifications.length === 0" class="notif-empty">
                             Rien de nouveau pour le moment.
@@ -174,7 +199,7 @@ function formatNotifDate(value) {
                                 as="button"
                                 class="notif-item__read"
                                 @click="notifOpen = false"
-                            >{{ isValidateurOrAdmin ? 'Voir le dossier' : 'Voir mes demandes' }}</Link>
+                            >{{ suitLesDossiers ? 'Voir le dossier' : 'Voir mes demandes' }}</Link>
                         </div>
                     </div>
                 </div>
@@ -374,6 +399,16 @@ function formatNotifDate(value) {
     border-bottom: 1px solid var(--rule);
     font-size: 14px;
 }
+.notif-panel__actions { display: flex; align-items: center; gap: 4px; }
+.notif-read-all {
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+    color: var(--forest);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.notif-read-all:hover { background: var(--rule-soft); }
 .notif-empty { padding: 28px 16px; text-align: center; font-size: 14px; color: var(--ink-3); }
 .notif-item {
     display: flex;

@@ -1,7 +1,9 @@
 <script setup>
+import FiltreMultiple from '@/Components/FiltreMultiple.vue';
 import Icon from '@/Components/Icon.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import Pagination from '@/Components/Pagination.vue';
 import { useListFilters } from '@/composables/useListFilters.js';
 import TableSkeleton from '@/Components/TableSkeleton.vue';
@@ -14,9 +16,10 @@ const props = defineProps({
     filters: { type: Object, default: () => ({}) },
 });
 const { filters, reset, isActive } = useListFilters('admin.periode-sensibles.index', {
-    site_id: props.filters.site_id ?? '',
+    site_id: props.filters.site_id ?? [],
     passees: Boolean(props.filters.passees),
 }, { textFields: [] });
+const optionsSite = computed(() => props.sites.map((s) => ({ value: String(s.id), label: s.nom })));
 const form = useForm({});
 const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(route('admin.periode-sensibles.destroy', id)); };
 </script>
@@ -27,7 +30,7 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
             <div class="ph-row">
                 <div>
                     <div class="page-title">Périodes sensibles</div>
-                    <div class="page-sub">Restrictions temporaires sur les sites protégés</div>
+                    <div class="page-sub">Restrictions temporaires sur les aires protégées</div>
                 </div>
                 <Link :href="route('admin.periode-sensibles.create')" class="btn-accent">
                     <Icon name="plus" />
@@ -36,10 +39,7 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
             </div>
         </template>
         <div class="filter-bar">
-            <select v-model="filters.site_id" class="gf-select" aria-label="Site">
-                <option value="">Tous les sites</option>
-                <option v-for="s in sites" :key="s.id" :value="String(s.id)">{{ s.nom }}</option>
-            </select>
+            <FiltreMultiple v-model="filters.site_id" :options="optionsSite" tous="Toutes les aires protégées" pluriel="aires protégées" />
             <label class="filter-field">
                 <input v-model="filters.passees" type="checkbox" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
                 Afficher aussi les périodes terminées
@@ -51,7 +51,7 @@ const del = (id) => { if (confirm('Supprimer cette période ?')) form.delete(rou
             <table class="glass-table">
                 <thead>
                     <tr>
-                        <th>Site</th>
+                        <th>Aire protégée</th>
                         <th>Dates</th>
                         <th>Niveau</th>
                         <th>Description</th>
