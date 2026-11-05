@@ -301,7 +301,7 @@ class AnalyseDemandeTest extends TestCase
         $this->periode(4, 30, condition: 'Prises de vue sans flash');
 
         $this->actingAs($this->demandeur)
-            ->post(route('demandes.store'), array_merge($this->champsFormulaire(), [
+            ->post(route('demandes.store'), array_merge($this->champsFormulaire($this->demandeur), [
                 'site_id' => $this->site->id,
                 'type_demande_id' => $this->type->id,
                 'date_debut' => now()->addDays(5)->toDateString(),

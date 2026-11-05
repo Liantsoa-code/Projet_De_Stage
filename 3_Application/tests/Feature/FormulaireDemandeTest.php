@@ -46,7 +46,7 @@ class FormulaireDemandeTest extends TestCase
 
     private function payload(array $overrides = []): array
     {
-        return array_merge($this->champsFormulaire(), [
+        return array_merge($this->champsFormulaire($this->demandeur), [
             'site_id' => $this->site->id,
             'type_demande_id' => $this->documentaire->id,
             'date_debut' => now()->addDays(5)->toDateString(),
@@ -98,6 +98,22 @@ class FormulaireDemandeTest extends TestCase
             ->assertSessionHasErrors(['organisation', 'fonction', 'adresse', 'telephone', 'titre', 'objectifs', 'piece_identite', 'engagement']);
 
         $this->assertSame(0, Demande::count());
+    }
+
+    public function test_l_engagement_se_signe_par_le_nom_complet_du_demandeur(): void
+    {
+        foreach ([null, 'Jean Dupont'] as $signature) {
+            $this->actingAs($this->demandeur)
+                ->post(route('demandes.store'), $this->payload(['signature' => $signature]))
+                ->assertSessionHasErrors('signature');
+        }
+        $this->assertSame(0, Demande::count());
+
+        // Casse, accents et espaces ne comptent pas
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $this->payload(['signature' => '  rova   DEMANDEUR ']))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(1, Demande::count());
     }
 
     public function test_le_brouillon_n_exige_ni_coordonnees_ni_engagement(): void

@@ -180,9 +180,9 @@ class DemandeSecurityTest extends TestCase
 
     // ── Soumission ──
 
-    private function payload(array $overrides = []): array
+    private function payload(array $overrides = [], ?User $demandeur = null): array
     {
-        return array_merge($this->champsFormulaire(), [
+        return array_merge($this->champsFormulaire($demandeur), [
             'site_id' => $this->site->id,
             'type_demande_id' => $this->type->id,
             'date_debut' => now()->addDays(5)->toDateString(),
@@ -223,8 +223,10 @@ class DemandeSecurityTest extends TestCase
     {
         Storage::fake();
 
-        $this->actingAs(User::factory()->create(['role' => 'demandeur']))
-            ->post(route('demandes.store'), $this->payload())
+        $demandeur = User::factory()->create(['role' => 'demandeur']);
+
+        $this->actingAs($demandeur)
+            ->post(route('demandes.store'), $this->payload([], $demandeur))
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('demandes.show', Demande::first()));
 

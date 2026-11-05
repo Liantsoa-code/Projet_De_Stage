@@ -6,7 +6,8 @@ import { formatDate } from '@/utils/statut.js';
 import { VERDICTS, conditionsAnalyse, verdictAnalyse } from '@/utils/analyse.js';
 
 // Dernière étape : récapitulatif du dossier, avec un lien « Modifier » par partie,
-// puis « V. Engagement du demandeur » (pièce d'identité et acceptation, renouvelée à chaque envoi).
+// puis « V. Engagement du demandeur » (pièce d'identité, acceptation et signature par le nom complet,
+// renouvelées à chaque envoi).
 // Lors d'un complément, le demandeur peut aussi écrire au validateur.
 const props = defineProps({
     form: { type: Object, required: true },
@@ -103,10 +104,16 @@ const nbConditions = computed(() => conditionsAnalyse(props.analyse?.contraintes
             <input id="engagement" v-model="form.engagement" type="checkbox" />
             <span>
                 J'accepte ces engagements.
-                <small>Cocher cette case vaut signature du demandeur, datée de l'envoi du dossier (aujourd'hui : {{ formatDate(today) }}).</small>
+                <small>L'acceptation, signée de votre nom, est datée de l'envoi du dossier (aujourd'hui : {{ formatDate(today) }}).</small>
             </span>
         </label>
         <InputError class="gf-error" :message="form.errors.engagement" />
+        <div class="engagement__signature">
+            <label class="gf-label" for="signature">Signature</label>
+            <p class="engagement__aide">Retapez votre nom complet, <strong>{{ demandeur.name }}</strong>, tel qu'il figure sur votre profil.</p>
+            <input id="signature" v-model="form.signature" type="text" class="gf-input" autocomplete="off" spellcheck="false" required :placeholder="demandeur.name" />
+            <InputError class="gf-error" :message="form.errors.signature" />
+        </div>
     </section>
 
     <div v-if="aCompleter">
@@ -148,5 +155,7 @@ const nbConditions = computed(() => conditionsAnalyse(props.analyse?.contraintes
 .engagement__case:has(input:checked) { border-color: var(--forest); }
 .engagement__case:has(input:focus-visible) { outline: 2px solid var(--water); outline-offset: 2px; }
 .engagement__case input { margin-top: 3px; accent-color: var(--forest); flex-shrink: 0; }
+.engagement__signature { max-width: 420px; }
+.engagement__aide { margin: 0 0 6px; font-size: 13px; color: var(--ink-3); }
 .engagement__case small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--ink-3); }
 </style>

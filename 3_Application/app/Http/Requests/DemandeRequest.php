@@ -5,18 +5,20 @@ namespace App\Http\Requests;
 use App\Models\Demande;
 use App\Models\TypeDemande;
 use App\Support\DemandeDossier;
+use App\Support\DocumentsOfficiels;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Validator;
 
 /**
  * Création et modification d'une demande : brouillon, soumission ou renvoi d'un complément.
  * Les champs suivent le formulaire papier de Fanamby : I. demandeur, II. projet, V. engagement.
  *
  * Brouillon : seuls l'aire protégée et le type de projet sont obligatoires.
- * Soumission : tous les champs, l'acceptation des engagements et toutes les pièces
- * (sauf celles déjà fournies ou reprises d'un autre dossier).
+ * Soumission : tous les champs, l'acceptation des engagements signée par le nom du demandeur
+ * et toutes les pièces (sauf celles déjà fournies ou reprises d'un autre dossier).
  */
 class DemandeRequest extends FormRequest
 {
@@ -57,6 +59,7 @@ class DemandeRequest extends FormRequest
             // V. Engagement du demandeur, renouvelé à chaque envoi
             'piece_identite' => "$requis|string|max:50",
             'engagement' => $this->estSoumission() ? 'accepted' : 'nullable',
+            'signature' => 'nullable|string|max:255',
             'message_complement' => 'nullable|string|max:1000',
             'reprendre' => 'nullable|array',
             'reprendre.*' => 'integer',
@@ -107,6 +110,21 @@ class DemandeRequest extends FormRequest
         }
 
         return $messages;
+    }
+
+    /**
+     * Section V : l'engagement se signe, le demandeur retape son nom complet (celui du profil),
+     * comme le validateur pour valider un dossier.
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($this->estSoumission() && ! DocumentsOfficiels::signatureValide($this->user(), $this->input('signature'))) {
+                    $validator->errors()->add('signature', 'Pour signer, retapez exactement votre nom complet : ' . $this->user()->name . '.');
+                }
+            },
+        ];
     }
 
     /**

@@ -58,6 +58,8 @@ const form = useForm({
     // V. Engagement du demandeur : l'acceptation est renouvelée à chaque envoi
     piece_identite: props.demandeur.piece_identite ?? '',
     engagement: false,
+    // Signature : le nom complet du profil, retapé à chaque envoi
+    signature: '',
     message_complement: '',
 });
 
@@ -135,7 +137,7 @@ watch(() => [form.site_id, form.date_debut, form.date_fin, form.equipe_nombre], 
 // ── Colonne de droite : carte et calendrier, ou aperçu du formulaire de demande ──
 const volet = ref('carte');
 // Le formulaire tel qu'il sera généré à l'envoi : la précision n'est gardée que pour un type qui la demande
-// (comme DemandeController), et la case d'engagement vaut signature, datée de l'envoi.
+// (comme DemandeController), et l'engagement accepté puis signé est daté de l'envoi.
 const apercuFormulaire = computed(() => ({
     ...form.data(),
     user: {
@@ -225,13 +227,15 @@ const ETAPES = [
     { id: 'projet', titre: 'Projet', entete: 'II. Informations sur le projet', champs: ['titre', 'type_demande_id', 'type_precision', 'description', 'objectifs'] },
     { id: 'aire', titre: 'Aire et période', entete: 'Aire protégée et période prévue', champs: ['site_id', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre'] },
     { id: 'pieces', titre: 'Pièces', entete: 'Pièces à joindre', champs: [] },
-    { id: 'engagement', titre: 'Engagement', entete: 'Récapitulatif et engagement', champs: ['piece_identite', 'engagement', 'message_complement'] },
+    { id: 'engagement', titre: 'Engagement', entete: 'Récapitulatif et engagement', champs: ['piece_identite', 'engagement', 'signature', 'message_complement'] },
 ];
 // L'étape des pièces n'apparaît que si le type de projet en exige (ou n'est pas encore choisi)
 const etapes = computed(() => ETAPES.filter(e => e.id !== 'pieces' || !typeSelectionne.value || typeSelectionne.value.documents_requis?.length));
 const champsEtape = (id) => (id === 'pieces' ? piecesRequises.value.map(d => 'doc_' + d.id) : ETAPES.find(e => e.id === id).champs);
 const etapeDuChamp = (champ) => (champ.startsWith('doc_') ? 'pieces' : ETAPES.find(e => e.champs.includes(champ))?.id ?? 'demandeur');
 const vide = (valeur) => !String(valeur ?? '').trim();
+// Comme DocumentsOfficiels::signatureValide : casse, accents et espaces ne comptent pas
+const normaliserNom = (nom) => String(nom ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 // Mêmes exigences que le serveur pour une soumission (App\Http\Requests\DemandeRequest)
 function erreursEtape(id) {
@@ -265,6 +269,9 @@ function erreursEtape(id) {
     } else if (id === 'engagement') {
         if (vide(form.piece_identite)) err.piece_identite = 'Indiquez le numéro de votre CIN ou de votre passeport.';
         if (!form.engagement) err.engagement = 'Acceptez les engagements du demandeur pour envoyer la demande.';
+        if (vide(form.signature) || normaliserNom(form.signature) !== normaliserNom(props.demandeur.name)) {
+            err.signature = `Pour signer, retapez exactement votre nom complet : ${props.demandeur.name}.`;
+        }
     }
     return err;
 }

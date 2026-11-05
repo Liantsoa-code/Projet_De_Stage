@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Models\User;
 use DOMDocument;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Testing\TestResponse;
@@ -22,10 +23,10 @@ abstract class TestCase extends BaseTestCase
     /**
      * Champs du formulaire de demande exigés à la soumission, en plus de l'aire protégée, du type,
      * des dates d'activités, de l'équipe, du synopsis et des pièces : coordonnées (I), titre et objectifs (II),
-     * arrivée sur le terrain (aujourd'hui, donc avant toute date d'activités), pièce d'identité
-     * et acceptation des engagements (V).
+     * arrivée sur le terrain (aujourd'hui, donc avant toute date d'activités), pièce d'identité,
+     * acceptation des engagements et signature par le nom complet du demandeur (V).
      */
-    protected function champsFormulaire(): array
+    protected function champsFormulaire(?User $demandeur = null): array
     {
         return [
             'organisation' => 'Wild Lens Productions',
@@ -37,6 +38,7 @@ abstract class TestCase extends BaseTestCase
             'date_arrivee' => now()->toDateString(),
             'piece_identite' => '101 211 045 678',
             'engagement' => '1',
+            'signature' => $demandeur?->name,
         ];
     }
 

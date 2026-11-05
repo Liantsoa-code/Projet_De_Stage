@@ -163,7 +163,7 @@ class ObservateurTest extends TestCase
 
     public function test_observers_are_notified_of_new_demandes(): void
     {
-        $this->actingAs($this->demandeur)->post(route('demandes.store'), array_merge($this->champsFormulaire(), [
+        $this->actingAs($this->demandeur)->post(route('demandes.store'), array_merge($this->champsFormulaire($this->demandeur), [
             'site_id' => $this->autreSite->id,
             'type_demande_id' => $this->type->id,
             'date_debut' => now()->addDays(5)->toDateString(),
