@@ -8,7 +8,7 @@ class Notification extends Model
 {
     protected $table = 't_notifications';
 
-    protected $fillable = ['user_id', 'demande_id', 'contenu', 'lu', 'date_envoi'];
+    protected $fillable = ['user_id', 'demande_id', 'contenu', 'etape', 'lu', 'date_envoi'];
 
     protected $casts = [
         'lu' => 'boolean',

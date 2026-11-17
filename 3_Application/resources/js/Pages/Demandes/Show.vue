@@ -12,6 +12,8 @@ import { statutBadgeClass, formatDate } from '@/utils/statut.js';
 const props = defineProps({
     demande: Object,
     complement: { type: Object, default: null },
+    complementPartie: { type: String, default: null },
+    complementEtape: { type: String, default: null },
     delaiHabituel: { type: Number, default: null },
     canEdit: Boolean,
     canDelete: Boolean,
@@ -62,14 +64,25 @@ const retirer = () => retrait.post(route('demandes.retirer', props.demande.id), 
             <StatutSteps :code="code" large />
         </div>
 
+        <!-- Demande sur une période bloquante, envoyée comme demande de dérogation (sauf brouillon) -->
+        <section v-if="demande.derogation && code !== 'brouillon'" class="derogation">
+            <Icon name="prohibit" />
+            <div>
+                <strong>Demande de dérogation</strong>
+                <p>Vos dates tombent pendant une période d'interdiction. L'équipe Fanamby examine votre justification : elle peut accepter la dérogation, vous proposer d'autres dates ou la refuser.</p>
+                <p v-if="demande.derogation_motif" class="derogation__motif"><em>Votre justification :</em> « {{ demande.derogation_motif }} »</p>
+            </div>
+        </section>
+
         <section v-if="code === 'a_completer'" class="callout callout--att">
             <Icon name="pencil-simple-line" class="callout__icon" />
             <div class="callout__body">
                 <span class="callout__tag">Complément demandé</span>
+                <p v-if="complementPartie">À compléter : <strong>{{ complementPartie }}</strong></p>
                 <q v-if="complement?.commentaire">{{ complement.commentaire }}</q>
                 <p>Modifiez votre dossier puis renvoyez-le : il repartira directement en analyse.</p>
             </div>
-            <Link :href="route('demandes.edit', demande.id)" class="btn-accent">Compléter le dossier</Link>
+            <Link :href="route('demandes.edit', complementEtape ? { demande: demande.id, etape: complementEtape } : demande.id)" class="btn-accent">Compléter le dossier</Link>
         </section>
 
         <section v-else-if="code === 'brouillon'" class="callout callout--draft">
@@ -124,13 +137,19 @@ const retirer = () => retrait.post(route('demandes.retirer', props.demande.id), 
                 </dl>
 
                 <section class="panel">
-                    <header class="panel__head"><h2>Résumé du synopsis</h2></header>
+                    <header class="panel__head"><h2>Résumé du projet</h2></header>
                     <p class="panel__text">{{ demande.description || '—' }}</p>
                 </section>
 
                 <section class="panel">
                     <header class="panel__head"><h2>Objectif(s) principal(aux) du projet</h2></header>
                     <p class="panel__text">{{ demande.objectifs || '—' }}</p>
+                </section>
+
+                <!-- Réponse à un point à clarifier demandé lors d'un complément -->
+                <section v-if="demande.clarification" class="panel">
+                    <header class="panel__head"><h2>Votre clarification</h2></header>
+                    <p class="panel__text">{{ demande.clarification }}</p>
                 </section>
 
                 <!-- Un brouillon n'est analysé qu'à son envoi -->
@@ -230,6 +249,10 @@ const retirer = () => retrait.post(route('demandes.retirer', props.demande.id), 
 .side { position: sticky; top: 84px; }
 @media (max-width: 960px) { .side { position: static; } }
 
+.derogation { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px; padding: 14px 18px; background: var(--signal-soft); border: 1px solid var(--signal-line); border-radius: var(--r); font-size: 14px; color: var(--ink-2); line-height: 1.55; }
+.derogation > svg { flex: 0 0 22px; width: 22px; height: 22px; color: var(--signal); }
+.derogation strong { display: block; color: var(--signal); }
+.derogation__motif { margin-top: 6px; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
 .callout { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px 16px; align-items: start; margin-bottom: 24px; padding: 18px 20px; border: 1px solid; border-radius: var(--r); }
 .callout__icon { width: 24px; height: 24px; }
 .callout__body { display: grid; gap: 6px; min-width: 0; }

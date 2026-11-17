@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\PartieDossier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Problème signalé sur un dossier par un observateur, un validateur ou un admin. Interne à l'équipe :
- * le demandeur ne le voit pas. Ouvert tant qu'un validateur du site ou un admin ne l'a pas traité.
+ * Problème signalé sur un dossier par un observateur, un validateur ou un admin. Le demandeur en est
+ * prévenu par une notification (sans le nom de l'auteur) qui l'amène à la partie signalée ; la liste
+ * des signalements reste dans la fiche d'instruction. Ouvert tant qu'un validateur du site ou un admin ne l'a pas traité,
+ * simplement avec une réponse ou en renvoyant le dossier au demandeur pour complément (qui peut alors le corriger).
  */
 class Signalement extends Model
 {
@@ -60,6 +63,8 @@ class Signalement extends Model
             'id' => $this->id,
             'partie' => $this->partie,
             'partie_libelle' => self::PARTIES[$this->partie] ?? $this->partie,
+            // Partie proposée si le signalement est transformé en demande de complément
+            'partie_complement' => PartieDossier::complementPourSignalement($this->partie),
             'message' => $this->message,
             'auteur' => $this->auteur?->only(['id', 'name', 'role']),
             'created_at' => $this->created_at,

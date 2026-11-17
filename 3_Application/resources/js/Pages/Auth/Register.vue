@@ -106,7 +106,7 @@ const submit = () => {
 
             <button class="btn-accent auth-submit" :disabled="form.processing">
                 <Icon :name="form.processing ? 'circle-notch' : 'arrow-right'" :class="{ spin: form.processing }" />
-                {{ form.processing ? 'Création…' : 'Créer mon compte' }}
+                Créer mon compte
             </button>
         </form>
     </GuestLayout>

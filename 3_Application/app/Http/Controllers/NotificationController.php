@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class NotificationController extends Controller
 {
@@ -18,8 +19,12 @@ class NotificationController extends Controller
 
         if ($notification->demande) {
             // Sa propre demande → fiche demandeur ; sinon → fiche d'analyse (validateur, admin, observateur).
+            // Complément ou signalement visant une partie : directement à cette étape du formulaire,
+            // tant que le demandeur peut encore modifier son dossier
             if ((int) $notification->demande->user_id === (int) auth()->id()) {
-                return redirect()->route('demandes.show', $notification->demande_id);
+                return $notification->etape && Gate::allows('update', $notification->demande)
+                    ? redirect()->route('demandes.edit', ['demande' => $notification->demande_id, 'etape' => $notification->etape])
+                    : redirect()->route('demandes.show', $notification->demande_id);
             }
 
             if (in_array(auth()->user()->role, ['admin', 'validateur', 'observateur'], true)) {

@@ -14,6 +14,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PdfController;
 use App\Http\Controllers\PhotoSiteController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RapportActiviteController;
 use App\Http\Controllers\ModeleReferenceController;
 use App\Http\Controllers\ReferenceController;
 use App\Http\Controllers\Validateur\DemandeController as ValidateurDemandeController;
@@ -30,6 +31,8 @@ Route::get('/aires-protegees/photos/{photo}/{taille}', [PhotoSiteController::cla
 
 // Tableau de bord adapté au rôle (demandeur, validateur, admin)
 Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
+// Rapport d'activité PDF de la période choisie sur le tableau de bord (admin et observateur)
+Route::get('/dashboard/rapport', RapportActiviteController::class)->middleware(['auth', 'verified', 'can:peut-piloter'])->name('dashboard.rapport');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

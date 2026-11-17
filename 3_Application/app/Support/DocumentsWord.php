@@ -274,7 +274,7 @@ class DocumentsWord
             'Email :' => $user->email,
         ], 4300);
 
-        self::partie($section, 'II. Informations sur le Projet');
+        self::partie($section, 'II. Informations sur la Demande');
         self::champs($section, ['Titre du projet :' => $demande->titre], 1900, self::GRAS);
 
         self::ligne($section, [['Type de projet :', self::GRAS]]);
@@ -284,7 +284,7 @@ class DocumentsWord
             $type->precision_requise && $type->id == $demande->type_demande_id ? $demande->type_precision : null,
         ])->all());
 
-        self::ligne($section, [['Résumé du synopsis :', self::GRAS]]);
+        self::ligne($section, [['Résumé du projet :', self::GRAS]]);
         self::zone($section, $demande->description);
 
         self::ligne($section, [['Objectif(s) principal(aux) du projet :', self::GRAS]]);

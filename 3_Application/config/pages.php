@@ -2,7 +2,7 @@
 
 return [
 
-    'tableau_de_bord_complet' => false,
+    'tableau_de_bord_complet' => true,
 
     // Mon espace
     'mes_demandes' => true,
@@ -11,7 +11,7 @@ return [
 
     // Instruction (validateur et admin)
     'dossiers_a_valider' => true, // « Toutes les demandes » pour l'admin
-    'references' => false,
+    'references' => true,
 
     // Administration
     'aires_protegees' => true,

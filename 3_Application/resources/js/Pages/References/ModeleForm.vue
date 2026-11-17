@@ -166,7 +166,7 @@ const apercu = async (format) => {
                 <Link :href="route('references.index')" class="btn-ghost">Annuler</Link>
                 <button type="submit" class="btn-accent" :disabled="form.processing">
                     <Icon name="check-circle" />
-                    {{ form.processing ? 'Enregistrement…' : (modele ? 'Enregistrer les modifications' : 'Créer le modèle') }}
+                    {{ (modele ? 'Enregistrer les modifications' : 'Créer le modèle') }}
                 </button>
             </div>
         </form>

@@ -26,6 +26,10 @@ const props = defineProps({
     partiesSignalement: { type: Object, default: () => ({}) },
     peutSignaler: { type: Boolean, default: false },
     peutTraiterSignalements: { type: Boolean, default: false },
+    // Un signalement peut être traité en renvoyant le dossier au demandeur pour complément
+    peutDemanderComplement: { type: Boolean, default: false },
+    // Parties qu'une demande de complément peut viser : la notification y amène le demandeur
+    partiesComplement: { type: Object, default: () => ({}) },
 });
 
 // Signalements : les liens « Signaler » des parties ouvrent le formulaire avec la partie choisie
@@ -49,6 +53,8 @@ const idValidee = computed(() => props.statuts.find((s) => s.code === 'validee')
 const form = useForm({
     statut_id: props.documentsGeneres && idValidee.value ? idValidee.value : props.demande.statut_id,
     commentaire: '',
+    // Demande de complément : partie à compléter
+    partie: '',
     signature: '',
 });
 
@@ -69,7 +75,7 @@ const submit = () => {
         return;
     }
     form.post(route('validateur.demandes.update-statut', props.demande.id), {
-        onSuccess: () => form.reset('commentaire', 'signature'),
+        onSuccess: () => form.reset('commentaire', 'partie', 'signature'),
     });
 };
 
@@ -88,11 +94,12 @@ const attente = computed(() => (['soumise', 'en_analyse'].includes(code.value) ?
 const etapeSignature = computed(() => statutChoisi.value === 'validee' && !!props.documentsGeneres);
 const boutonDesactive = computed(() => {
     if (form.processing || generation.processing || !aChoisi.value) return true;
+    if (statutChoisi.value === 'a_completer' && !form.partie) return true;
     return etapeSignature.value && (docsModifies.value || !form.signature.trim());
 });
 
+// Le libellé ne change pas pendant l'envoi (seule l'icône tourne) : le bouton garde sa taille
 const boutonLabel = computed(() => {
-    if (form.processing || generation.processing) return 'Enregistrement…';
     if (statutChoisi.value === 'validee') return props.documentsGeneres ? 'Signer et valider le dossier' : 'Préparer les documents à relire';
     return {
         a_completer: 'Envoyer la demande de complément',
@@ -131,6 +138,18 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
             <h1 class="intro__title">{{ demande.titre || demande.type_demande.libelle }} · {{ demande.site.nom }}</h1>
             <StatutSteps :code="code" large />
         </div>
+
+        <!-- Dates sur une période bloquante : le demandeur demande une dérogation, avec sa justification.
+             Un validateur du site ou un admin l'accepte (avis favorable), propose d'autres dates (complément
+             « Aire protégée, dates et équipe ») ou la refuse (avis défavorable). -->
+        <section v-if="demande.derogation" class="derogation">
+            <Icon name="prohibit" />
+            <div>
+                <strong>Dérogation demandée : les dates tombent pendant une période d'interdiction</strong>
+                <p v-if="demande.derogation_motif" class="derogation__motif"><em>Justification du demandeur :</em> « {{ demande.derogation_motif }} »</p>
+                <p class="derogation__aide">Détail de la période dans l'analyse ci-dessous. Vous pouvez accepter la dérogation (avis favorable : la condition proposée la mentionne dans l'autorisation), proposer d'autres dates (complément sur « Aire protégée, dates et équipe ») ou la refuser (avis défavorable).</p>
+            </div>
+        </section>
 
         <a v-if="signalementsOuverts" href="#signalements" class="alerte-sig">
             <Icon name="warning" />
@@ -186,8 +205,10 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                     </header>
                     <dl class="projet">
                         <div><dt>Titre du projet</dt><dd>{{ demande.titre || '—' }}</dd></div>
-                        <div><dt>Résumé du synopsis</dt><dd>{{ demande.description || '—' }}</dd></div>
+                        <div><dt>Résumé du projet</dt><dd>{{ demande.description || '—' }}</dd></div>
                         <div><dt>Objectif(s) principal(aux)</dt><dd>{{ demande.objectifs || '—' }}</dd></div>
+                        <!-- Réponse du demandeur à un point à clarifier (complément) -->
+                        <div v-if="demande.clarification" class="clarification"><dt>Clarification du demandeur</dt><dd>{{ demande.clarification }}</dd></div>
                     </dl>
                 </section>
 
@@ -238,6 +259,8 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                     :parties="partiesSignalement"
                     :peut-signaler="peutSignaler"
                     :peut-traiter="peutTraiterSignalements"
+                    :peut-demander-complement="peutDemanderComplement"
+                    :parties-complement="partiesComplement"
                 />
             </div>
 
@@ -261,8 +284,8 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                     <header class="panel__head"><h2>Suivi en lecture seule</h2></header>
                     <div class="panel__body">
                         <p>En tant qu'observateur, vous consultez tout le dossier sans prendre de décision.</p>
-                        <p>Une pièce illisible, une date incohérente, un dossier qui attend trop ? Signalez-le : les validateurs de l'aire protégée et les administrateurs sont prévenus.</p>
-                        <button v-if="peutSignaler" type="button" class="btn-accent" @click="signaler('autre')"><Icon name="warning" />Signaler un problème</button>
+                        <p>Une pièce illisible, une date incohérente, un dossier qui attend trop ? Signalez-le : les validateurs de l'aire protégée, les administrateurs et le demandeur sont prévenus.</p>
+                        <button v-if="peutSignaler" type="button" class="btn-danger" @click="signaler('autre')"><Icon name="warning" />Signaler un problème</button>
                     </div>
                 </section>
 
@@ -320,6 +343,16 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
                         </ol>
 
                         <template v-if="statutChoisi !== 'validee' || documentsGeneres">
+                            <!-- Complément : la notification amène le demandeur directement à cette partie du formulaire -->
+                            <div v-if="statutChoisi === 'a_completer'">
+                                <label class="gf-label" for="partie">Partie à compléter</label>
+                                <select id="partie" v-model="form.partie" class="gf-select" required>
+                                    <option value="" disabled>Choisissez la partie concernée</option>
+                                    <option v-for="(libelle, cle) in partiesComplement" :key="cle" :value="cle">{{ libelle }}</option>
+                                </select>
+                                <p class="hint">Le demandeur est amené directement à cette partie du formulaire depuis sa notification.</p>
+                                <p v-if="form.errors.partie" class="gf-error">{{ form.errors.partie }}</p>
+                            </div>
                             <div>
                                 <label class="gf-label" for="commentaire">{{ libelleCommentaire }}</label>
                                 <textarea id="commentaire" v-model="form.commentaire" rows="4" class="gf-textarea" required :placeholder="statutChoisi === 'a_completer' ? 'Pièces ou précisions à fournir' : 'Motif de la décision'"></textarea>
@@ -356,12 +389,18 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .intro { display: grid; gap: 12px; margin-bottom: 24px; }
 .intro__title { font-size: clamp(20px, 2vw, 26px); font-weight: 700; line-height: 1.15; max-width: 48ch; }
 .docs-generes { margin-bottom: 24px; }
+.derogation { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; padding: 14px 18px; background: var(--signal-soft); border: 1px solid var(--signal-line); border-radius: var(--r); font-size: 14px; color: var(--ink-2); line-height: 1.55; }
+.derogation > svg { flex: 0 0 22px; width: 22px; height: 22px; color: var(--signal); }
+.derogation strong { display: block; color: var(--signal); }
+.derogation__motif { margin-top: 6px; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
+.derogation__aide { margin-top: 6px; font-size: 13px; color: var(--ink-3); }
 .alerte-sig { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 12px 16px; background: var(--ochre-soft); border: 1px solid var(--ochre-line); border-radius: var(--r); color: var(--ink); font-size: 14px; text-decoration: none; }
 .alerte-sig svg { width: 20px; height: 20px; color: var(--ochre); flex-shrink: 0; }
 .alerte-sig span:nth-child(2) { flex: 1; }
 .alerte-sig__voir { font-weight: 600; color: var(--ochre); }
 .alerte-sig:hover .alerte-sig__voir { text-decoration: underline; }
-.signaler { color: var(--ochre); }
+/* Signaler : en rouge (plus précis que .link, qui le rendait bleu) */
+.link.signaler { color: var(--signal); }
 .notice--suivi { background: var(--surface); border-color: var(--rule); }
 
 .show-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
@@ -391,6 +430,9 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .projet { display: grid; gap: 12px; margin: 0; padding: 8px 24px 18px; }
 .projet dt { font: 600 10.5px/1.2 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
 .projet dd { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; max-width: 75ch; overflow-wrap: anywhere; }
+/* Clarification du demandeur : mise en évidence, c'est la réponse au complément */
+.projet .clarification { padding: 10px 12px; background: var(--ochre-soft); border: 1px solid var(--ochre-line); border-radius: var(--r-sm); }
+.projet .clarification dt { color: var(--ochre); }
 .link { font-size: 13px; font-weight: 600; color: var(--water); text-decoration: none; }
 .link:hover { text-decoration: underline; }
 

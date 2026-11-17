@@ -41,10 +41,11 @@ function suivi(d) {
             <div class="callout__body">
                 <span class="callout__tag">Complément demandé · <span class="mono">{{ d.reference }}</span></span>
                 <h2>{{ d.titre || d.type_demande?.libelle }} · {{ d.site?.nom }}</h2>
+                <p v-if="d.partie_complement" class="callout__partie">À compléter : <strong>{{ d.partie_complement }}</strong></p>
                 <q v-if="d.dernier_commentaire">{{ d.dernier_commentaire }}</q>
                 <small v-if="d.commentaire_par">{{ d.commentaire_par }}, le {{ formatDate(d.commentaire_le) }}</small>
             </div>
-            <Link :href="route('demandes.edit', d.id)" class="btn-warn">Compléter le dossier</Link>
+            <Link :href="route('demandes.edit', d.etape_complement ? { demande: d.id, etape: d.etape_complement } : d.id)" class="btn-warn">Compléter le dossier</Link>
         </section>
 
         <div class="grid-2">
@@ -70,8 +71,7 @@ function suivi(d) {
                 </div>
                 <div v-else class="empty">
                     <Icon name="file-text" />
-                    <p>Aucune demande en cours. Une demande se prépare en quelques minutes, avec vérification du calendrier du site.</p>
-                    <Link :href="route('demandes.create')" class="btn-accent"><Icon name="plus" />Préparer une demande</Link>
+                    <p>Aucune demande en cours. Prenez le temps de bien préparer votre demande : chaque information compte pour son examen. Vous pouvez l'enregistrer en brouillon et la reprendre à tout moment.</p>
                 </div>
             </section>
 

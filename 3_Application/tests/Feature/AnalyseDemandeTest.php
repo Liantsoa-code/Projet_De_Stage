@@ -128,7 +128,7 @@ class AnalyseDemandeTest extends TestCase
         $this->assertStringContainsString(now()->addDays(20)->format('d/m/Y'), $condition);
     }
 
-    public function test_blocking_period_blocks_and_gives_a_conflict(): void
+    public function test_blocking_period_calls_for_a_derogation_and_gives_a_conflict(): void
     {
         $this->periode(10, 25, 'bloquant');
 
@@ -136,7 +136,9 @@ class AnalyseDemandeTest extends TestCase
 
         $this->assertTrue($analyse['bloquant']);
         $this->assertSame('conflit', $analyse['verdict']);
-        $this->assertNull($analyse['contraintes'][0]['condition']);
+        $this->assertStringContainsString('sauf dérogation', $analyse['contraintes'][0]['message']);
+        // Condition reprise dans l'autorisation si la dérogation est accordée
+        $this->assertStringStartsWith('Accès accordé par dérogation', $analyse['contraintes'][0]['condition']);
     }
 
     public function test_period_starting_soon_after_departure_forbids_extension(): void

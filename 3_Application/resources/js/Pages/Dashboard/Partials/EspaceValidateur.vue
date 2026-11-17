@@ -15,6 +15,8 @@ const attenteDemandeur = computed(() => page.props.attente_demandeur || []);
 const activite = computed(() => page.props.activite || {});
 const delaiMedian = computed(() => page.props.delai_median);
 const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
+// Activité du mois, ou de la période choisie
+const titreActivite = computed(() => (page.props.periode?.libelle ? `Mon activité ${page.props.periode.libelle}` : `Mon activité en ${mois}`));
 </script>
 
 <template>
@@ -83,7 +85,7 @@ const mois = new Date().toLocaleDateString('fr-FR', { month: 'long' });
 
             <section class="panel">
                 <header class="panel__head">
-                    <h2>Mon activité en {{ mois }}</h2>
+                    <h2>{{ titreActivite }}</h2>
                     <small v-if="delaiMedian != null">délai médian sur vos aires protégées : {{ delaiMedian }} j</small>
                 </header>
                 <ul class="activite">

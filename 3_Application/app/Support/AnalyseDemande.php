@@ -11,7 +11,8 @@ use Illuminate\Support\Carbon;
 /**
  * Moteur d'analyse d'une demande. Chaque règle examine le séjour demandé (aire protégée, dates, effectif)
  * et relève des contraintes ; le verdict découle de la plus grave. Le moteur explique et propose des
- * conditions, la décision reste au validateur : seule une période bloquante refuse l'envoi.
+ * conditions, la décision reste au validateur. Une période bloquante n'empêche plus l'envoi : la demande
+ * devient une demande de dérogation, justifiée par le demandeur et acceptée ou non par Fanamby.
  *
  * Une contrainte : regle (code de la règle), niveau (voir NIVEAUX), titre, message (le pourquoi) et
  * condition proposée (ou null), reprise dans les conditions particulières de l'autorisation.
@@ -21,7 +22,7 @@ use Illuminate\Support\Carbon;
 class AnalyseDemande
 {
     /**
-     * Niveaux, du plus grave au moins grave : « bloquant » refuse l'envoi, « conflit » appelle un arbitrage
+     * Niveaux, du plus grave au moins grave : « bloquant » exige une dérogation, « conflit » appelle un arbitrage
      * du validateur, « attention » rend le séjour possible sous conditions, « info » ne change pas le verdict.
      */
     public const NIVEAUX = ['bloquant', 'conflit', 'attention', 'info'];
@@ -115,7 +116,8 @@ class AnalyseDemande
     }
 
     /**
-     * Règle 1 — Périodes sensibles qui chevauchent le séjour. Une période bloquante interdit l'envoi ;
+     * Règle 1 — Périodes sensibles qui chevauchent le séjour. Une période bloquante exige une dérogation
+     * (la condition proposée, reprise dans l'autorisation si elle est accordée, le rappelle) ;
      * une période d'avertissement propose sa condition, à défaut une condition générale sur les jours communs.
      */
     private static function periodes(Site $site, Carbon $debut, Carbon $fin): array
@@ -135,7 +137,9 @@ class AnalyseDemande
 
                 if ($p->niveau_restriction === 'bloquant') {
                     return self::contrainte('periode', 'bloquant', "Période d'interdiction",
-                        "Le séjour chevauche la période {$periode} {$communs} : l'accès à l'aire protégée est interdit.");
+                        "Le séjour chevauche la période {$periode} {$communs} : l'accès à l'aire protégée est interdit, sauf dérogation accordée par Fanamby.",
+                        'Accès accordé par dérogation du ' . self::date($du) . ' au ' . self::date($au)
+                            . " (période d'interdiction « {$p->description} ») : respect strict des consignes du gestionnaire de l'aire protégée.");
                 }
 
                 return self::contrainte('periode', 'attention', 'Période sensible',

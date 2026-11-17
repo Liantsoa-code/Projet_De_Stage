@@ -186,7 +186,7 @@ class ObservateurTest extends TestCase
 
     // ── Signalements ──
 
-    public function test_a_report_notifies_the_site_deciders_only(): void
+    public function test_a_report_notifies_the_site_deciders_and_the_demandeur(): void
     {
         $demande = $this->makeDemande();
         $validateurAilleurs = User::factory()->create(['role' => 'validateur']);
@@ -201,7 +201,30 @@ class ObservateurTest extends TestCase
             $this->assertTrue(Notification::where('user_id', $decideur->id)->where('contenu', 'like', 'Nirina Suivi signale un problème%Pièces jointes%illisible%')->exists());
         }
         $this->assertFalse(Notification::where('user_id', $validateurAilleurs->id)->exists());
-        $this->assertFalse(Notification::where('user_id', $this->demandeur->id)->where('contenu', 'like', '%signale%')->exists());
+
+        // Le demandeur est prévenu sans le nom de l'auteur, et sa notification vise les pièces jointes
+        $pourDemandeur = Notification::where('user_id', $this->demandeur->id)->where('contenu', 'like', '%signale un point à revoir%Pièces jointes%illisible%')->sole();
+        $this->assertStringNotContainsString('Nirina', $pourDemandeur->contenu);
+        $this->assertSame('pieces', $pourDemandeur->etape);
+    }
+
+    public function test_report_notification_takes_the_demandeur_to_the_part_while_the_dossier_is_editable(): void
+    {
+        $demande = $this->makeDemande();
+        $demande->update(['statut_id' => Statut::where('code', 'a_completer')->value('id')]);
+
+        $this->signaler($this->observateur, $demande)->assertSessionHasNoErrors();
+        $notification = Notification::where('user_id', $this->demandeur->id)->sole();
+
+        $this->actingAs($this->demandeur)
+            ->post(route('notifications.read', $notification))
+            ->assertRedirect(route('demandes.edit', ['demande' => $demande->id, 'etape' => 'pieces']));
+
+        // Dossier en instruction : plus modifiable, la notification ouvre la fiche
+        $demande->update(['statut_id' => Statut::where('code', 'en_analyse')->value('id')]);
+        $this->actingAs($this->demandeur)
+            ->post(route('notifications.read', $notification))
+            ->assertRedirect(route('demandes.show', $demande));
     }
 
     public function test_validators_can_report_but_not_the_demandeur_nor_another_site(): void
@@ -273,6 +296,85 @@ class ObservateurTest extends TestCase
         $this->actingAs($this->demandeur)
             ->get(route('demandes.show', $demande))
             ->assertInertia(fn (Assert $page) => $page->missing('signalements'));
+    }
+
+    public function test_a_report_can_send_the_dossier_back_so_the_demandeur_can_fix_it(): void
+    {
+        $demande = $this->makeDemande();
+        $this->signaler($this->observateur, $demande);
+        $signalement = Signalement::sole();
+
+        // Avant : le demandeur est prévenu mais ne peut pas modifier un dossier en instruction
+        $this->assertTrue(Notification::where('user_id', $this->demandeur->id)->where('contenu', 'like', '%l\'équipe vous renverra le dossier%')->exists());
+        $this->actingAs($this->demandeur)->get(route('demandes.edit', $demande))->assertForbidden();
+
+        $this->actingAs($this->validateur)
+            ->get(route('validateur.demandes.show', $demande))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('peutDemanderComplement', true)
+                ->where('signalements.0.partie_complement', 'piece_a_remplacer'));
+
+        $this->actingAs($this->validateur)
+            ->put(route('validateur.demandes.signalements.traiter', [$demande, $signalement]), [
+                'demander_complement' => true,
+                'partie' => 'piece_a_remplacer',
+                'reponse' => '',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('message');
+
+        // Le dossier passe « à compléter », historisé avec la partie et le problème signalé
+        $demande->refresh();
+        $this->assertSame('a_completer', $demande->statut->code);
+        $historique = $demande->complementEnCours();
+        $this->assertSame('piece_a_remplacer', $historique->partie);
+        $this->assertSame('La copie du passeport est illisible.', $historique->commentaire);
+        $this->assertTrue($historique->user->is($this->validateur));
+
+        // Signalement traité, son auteur prévenu
+        $signalement->refresh();
+        $this->assertNotNull($signalement->traite_le);
+        $this->assertStringContainsString('Complément demandé au demandeur (Pièce jointe à remplacer)', $signalement->reponse);
+        $this->assertTrue(Notification::where('user_id', $this->observateur->id)->where('contenu', 'like', '%a été traité%Complément demandé%')->exists());
+
+        // Le demandeur peut maintenant corriger : sa notification l'amène aux pièces jointes
+        $notification = Notification::where('user_id', $this->demandeur->id)->where('contenu', 'like', '%doit être complété%')->sole();
+        $this->assertSame('pieces', $notification->etape);
+        $this->actingAs($this->demandeur)
+            ->post(route('notifications.read', $notification))
+            ->assertRedirect(route('demandes.edit', ['demande' => $demande->id, 'etape' => 'pieces']));
+    }
+
+    public function test_only_a_decider_can_send_a_report_back_and_only_while_the_dossier_is_being_examined(): void
+    {
+        $demande = $this->makeDemande();
+        $this->signaler($this->observateur, $demande);
+        $signalement = Signalement::sole();
+        $renvoi = ['demander_complement' => true, 'partie' => 'pieces'];
+
+        // Partie inconnue des compléments, puis partie absente
+        $this->actingAs($this->validateur)
+            ->put(route('validateur.demandes.signalements.traiter', [$demande, $signalement]), $renvoi)
+            ->assertSessionHasErrors('partie');
+        $this->actingAs($this->validateur)
+            ->put(route('validateur.demandes.signalements.traiter', [$demande, $signalement]), ['demander_complement' => true])
+            ->assertSessionHasErrors('partie');
+
+        // L'observateur ne décide pas
+        $this->actingAs($this->observateur)
+            ->put(route('validateur.demandes.signalements.traiter', [$demande, $signalement]), ['demander_complement' => true, 'partie' => 'autre'])
+            ->assertForbidden();
+
+        // Dossier déjà validé : plus de renvoi possible, le signalement reste ouvert
+        $demande->update(['statut_id' => Statut::where('code', 'validee')->value('id')]);
+        $this->actingAs($this->validateur)
+            ->put(route('validateur.demandes.signalements.traiter', [$demande, $signalement]), ['demander_complement' => true, 'partie' => 'autre'])
+            ->assertSessionHas('error');
+        $this->assertNull($signalement->fresh()->traite_le);
+        $this->assertSame('validee', $demande->fresh()->statut->code);
+        $this->actingAs($this->validateur)
+            ->get(route('validateur.demandes.show', $demande))
+            ->assertInertia(fn (Assert $page) => $page->where('peutDemanderComplement', false));
     }
 
     public function test_a_report_of_another_dossier_cannot_be_handled_through_this_one(): void

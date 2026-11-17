@@ -23,7 +23,7 @@ const submit = () => form.post(route('admin.periode-sensibles.store'));
             <div class="glass-form-wrap">
                 <div class="gf-notice">
                     <Icon name="warning" style="width:16px;height:16px;flex-shrink:0;margin-top:1px" />
-                    <span>Les périodes <strong>bloquantes</strong> interdisent toute demande. Les périodes <strong>avertissement</strong> alertent sans bloquer.</span>
+                    <span>Les périodes <strong>bloquantes</strong> interdisent l'accès : une demande sur ces dates devient une demande de dérogation, que Fanamby accepte ou refuse. Les périodes <strong>avertissement</strong> alertent sans bloquer.</span>
                 </div>
                 <form @submit.prevent="submit" class="gf-body">
                     <div>
@@ -50,7 +50,7 @@ const submit = () => form.post(route('admin.periode-sensibles.store'));
                         <label class="gf-label">Niveau de restriction *</label>
                         <select v-model="form.niveau_restriction" class="gf-select" required>
                             <option value="avertissement">Avertissement — alerte uniquement</option>
-                            <option value="bloquant">Bloquant — interdit toute demande</option>
+                            <option value="bloquant">Bloquant — accès interdit, sauf dérogation accordée par Fanamby</option>
                         </select>
                         <InputError class="gf-error" :message="form.errors.niveau_restriction" />
                     </div>
@@ -68,7 +68,7 @@ const submit = () => form.post(route('admin.periode-sensibles.store'));
                     <div class="gf-footer">
                         <Link :href="route('admin.periode-sensibles.index')" class="btn-ghost">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="btn-accent">
-                            {{ form.processing ? 'Enregistrement...' : 'Enregistrer' }}
+                            Enregistrer
                         </button>
                     </div>
                 </form>

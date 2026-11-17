@@ -277,10 +277,7 @@ const toutBasculer = () => {
 
 .tl__detail { display: grid; gap: 8px; padding: 4px 0 12px; font-size: 13px; color: var(--ink-2); }
 .tl__when { color: var(--ink-3); }
-.tl__comment { display: block; padding: 8px 10px; border-left: 3px solid var(--rule); background: var(--sunk); border-radius: 0 var(--r-xs) var(--r-xs) 0; font-style: italic; white-space: pre-line; quotes: "« " " »"; }
-.tl__item--att .tl__comment { border-left-color: var(--ochre); }
-.tl__item--no .tl__comment { border-left-color: var(--signal); }
-.tl__item--ok .tl__comment { border-left-color: var(--forest); }
+.tl__comment { display: block; padding: 8px 10px; background: var(--sunk); border-radius: var(--r-xs); font-style: italic; white-space: pre-line; quotes: "« " " »"; }
 .tl__bloc { display: grid; gap: 4px; }
 .tl__label { font: 600 10.5px/1.3 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
 .tl__pieces { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }

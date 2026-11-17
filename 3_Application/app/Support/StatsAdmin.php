@@ -6,10 +6,14 @@ use App\Models\Demande;
 use App\Models\HistoriqueStatut;
 use App\Models\Site;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
  * Tableau de bord de l'admin : piloter le service (délais, organisation, fréquentation des sites).
+ * Les indicateurs de flux (reçues, décisions, délais, types, aires) suivent la période choisie ;
+ * les indicateurs du jour (dossiers à traiter, présence sur le terrain, charge, carte) n'en dépendent pas.
+ * Le rapport d'activité PDF (rapport()) reprend les mêmes calculs que l'écran.
  */
 class StatsAdmin extends StatsInstruction
 {
@@ -19,44 +23,96 @@ class StatsAdmin extends StatsInstruction
     public function donnees(): array
     {
         $enAttente = $this->dossiersEnAttente();
-        $decisions = DelaiDecision::decisions($this->base);
 
-        $nbDecisions = $decisions->count();
-        $validees = $decisions->where('decision', 'validee')->count();
-        $avecComplement = $nbDecisions === 0 ? 0 : HistoriqueStatut::whereIn('demande_id', $decisions->pluck('id'))
-            ->whereHas('nouveauStatut', fn ($q) => $q->where('code', 'a_completer'))
-            ->distinct()
-            ->count('demande_id');
-
-        return $this->carte($enAttente) + [
-            'principales' => $this->principales(),
+        return $this->carte($enAttente) + $this->rapport() + [
             'compteurs' => $this->compteurs($enAttente),
             'urgents' => $enAttente->filter(fn ($d) => $d['imminent'] || $d['retard'] || $d['conflit'])->take(6)->values(),
-            'qualite' => [
-                'delai_median' => DelaiDecision::mediane($decisions),
-                'objectif_jours' => self::OBJECTIF_JOURS,
-                'pct_objectif' => $this->pourcentage($decisions->where('jours', '<=', self::OBJECTIF_JOURS)->count(), $nbDecisions),
-                'decisions' => $nbDecisions,
-                // Taux calculé sur les seuls dossiers décidés : les dossiers en attente ne le font pas baisser.
-                'taux_validation' => $this->pourcentage($validees, $nbDecisions),
-                'pct_complement' => $this->pourcentage($avecComplement, $nbDecisions),
-            ],
             'terrain' => $this->surLeTerrain(),
             'sites_sans_validateur' => Site::whereDoesntHave('validateurs', fn ($q) => $q->where('role', 'validateur'))
                 ->orderBy('nom')
                 ->get(['id', 'nom']),
             'charge_validateurs' => $this->chargeValidateurs($enAttente),
+            'total_users' => User::count(),
+        ];
+    }
+
+    /**
+     * Indicateurs de la période : écran du tableau de bord et rapport d'activité PDF.
+     */
+    public function rapport(): array
+    {
+        $decisions = DelaiDecision::decisions($this->recues);
+
+        return [
+            'principales' => $this->principales(),
+            'qualite' => $this->qualite($decisions),
+            'par_site' => $this->parSite($decisions),
             'frequentation' => $this->frequentation(),
             'par_mois' => $this->parMois(),
-            'par_type' => (clone $this->base)
+            'par_type' => (clone $this->recues)
                 ->join('t_type_demandes', 't_demandes.type_demande_id', '=', 't_type_demandes.id')
                 ->selectRaw('t_type_demandes.libelle as nom, COUNT(t_demandes.id) as total')
                 ->groupBy('t_type_demandes.id', 't_type_demandes.libelle')
                 ->orderByDesc('total')
                 ->get()
+                ->map(fn ($t) => ['nom' => $t->nom, 'total' => (int) $t->total])
                 ->toArray(),
-            'total_users' => User::count(),
         ];
+    }
+
+    /**
+     * Qualité du service sur les dossiers reçus pendant la période et décidés (validés ou rejetés).
+     */
+    private function qualite(Collection $decisions): array
+    {
+        $nbDecisions = $decisions->count();
+        $avecComplement = $nbDecisions === 0 ? 0 : HistoriqueStatut::whereIn('demande_id', $decisions->pluck('id'))
+            ->whereHas('nouveauStatut', fn ($q) => $q->where('code', 'a_completer'))
+            ->distinct()
+            ->count('demande_id');
+
+        return [
+            'delai_median' => DelaiDecision::mediane($decisions),
+            'objectif_jours' => self::OBJECTIF_JOURS,
+            'pct_objectif' => $this->pourcentage($decisions->where('jours', '<=', self::OBJECTIF_JOURS)->count(), $nbDecisions),
+            'decisions' => $nbDecisions,
+            // Taux calculé sur les seuls dossiers décidés : les dossiers en attente ne le font pas baisser.
+            'taux_validation' => $this->pourcentage($decisions->where('decision', 'validee')->count(), $nbDecisions),
+            'pct_complement' => $this->pourcentage($avecComplement, $nbDecisions),
+        ];
+    }
+
+    /**
+     * Synthèse par aire protégée des demandes reçues pendant la période : répartition par statut,
+     * taux de validation et délai médian de décision. Toutes les aires figurent, même sans demande.
+     * La somme des lignes redonne les statistiques principales.
+     */
+    private function parSite(Collection $decisions): Collection
+    {
+        $parSite = (clone $this->recues)
+            ->join('t_statuts', 't_statuts.id', '=', 't_demandes.statut_id')
+            ->selectRaw('t_demandes.site_id as site_id, t_statuts.code as code, COUNT(*) as total')
+            ->groupBy('t_demandes.site_id', 't_statuts.code')
+            ->get()
+            ->groupBy('site_id');
+        $delais = $decisions->groupBy('site_id');
+
+        return Site::orderBy('nom')->get(['id', 'nom'])->map(function (Site $site) use ($parSite, $delais) {
+            $codes = collect($parSite[$site->id] ?? [])->mapWithKeys(fn ($l) => [$l->code => (int) $l->total]);
+            $nb = fn (string ...$c) => collect($c)->sum(fn ($code) => $codes[$code] ?? 0);
+
+            return [
+                'id' => $site->id,
+                'nom' => $site->nom,
+                'recues' => $codes->sum(),
+                'en_attente' => $nb('soumise', 'en_analyse', 'a_completer'),
+                'validees' => $nb('validee'),
+                'rejetees' => $nb('rejetee'),
+                'retirees' => $nb('retiree'),
+                'taux_validation' => $this->pourcentage($nb('validee'), $nb('validee', 'rejetee')),
+                'delai_median' => DelaiDecision::mediane($delais[$site->id] ?? collect()),
+            ];
+        })->sortByDesc('recues')->values();
     }
 
     /**
@@ -109,15 +165,21 @@ class StatsAdmin extends StatsInstruction
     }
 
     /**
-     * Fréquentation autorisée sur les 12 prochains mois, par site :
-     * séjours, personnes, et personnes × jours de présence, de l'arrivée à la fin (la pression humaine réelle sur le site).
+     * Fréquentation autorisée par site : séjours validés, personnes, et personnes × jours de présence,
+     * de l'arrivée à la fin (la pression humaine réelle sur le site).
+     * Sans période : les 12 prochains mois, séjours comptés en entier. Avec une période : les séjours qui
+     * la chevauchent, et seuls les jours de présence compris dans la période.
      */
     private function frequentation(): Collection
     {
+        $periode = $this->periode->active();
+        $debut = $periode ? ($this->periode->du ?? Carbon::create(2000)) : today();
+        $fin = $periode ? ($this->periode->au ?? today()->addYear()) : today()->addYear();
+
         return Demande::query()
             ->whereHas('statut', fn ($q) => $q->where('code', 'validee'))
-            ->where('date_fin', '>=', today()->toDateString())
-            ->whereRaw('COALESCE(date_arrivee, date_debut) <= ?', [today()->addYear()->toDateString()])
+            ->where('date_fin', '>=', $debut->toDateString())
+            ->whereRaw('COALESCE(date_arrivee, date_debut) <= ?', [$fin->toDateString()])
             ->with('site:id,nom')
             ->get(['id', 'site_id', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre'])
             ->groupBy('site_id')
@@ -125,25 +187,33 @@ class StatsAdmin extends StatsInstruction
                 'nom' => $ds->first()->site?->nom,
                 'sejours' => $ds->count(),
                 'personnes' => (int) $ds->sum('equipe_nombre'),
-                'personnes_jours' => (int) $ds->sum(fn ($d) => $d->equipe_nombre * (DelaiDecision::joursEntre($d->arrivee(), $d->date_fin) + 1)),
+                'personnes_jours' => (int) $ds->sum(function (Demande $d) use ($periode, $debut, $fin) {
+                    $arrivee = $periode ? $d->arrivee()->max($debut) : $d->arrivee();
+                    $depart = $periode ? $d->date_fin->min($fin) : $d->date_fin;
+
+                    return $d->equipe_nombre * (DelaiDecision::joursEntre($arrivee, $depart) + 1);
+                }),
             ])
             ->sortByDesc('personnes_jours')
             ->values();
     }
 
     /**
-     * Demandes reçues par mois : année en cours et année précédente, pour comparaison.
+     * Demandes reçues (envoyées) par mois : année de la fin de la période (à défaut l'année en cours)
+     * et année précédente, pour comparaison.
      */
     private function parMois(): array
     {
-        $annee = (int) date('Y');
-        $parMois = ['courante' => array_fill(0, 12, 0), 'precedente' => array_fill(0, 12, 0)];
+        $annee = $this->periode->anneeReference();
+        $parMois = ['annee' => $annee, 'courante' => array_fill(0, 12, 0), 'precedente' => array_fill(0, 12, 0)];
 
         (clone $this->base)
-            ->whereYear('t_demandes.created_at', '>=', $annee - 1)
-            ->get(['t_demandes.created_at'])
+            ->whereNotNull('t_demandes.date_soumission')
+            ->whereYear('t_demandes.date_soumission', '>=', $annee - 1)
+            ->whereYear('t_demandes.date_soumission', '<=', $annee)
+            ->get(['t_demandes.date_soumission'])
             ->each(function (Demande $d) use (&$parMois, $annee) {
-                $parMois[$d->created_at->year === $annee ? 'courante' : 'precedente'][$d->created_at->month - 1]++;
+                $parMois[$d->date_soumission->year === $annee ? 'courante' : 'precedente'][$d->date_soumission->month - 1]++;
             });
 
         return $parMois;

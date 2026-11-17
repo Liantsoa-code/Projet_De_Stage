@@ -10,18 +10,17 @@ use App\Models\Signalement;
 use App\Models\Site;
 use App\Models\Statut;
 use App\Models\TypeDemande;
-use App\Models\HistoriqueStatut;
 use App\Support\AnalyseDemande;
+use App\Support\DecisionDemande;
 use App\Support\DelaiDecision;
-use App\Support\DemandeNotifications;
 use App\Support\DemandeStatutWorkflow;
 use App\Support\DocumentsOfficiels;
 use App\Support\FormatDocument;
+use App\Support\PartieDossier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -191,8 +190,11 @@ class DemandeController extends Controller
             'lectureSeule' => $user->role === 'observateur',
             'signalements' => $demande->signalements->map->pourPage()->values(),
             'partiesSignalement' => Signalement::PARTIES,
+            'partiesComplement' => PartieDossier::COMPLEMENT,
             'peutSignaler' => Gate::allows('signaler', $demande),
             'peutTraiterSignalements' => Gate::allows('traiterSignalement', $demande),
+            // Un signalement peut être traité en renvoyant le dossier au demandeur pour complément
+            'peutDemanderComplement' => Gate::allows('decider', $demande) && DecisionDemande::complementPossible($demande),
             'canDecideOnDemande' => Gate::allows('decider', $demande) && ! $statutLocked,
             'statutLocked' => $statutLocked,
             // Version Word des documents : pas pour un validateur auteur de la demande
@@ -213,50 +215,8 @@ class DemandeController extends Controller
 
         $nouveauStatut = Statut::findOrFail($validated['statut_id']);
 
-        // Verrou sur la demande : de deux décisions simultanées, seule la première s'applique,
-        // la seconde est contrôlée sur le statut à jour. Statut, historique et notification
-        // sont enregistrés ensemble ou pas du tout.
-        $erreur = DB::transaction(function () use ($demande, $nouveauStatut, $user, $validated) {
-            $demande = Demande::whereKey($demande->id)->lockForUpdate()->firstOrFail();
-            $demande->load('statut', 'site');
-
-            if (! DemandeStatutWorkflow::canTransition($demande->statut, $nouveauStatut)) {
-                return DemandeStatutWorkflow::isTerminal($demande->statut)
-                    ? 'Cette demande est clôturée et ne peut plus être modifiée.'
-                    : 'Vous ne pouvez pas rétrograder le statut ni le laisser inchangé.';
-            }
-
-            // La validation fige les documents relus : ils doivent avoir été générés.
-            if ($nouveauStatut->code === 'validee' && ! DocumentsOfficiels::sontGeneres($demande)) {
-                return 'Générez et relisez l\'autorisation, le cahier des charges et la convention avant de valider le dossier.';
-            }
-
-            // Dossier renvoyé ou refusé : les documents préparés ne servent plus (ils seront regénérés
-            // à partir du dossier complété).
-            if (in_array($nouveauStatut->code, ['a_completer', 'rejetee'], true)) {
-                $demande->documentsOfficiels()->delete();
-            }
-
-            $ancienStatutId = $demande->statut_id;
-
-            // Mise à jour de la demande principale
-            $demande->update(['statut_id' => $nouveauStatut->id]);
-
-            // Historisation (Phase 6.2)
-            HistoriqueStatut::create([
-                'demande_id' => $demande->id,
-                'user_id' => $user->id,
-                'ancien_statut_id' => $ancienStatutId,
-                'nouveau_statut_id' => $nouveauStatut->id,
-                'commentaire' => $validated['commentaire'],
-                'date_changement' => now(),
-            ]);
-
-            // Notification (cloche + email) du demandeur et de l'équipe du site (Phase 6.3)
-            DemandeNotifications::decision($demande, $nouveauStatut, $user, $validated['commentaire']);
-
-            return null;
-        });
+        // Statut, historique et notifications : voir DecisionDemande
+        $erreur = DecisionDemande::appliquer($demande, $nouveauStatut, $user, $validated['commentaire'], $validated['partie'] ?? null);
 
         if ($erreur !== null) {
             return back()->withErrors(['statut_id' => $erreur]);

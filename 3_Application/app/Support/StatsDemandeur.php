@@ -38,6 +38,9 @@ class StatsDemandeur
             $d->setAttribute('dernier_commentaire', $dernier?->commentaire);
             $d->setAttribute('commentaire_par', $dernier?->user?->name);
             $d->setAttribute('commentaire_le', $dernier?->date_changement);
+            // Partie à compléter et étape du formulaire où mène « Compléter le dossier »
+            $d->setAttribute('partie_complement', PartieDossier::libelleComplement($dernier?->partie));
+            $d->setAttribute('etape_complement', PartieDossier::etape($dernier?->partie));
             $d->unsetRelation('historiqueStatuts');
         });
 

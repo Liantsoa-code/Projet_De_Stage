@@ -199,7 +199,7 @@ const formatTaille = (octets) => (octets < 1024 * 1024
                 <div>
                     <button type="submit" class="btn-accent" :disabled="form.processing">
                         <Icon :name="form.processing ? 'circle-notch' : 'upload-simple'" :class="{ spin: form.processing }" />
-                        {{ form.processing ? 'Envoi…' : 'Déposer le document' }}
+                        Déposer le document
                     </button>
                     <progress v-if="form.progress" class="depot__progres" :value="form.progress.percentage" max="100">{{ form.progress.percentage }} %</progress>
                 </div>

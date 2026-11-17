@@ -15,6 +15,7 @@ class PagesVisibles
 {
     // Routes de chaque page de config/pages.php
     private const ROUTES = [
+        'tableau_de_bord_complet' => ['dashboard.rapport'],
         'mes_demandes' => ['demandes.index', 'demandes.show', 'demandes.edit'],
         'nouvelle_demande' => ['demandes.create'],
         'profil' => ['profile.*'],

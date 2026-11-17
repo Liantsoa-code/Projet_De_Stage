@@ -26,9 +26,13 @@ abstract class StatsInstruction
     /** Demandes prises en compte : hors brouillons, limitées aux sites du validateur. */
     protected Builder $base;
 
-    public function __construct(protected User $user)
+    /** Demandes de la base envoyées pendant la période choisie (toutes si aucune période). */
+    protected Builder $recues;
+
+    public function __construct(protected User $user, protected PeriodeStats $periode = new PeriodeStats())
     {
         $this->base = Demande::query()->horsBrouillon()->forStatsViewer($user);
+        $this->recues = $periode->appliquer(clone $this->base, 't_demandes.date_soumission');
     }
 
     /**
@@ -72,6 +76,8 @@ abstract class StatsInstruction
                     'retard' => $attente > self::JOURS_RETARD,
                     'verdict' => $verdict,
                     'conflit' => $verdict === 'conflit',
+                    // Période bloquante : demande de dérogation, à accepter ou non
+                    'derogation' => $d->derogation,
                     'signalements' => $d->signalements_ouverts,
                 ];
             })
@@ -83,13 +89,13 @@ abstract class StatsInstruction
     }
 
     /**
-     * Statistiques principales : demandes reçues (hors brouillons), en attente d'une décision
-     * finale (soumises, en analyse ou chez le demandeur pour complément) et validées.
-     * Reçues = en attente + validées + rejetées.
+     * Statistiques principales sur les demandes reçues pendant la période : en attente d'une décision
+     * finale (soumises, en analyse ou chez le demandeur pour complément), validées, rejetées et retirées.
+     * Reçues = en attente + validées + rejetées + retirées (tous les statuts hors brouillon).
      */
     protected function principales(): array
     {
-        $parCode = (clone $this->base)
+        $parCode = (clone $this->recues)
             ->join('t_statuts', 't_statuts.id', '=', 't_demandes.statut_id')
             ->selectRaw('t_statuts.code as code, COUNT(*) as total')
             ->groupBy('t_statuts.code')
@@ -101,11 +107,14 @@ abstract class StatsInstruction
 
         return [
             'recues' => $parCode->sum(),
-            'recues_mois' => (clone $this->base)->where('t_demandes.date_soumission', '>=', now()->startOfMonth())->count(),
+            // « dont N ce mois-ci » : seulement sans période choisie
+            'recues_mois' => $this->periode->active() ? null
+                : (clone $this->base)->where('t_demandes.date_soumission', '>=', now()->startOfMonth())->count(),
             'en_attente' => $nb('soumise', 'en_analyse', 'a_completer'),
             'chez_demandeur' => $nb('a_completer'),
             'validees' => $nb('validee'),
             'rejetees' => $nb('rejetee'),
+            'retirees' => $nb('retiree'),
             // Sur les seuls dossiers décidés : les dossiers en attente ne font pas baisser le taux.
             'taux_validation' => $decidees > 0 ? (int) round($nb('validee') / $decidees * 100) : null,
         ];

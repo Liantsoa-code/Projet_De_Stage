@@ -83,7 +83,7 @@ const signalements = computed(() => page.props.signalements || []);
                 </li>
             </ul>
             <div v-else class="empty empty--small">
-                <p>Vous n'avez encore rien signalé. Sur la fiche d'un dossier, « Signaler un problème » prévient les validateurs de l'aire protégée et les administrateurs.</p>
+                <p>Vous n'avez encore rien signalé. Sur la fiche d'un dossier, « Signaler un problème » prévient les validateurs de l'aire protégée, les administrateurs et le demandeur.</p>
             </div>
         </section>
     </div>

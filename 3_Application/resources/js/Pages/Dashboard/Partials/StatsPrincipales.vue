@@ -4,9 +4,11 @@ import Icon from '@/Components/Icon.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
-// Statistiques principales (admin et validateur) : demandes reçues, en attente et validées.
-// Reçues = en attente + validées + rejetées, d'où la barre de répartition.
-const p = computed(() => usePage().props.principales || {});
+// Statistiques principales (équipe) sur la période choisie : demandes reçues, en attente et validées.
+// Reçues = en attente + validées + rejetées + retirées, d'où la barre de répartition.
+const page = usePage();
+const p = computed(() => page.props.principales || {});
+const libellePeriode = computed(() => page.props.periode?.libelle);
 const total = computed(() => p.value.recues || 0);
 const part = (n) => (total.value ? `${(n / total.value) * 100}%` : '0%');
 </script>
@@ -18,7 +20,8 @@ const part = (n) => (total.value ? `${(n / total.value) * 100}%` : '0%');
                 <span class="carte__icone"><Icon name="files" /></span>
                 <CompteurAnime class="carte__n" :valeur="p.recues ?? 0" />
                 <span class="carte__l">Demandes reçues</span>
-                <span class="carte__s">dont {{ p.recues_mois ?? 0 }} ce mois-ci</span>
+                <span v-if="p.recues_mois != null" class="carte__s">dont {{ p.recues_mois }} ce mois-ci</span>
+                <span v-else class="carte__s">envoyées {{ libellePeriode }}</span>
             </Link>
             <div class="carte carte--attente">
                 <span class="carte__icone"><Icon name="hourglass-medium" /></span>
@@ -39,15 +42,17 @@ const part = (n) => (total.value ? `${(n / total.value) * 100}%` : '0%');
 
         <div v-if="total" class="repartition">
             <div class="repartition__barre" role="img"
-                :aria-label="`Sur ${total} demandes reçues : ${p.en_attente} en attente, ${p.validees} validées, ${p.rejetees} rejetées`">
+                :aria-label="`Sur ${total} demandes reçues : ${p.en_attente} en attente, ${p.validees} validées, ${p.rejetees} rejetées, ${p.retirees ?? 0} retirées`">
                 <i class="seg seg--attente" :style="{ width: part(p.en_attente) }"></i>
                 <i class="seg seg--validees" :style="{ width: part(p.validees) }"></i>
                 <i class="seg seg--rejetees" :style="{ width: part(p.rejetees) }"></i>
+                <i class="seg seg--retirees" :style="{ width: part(p.retirees ?? 0) }"></i>
             </div>
             <ul class="repartition__legende">
                 <li><i class="pastille seg--attente"></i>{{ p.en_attente }} en attente</li>
                 <li><i class="pastille seg--validees"></i>{{ p.validees }} validées</li>
                 <li><i class="pastille seg--rejetees"></i>{{ p.rejetees }} rejetées</li>
+                <li v-if="p.retirees"><i class="pastille seg--retirees"></i>{{ p.retirees }} retirée{{ p.retirees > 1 ? 's' : '' }} par le demandeur</li>
             </ul>
         </div>
     </section>
@@ -80,6 +85,7 @@ a.carte:focus-visible { outline: 2px solid var(--accent-carte); outline-offset: 
 .seg--attente { background: var(--water); }
 .seg--validees { background: var(--forest); }
 .seg--rejetees { background: var(--signal); }
+.seg--retirees { background: var(--ink-3); }
 .repartition__legende { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--ink-2); }
 .repartition__legende li { display: inline-flex; align-items: center; gap: 6px; }
 .pastille { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }

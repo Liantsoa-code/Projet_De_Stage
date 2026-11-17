@@ -6,6 +6,7 @@ import EspaceValidateur from '@/Pages/Dashboard/Partials/EspaceValidateur.vue';
 import EspaceAdmin from '@/Pages/Dashboard/Partials/EspaceAdmin.vue';
 import EspaceObservateur from '@/Pages/Dashboard/Partials/EspaceObservateur.vue';
 import StatsPrincipales from '@/Pages/Dashboard/Partials/StatsPrincipales.vue';
+import FiltrePeriode from '@/Pages/Dashboard/Partials/FiltrePeriode.vue';
 import { Head, usePage, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { pageVisible } from '@/utils/pages.js';
@@ -17,6 +18,12 @@ const equipe = computed(() => ['admin', 'validateur', 'observateur'].includes(ro
 const enCours = computed(() => page.props.en_cours || []);
 const aCompleter = computed(() => page.props.a_completer || []);
 const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join(', '));
+// Rapport d'activité PDF de la période affichée : admin et observateur
+const peutRapport = computed(() => ['admin', 'observateur'].includes(role.value) && pageVisible('tableau_de_bord_complet'));
+const rapportUrl = computed(() => {
+    const { du, au } = page.props.periode || {};
+    return route('dashboard.rapport', Object.fromEntries(Object.entries({ du, au }).filter(([, v]) => v)));
+});
 </script>
 
 <template>
@@ -50,6 +57,18 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
             </div>
         </template>
 
+        <div v-if="equipe" class="periode-bar">
+            <FiltrePeriode />
+            <p class="periode-bar__note">
+                Les compteurs de demandes, les délais et les répartitions portent sur cette période ;
+                les dossiers à traiter et la présence sur le terrain restent ceux d'aujourd'hui.
+            </p>
+            <a v-if="peutRapport" :href="rapportUrl" target="_blank" rel="noopener" class="btn-ghost periode-bar__pdf">
+                <Icon name="file-pdf" />
+                Rapport d'activité (PDF)
+            </a>
+        </div>
+
         <div v-if="!pageVisible('tableau_de_bord_complet') && equipe" class="dash">
             <StatsPrincipales />
         </div>
@@ -61,6 +80,11 @@ const nomsSites = computed(() => (page.props.sites || []).map((s) => s.nom).join
 </template>
 
 <style>
+/* Barre de période (équipe) */
+.periode-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-bottom: 20px; padding: 12px 20px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); }
+.periode-bar__note { flex: 1 1 280px; font-size: 12.5px; color: var(--ink-3); }
+.periode-bar__pdf { margin-left: auto; }
+
 /* Styles communs aux trois espaces du tableau de bord (préfixés par .dash) */
 .dash { display: grid; gap: 24px; }
 .dash .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 24px; align-items: start; }

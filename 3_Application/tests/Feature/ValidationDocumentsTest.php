@@ -368,6 +368,7 @@ class ValidationDocumentsTest extends TestCase
         $this->actingAs($this->validateur)->post(route('validateur.demandes.update-statut', $demande), [
             'statut_id' => Statut::where('code', 'a_completer')->value('id'),
             'commentaire' => 'Joindre le protocole.',
+            'partie' => 'piece_manquante',
         ])->assertSessionHasNoErrors();
 
         $this->assertSame(0, $demande->documentsOfficiels()->count());

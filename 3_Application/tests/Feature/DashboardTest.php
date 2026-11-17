@@ -207,6 +207,117 @@ class DashboardTest extends TestCase
             );
     }
 
+    public function test_received_requests_add_up_including_withdrawn_ones_and_per_protected_area(): void
+    {
+        $this->makeDemande('soumise');
+        $this->makeDemande('a_completer');
+        $this->makeDemande('validee');
+        $this->makeDemande('rejetee', ['site_id' => $this->autreSite->id]);
+        $this->makeDemande('retiree');
+
+        $this->actingAs($this->admin)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                // Reçues = en attente + validées + rejetées + retirées
+                ->where('principales.recues', 5)
+                ->where('principales.en_attente', 2)
+                ->where('principales.validees', 1)
+                ->where('principales.rejetees', 1)
+                ->where('principales.retirees', 1)
+                // La synthèse par aire protégée redonne les mêmes totaux
+                ->has('par_site', 2)
+                ->where('par_site', fn ($lignes) => collect($lignes)->sum('recues') === 5
+                    && collect($lignes)->sum('retirees') === 1
+                    && collect($lignes)->sum('en_attente') === 2)
+                ->where('par_site.0.nom', 'Andasibe')
+                ->where('par_site.0.recues', 4)
+                ->where('par_site.0.taux_validation', 100)
+                ->where('par_site.1.taux_validation', 0)
+            );
+    }
+
+    public function test_period_limits_flow_indicators_to_requests_sent_during_it(): void
+    {
+        $this->decision('validee', 3);
+        $this->makeDemande('soumise');
+        // Hors période : envoyée il y a 14 mois
+        $this->makeDemande('validee', ['date_soumission' => now()->subMonths(14)]);
+
+        $periode = ['du' => now()->subMonth()->toDateString(), 'au' => today()->toDateString()];
+
+        $this->actingAs($this->admin)
+            ->get(route('dashboard', $periode))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('periode.du', $periode['du'])
+                ->where('periode.au', $periode['au'])
+                ->where('principales.recues', 2)
+                ->where('principales.recues_mois', null)
+                ->where('principales.validees', 1)
+                ->where('qualite.decisions', 1)
+                ->where('par_type.0.total', 2)
+                ->where('par_site.0.recues', 2)
+                // Indicateur du jour : non concerné par la période
+                ->where('compteurs.en_attente', 1)
+            );
+
+        $this->actingAs($this->admin)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('periode.libelle', null)
+                ->where('principales.recues', 3)
+            );
+    }
+
+    public function test_invalid_period_is_ignored_and_reversed_bounds_are_swapped(): void
+    {
+        $this->actingAs($this->admin)
+            ->get(route('dashboard', ['du' => '2026-02-31', 'au' => 'demain']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('periode.du', null)->where('periode.au', null));
+
+        $this->actingAs($this->admin)
+            ->get(route('dashboard', ['du' => '2026-06-30', 'au' => '2026-01-01']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('periode.du', '2026-01-01')
+                ->where('periode.au', '2026-06-30')
+                ->where('periode.libelle', 'du 01/01/2026 au 30/06/2026')
+                ->where('par_mois.annee', 2026)
+            );
+    }
+
+    public function test_attendance_over_a_period_only_counts_days_inside_it(): void
+    {
+        // 4 personnes sur place 10 jours, dont 3 dans la période
+        $this->makeDemande('validee', [
+            'equipe_nombre' => 4,
+            'date_debut' => now()->subDays(5)->toDateString(),
+            'date_fin' => now()->addDays(4)->toDateString(),
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('dashboard', ['du' => now()->subDay()->toDateString(), 'au' => now()->addDay()->toDateString()]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('frequentation.0.sejours', 1)
+                ->where('frequentation.0.personnes_jours', 12)
+            );
+    }
+
+    public function test_activity_report_pdf_is_for_admin_and_observer_only(): void
+    {
+        $this->decision('validee', 3);
+        $observateur = User::factory()->create(['role' => 'observateur']);
+
+        foreach ([$this->admin, $observateur] as $user) {
+            $this->actingAs($user)
+                ->get(route('dashboard.rapport', ['du' => now()->subMonth()->toDateString()]))
+                ->assertOk()
+                ->assertHeader('Content-Type', 'application/pdf');
+        }
+
+        $this->actingAs($this->validateur)->get(route('dashboard.rapport'))->assertForbidden();
+        $this->actingAs($this->demandeur)->get(route('dashboard.rapport'))->assertForbidden();
+    }
+
     public function test_team_is_on_site_from_its_arrival_before_activities(): void
     {
         // Arrivée hier, activités dans 2 jours : l'équipe est déjà sur le terrain (2 personnes × 5 jours)

@@ -15,6 +15,7 @@ use App\Support\DelaiDecision;
 use App\Support\DemandeDossier;
 use App\Support\DemandeNotifications;
 use App\Support\DemandeStatutWorkflow;
+use App\Support\PartieDossier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,9 @@ class DemandeController extends Controller
         return Inertia::render('Demandes/Show', [
             'demande' => $demande,
             'complement' => $complement,
+            // Partie à compléter et étape du formulaire où l'amène le bouton « Compléter le dossier »
+            'complementPartie' => PartieDossier::libelleComplement($complement?->partie),
+            'complementEtape' => PartieDossier::etape($complement?->partie),
             // Estimation de la décision sur la timeline, tant que le dossier est en instruction
             'delaiHabituel' => in_array($demande->statut->code, ['soumise', 'en_analyse'], true)
                 ? DelaiDecision::habituelParSite()($demande->site_id)
@@ -94,15 +98,15 @@ class DemandeController extends Controller
 
         $analyse = $this->analyse($validated, $soumission);
 
-        // Si une période bloquante est détectée, on refuse catégoriquement la demande.
-        if ($analyse['bloquant']) {
-            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur cette aire protégée.']);
+        // Période bloquante : la demande part en demande de dérogation, justification obligatoire.
+        if ($erreur = $this->justificationManquante($analyse, $validated)) {
+            return $erreur;
         }
 
         $demande = DB::transaction(function () use ($request, $validated, $typeDemande, $soumission, $analyse) {
             $statutInitial = $this->statutId($soumission ? 'soumise' : 'brouillon');
 
-            $demande = Demande::create($this->champsProjet($validated, $typeDemande) + [
+            $demande = Demande::create($this->champsProjet($validated, $typeDemande, $analyse, $soumission) + [
                 'user_id' => Auth::id(),
                 'statut_id' => $statutInitial,
                 'date_soumission' => $soumission ? now() : null,
@@ -126,23 +130,30 @@ class DemandeController extends Controller
 
         DemandeNotifications::soumission($demande);
 
-        return redirect()->route('demandes.show', $demande)->with('message', 'Votre demande a été soumise avec succès.');
+        return redirect()->route('demandes.show', $demande)->with('message', $demande->derogation ? 'Votre demande de dérogation a été transmise à Fanamby.' : 'Votre demande a été soumise avec succès.');
     }
 
-    public function edit(Demande $demande)
+    public function edit(Request $request, Demande $demande)
     {
         Gate::authorize('update', $demande);
 
         $demande->load(['documents', 'statut']);
 
+        $complement = $demande->complementEnCours();
+
+        // Étape ouverte d'emblée : celle demandée par le lien (notification d'un complément ou d'un
+        // signalement), à défaut la partie à compléter
+        $etape = $request->query('etape');
+
         return Inertia::render('Demandes/Create', $this->formProps($demande) + [
             'demande' => $demande,
-            'complement' => $demande->statut->code === 'a_completer'
-                ? $demande->historiqueStatuts()
-                    ->whereHas('nouveauStatut', fn ($q) => $q->where('code', 'a_completer'))
-                    ->latest('date_changement')
-                    ->value('commentaire')
-                : null,
+            'complement' => $complement?->commentaire,
+            'complementPartie' => PartieDossier::libelleComplement($complement?->partie),
+            // Point à clarifier : un champ de réponse apparaît dans « Informations sur la demande »
+            'clarificationDemandee' => $complement?->partie === 'clarification',
+            'etapeInitiale' => in_array($etape, PartieDossier::ETAPES_FORMULAIRE, true)
+                ? $etape
+                : PartieDossier::etape($complement?->partie),
         ]);
     }
 
@@ -156,8 +167,8 @@ class DemandeController extends Controller
 
         $analyse = $this->analyse($validated, $soumission, $demande->id);
 
-        if ($analyse['bloquant']) {
-            return back()->withErrors(['date_debut' => 'Impossible : vos dates chevauchent une période d\'interdiction stricte (bloquante) sur cette aire protégée.']);
+        if ($erreur = $this->justificationManquante($analyse, $validated)) {
+            return $erreur;
         }
 
         $statutChange = DB::transaction(function () use ($request, $demande, $validated, $typeDemande, $soumission, $renvoiComplement, $ancienStatut, $analyse) {
@@ -167,9 +178,14 @@ class DemandeController extends Controller
                 return true;
             }
 
-            $champs = $this->champsProjet($validated, $typeDemande) + ['resultats_analyse' => $analyse['contraintes']];
+            $champs = $this->champsProjet($validated, $typeDemande, $analyse, $soumission) + ['resultats_analyse' => $analyse['contraintes']];
 
             if ($renvoiComplement) {
+                // Point à clarifier : la réponse du demandeur, saisie dans « Informations sur la demande »
+                if ($demande->clarificationDemandee()) {
+                    $champs['clarification'] = trim($validated['clarification']);
+                }
+
                 // Le dossier retourne directement en analyse chez le validateur.
                 $champs['statut_id'] = $this->statutId('en_analyse');
 
@@ -205,7 +221,7 @@ class DemandeController extends Controller
         if ($soumission) {
             DemandeNotifications::soumission($demande);
 
-            return redirect()->route('demandes.show', $demande)->with('message', 'Votre demande a été soumise avec succès.');
+            return redirect()->route('demandes.show', $demande)->with('message', $demande->derogation ? 'Votre demande de dérogation a été transmise à Fanamby.' : 'Votre demande a été soumise avec succès.');
         }
 
         return redirect()->route('demandes.show', $demande)->with('message', 'Brouillon mis à jour.');
@@ -260,9 +276,14 @@ class DemandeController extends Controller
      * Champs de la demande saisis dans le formulaire (section II). La précision du type
      * n'est gardée que si le type de projet la demande (« Autre »).
      */
-    private function champsProjet(array $validated, TypeDemande $typeDemande): array
+    private function champsProjet(array $validated, TypeDemande $typeDemande, array $analyse, bool $soumission): array
     {
+        $motif = trim($validated['derogation_motif'] ?? '') ?: null;
+
         return [
+            // Justification d'une demande de dérogation : gardée telle quelle dans un brouillon,
+            // seulement si une période bloquante est relevée à l'envoi
+            'derogation_motif' => ! $soumission || $analyse['bloquant'] ? $motif : null,
             'site_id' => $validated['site_id'],
             'type_demande_id' => $validated['type_demande_id'],
             'titre' => $validated['titre'] ?? null,
@@ -338,6 +359,19 @@ class DemandeController extends Controller
         ]);
 
         return response()->json(AnalyseDemande::analyser($validated, Auth::id(), $validated['demande_id'] ?? null));
+    }
+
+    /**
+     * Dates sur une période bloquante : la demande n'est plus refusée, elle part en demande de dérogation.
+     * Le demandeur doit alors expliquer pourquoi ces dates sont indispensables.
+     */
+    private function justificationManquante(array $analyse, array $validated)
+    {
+        if (! $analyse['bloquant'] || trim($validated['derogation_motif'] ?? '') !== '') {
+            return null;
+        }
+
+        return back()->withErrors(['derogation_motif' => 'Vos dates tombent pendant une période d\'interdiction : expliquez pourquoi elles sont indispensables pour demander une dérogation à Fanamby.']);
     }
 
     /**

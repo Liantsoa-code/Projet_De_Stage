@@ -61,7 +61,7 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
                         <InputLabel for="niveau_restriction" value="Niveau de restriction *" class="field-label" />
                         <select id="niveau_restriction" v-model="form.niveau_restriction" class="field-select" required>
                             <option value="avertissement">Avertissement — demande possible mais signalée</option>
-                            <option value="bloquant">Bloquant — interdit toute demande sur cette période</option>
+                            <option value="bloquant">Bloquant — accès interdit, sauf dérogation accordée par Fanamby</option>
                         </select>
                         <InputError class="field-error" :message="form.errors.niveau_restriction" />
                     </div>
@@ -82,7 +82,7 @@ const submit = () => form.put(route('admin.periode-sensibles.update', props.peri
                     <div class="form-footer">
                         <Link :href="route('admin.periode-sensibles.index')" class="btn-cancel">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="submit-btn">
-                            {{ form.processing ? 'Mise à jour...' : 'Mettre à jour' }}
+                            Mettre à jour
                         </button>
                     </div>
                 </form>

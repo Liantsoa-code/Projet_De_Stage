@@ -22,7 +22,8 @@ class StatsValidateur extends StatsInstruction
             'file' => $enAttente->take(8)->values(),
             'attente_demandeur' => $this->attenteDemandeur(),
             'activite' => $this->activite(),
-            'delai_median' => DelaiDecision::mediane(DelaiDecision::decisions($this->base)),
+            // Délai médian des dossiers reçus pendant la période et décidés
+            'delai_median' => DelaiDecision::mediane(DelaiDecision::decisions($this->recues)),
         ];
     }
 
@@ -53,16 +54,22 @@ class StatsValidateur extends StatsInstruction
     }
 
     /**
-     * Décisions prises par le validateur ce mois-ci, par type (hors ses propres demandes).
+     * Décisions prises par le validateur pendant la période (à défaut ce mois-ci), par type (hors ses propres demandes).
      */
     private function activite(): array
     {
-        $parCode = HistoriqueStatut::query()
+        $historique = HistoriqueStatut::query();
+        if ($this->periode->active()) {
+            $this->periode->appliquer($historique, 't_historique_statuts.date_changement');
+        } else {
+            $historique->where('t_historique_statuts.date_changement', '>=', now()->startOfMonth());
+        }
+
+        $parCode = $historique
             ->join('t_statuts', 't_statuts.id', '=', 't_historique_statuts.nouveau_statut_id')
             ->join('t_demandes', 't_demandes.id', '=', 't_historique_statuts.demande_id')
             ->where('t_historique_statuts.user_id', $this->user->id)
             ->where('t_demandes.user_id', '!=', $this->user->id)
-            ->where('t_historique_statuts.date_changement', '>=', now()->startOfMonth())
             ->whereIn('t_statuts.code', ['en_analyse', 'a_completer', 'validee', 'rejetee'])
             ->selectRaw('t_statuts.code as code, COUNT(*) as total')
             ->groupBy('t_statuts.code')

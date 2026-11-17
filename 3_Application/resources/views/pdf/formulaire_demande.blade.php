@@ -49,7 +49,7 @@
         <tr><th>Email :</th><td>{{ $demande->user->email }}</td></tr>
     </table>
 
-    <h2>II. Informations sur le Projet</h2>
+    <h2>II. Informations sur la Demande</h2>
     <table class="champs">
         <tr><th><strong>Titre du projet :</strong></th><td>{{ $demande->titre }}</td></tr>
     </table>
@@ -71,7 +71,7 @@
         @endforeach
     </table>
 
-    <p class="titre"><strong>Résumé du synopsis :</strong></p>
+    <p class="titre"><strong>Résumé du projet :</strong></p>
     <div class="texte">{!! nl2br(e($demande->description)) !!}</div>
 
     <p class="titre"><strong>Objectif(s) principal(aux) du projet :</strong></p>

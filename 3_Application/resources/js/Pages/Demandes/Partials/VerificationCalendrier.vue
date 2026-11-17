@@ -77,7 +77,7 @@ const chevauche = (p) => props.chevauchements.some(c => c.id === p.id);
                 <PanneauAnalyse v-else-if="analyse" :contraintes="analyse.contraintes" compact avant-envoi :chargement="analyseEnCours" />
                 <div v-else-if="calendrier === 'bloquant'" class="res res--block" role="alert">
                     <Icon name="prohibit" />
-                    <div><strong>Envoi impossible sur ces dates</strong>Une période bloquante couvre tout ou partie du séjour. Choisissez d'autres dates.</div>
+                    <div><strong>Période d'interdiction sur ces dates</strong>Choisissez d'autres dates, ou justifiez-les pour demander une dérogation à Fanamby.</div>
                 </div>
                 <div v-else-if="calendrier === 'sensible'" class="res res--warn" role="alert">
                     <Icon name="warning" />

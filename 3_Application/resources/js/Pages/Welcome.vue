@@ -43,6 +43,10 @@ const carte = ref(null);
                     Chercheurs, équipes de tournage et partenaires déposent ici leurs demandes d'accès.
                     Le calendrier de chaque aire protégée est vérifié pendant la saisie, et l'autorisation officielle est délivrée en PDF une fois le dossier validé.
                 </p>
+                <p class="hero__regle">
+                    <Icon name="map-pin" />
+                    <span><strong>1 demande = 1 aire protégée.</strong> Votre projet concerne plusieurs aires protégées ? Déposez une demande pour chacune d'elles.</span>
+                </p>
                 <div class="hero__cta">
                     <Link v-if="user" :href="route('demandes.create')" class="btn-accent"><Icon name="plus" />Nouvelle demande</Link>
                     <template v-else>
@@ -56,7 +60,7 @@ const carte = ref(null);
                         <span class="steps__n">1</span>
                         <div>
                             <strong>Déposer la demande</strong>
-                            <p>Coordonnées, projet, aire protégée, période et pièces exigées pour le type de projet. Un brouillon peut être repris à tout moment.</p>
+                            <p>Coordonnées, projet, aire protégée, période et pièces exigées pour le type de projet. Prenez le temps de la remplir avec soin : chaque information compte pour son examen. Un brouillon peut être repris à tout moment.</p>
                         </div>
                     </li>
                     <li>
@@ -113,6 +117,10 @@ const carte = ref(null);
 .hero__text { display: grid; gap: 20px; min-width: 0; }
 .hero h1 { font-size: clamp(30px, 3.4vw, 50px); font-weight: 700; line-height: 0.95; letter-spacing: -0.005em; max-width: 20ch; }
 .hero__lead { font-size: 17px; line-height: 1.6; color: var(--ink-2); max-width: 56ch; }
+.hero__regle { display: flex; align-items: flex-start; gap: 10px; max-width: 56ch; padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--forest-soft); font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.hero__regle svg { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 2px; color: var(--forest); }
+.hero__regle span { flex: 1; min-width: 0; }
+.hero__regle strong { color: var(--forest); }
 .hero__cta { display: flex; gap: 10px; flex-wrap: wrap; }
 
 .steps { list-style: none; margin: 16px 0 0; padding: 0; display: grid; }

@@ -100,6 +100,7 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
                         <td>
                             <div class="fw-strong">{{ d.user.name }}</div>
                             <div class="text-dim text-sm">{{ d.titre ? `${d.titre} · ` : '' }}{{ d.type_demande?.libelle }}</div>
+                            <span v-if="d.derogation" class="tag-derogation">Dérogation demandée</span>
                         </td>
                         <td><span class="site-label">{{ d.site.nom }}</span></td>
                         <td class="mono text-sm nowrap">{{ formatDate(d.date_debut) }} → {{ formatDate(d.date_fin) }}</td>
@@ -131,4 +132,6 @@ const ouvrir = (d) => router.visit(route('validateur.demandes.show', d.id));
 <style scoped>
 .nowrap { white-space: nowrap; }
 .statut-cell { display: inline-flex; align-items: center; gap: 8px; }
+/* Demande sur une période bloquante, à accepter ou non par Fanamby */
+.tag-derogation { display: inline-block; margin-top: 4px; padding: 1px 7px; border-radius: var(--r-pill); background: var(--signal-soft); color: var(--signal); font: 600 11.5px/1.5 var(--f-body); }
 </style>

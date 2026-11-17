@@ -32,4 +32,5 @@ class PhotoSiteController extends Controller
 
         return Storage::response($chemin, null, ['Cache-Control' => 'public, max-age=2592000']);
     }
+
 }

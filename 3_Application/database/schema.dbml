@@ -138,6 +138,8 @@ Table t_demandes {
   type_precision varchar(150) [note: 'Précision du type « Autre »']
   description text [note: 'Résumé du synopsis']
   objectifs text [note: 'Objectif(s) principal(aux) du projet']
+  clarification text [note: 'Réponse du demandeur à un point à clarifier (complément), saisie dans « Informations sur la demande »']
+  derogation_motif text [note: 'Demande de dérogation (dates sur une période bloquante) : justification du demandeur ; vide hors dérogation']
   date_arrivee date [note: "Arrivée sur le terrain, au plus tard au début des activités ; facultative tant que la demande est un brouillon"]
   date_debut date [note: 'Début des activités ; facultative tant que la demande est un brouillon']
   date_fin date [note: 'Facultative tant que la demande est un brouillon']
@@ -169,6 +171,7 @@ Table t_historique_statuts {
   ancien_statut_id bigint
   nouveau_statut_id bigint [not null]
   commentaire text
+  partie varchar(20) [note: 'Partie à compléter d\'un complément ; CHECK : demandeur, projet, clarification, sejour, piece_manquante, piece_a_remplacer ou autre']
   date_changement timestamp [not null, default: `CURRENT_TIMESTAMP`]
   created_at timestamp
   updated_at timestamp
@@ -190,7 +193,7 @@ Table t_signalements {
     (demande_id, traite_le)
   }
 
-  Note: 'Problèmes signalés sur un dossier, internes à l\'équipe (le demandeur ne les voit pas)'
+  Note: 'Problèmes signalés sur un dossier ; le demandeur en est prévenu par notification, sans le nom de l\'auteur'
 }
 
 Table t_periode_sensibles {
@@ -212,6 +215,7 @@ Table t_notifications {
   user_id bigint [not null]
   demande_id bigint
   contenu text [not null]
+  etape varchar(20) [note: 'Étape du formulaire où la notification amène le demandeur ; CHECK : demandeur, projet, aire ou pieces ; vide = fiche de la demande']
   lu boolean [not null, default: false]
   date_envoi timestamp [not null, default: `CURRENT_TIMESTAMP`]
   created_at timestamp

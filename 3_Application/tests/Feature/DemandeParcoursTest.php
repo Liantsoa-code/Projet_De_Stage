@@ -196,6 +196,7 @@ class DemandeParcoursTest extends TestCase
             ->post(route('validateur.demandes.update-statut', $demande), [
                 'statut_id' => $Acompleter->id,
                 'commentaire' => 'Merci de joindre le protocole signé.',
+                'partie' => 'piece_manquante',
             ])
             ->assertSessionHasNoErrors();
 
@@ -269,6 +270,102 @@ class DemandeParcoursTest extends TestCase
         $this->assertFalse(Notification::where('user_id', $autreSite->id)->exists());
     }
 
+    public function test_complement_names_the_part_and_its_notification_opens_that_step(): void
+    {
+        $demande = $this->makeDemande('en_analyse');
+        $aCompleter = Statut::where('code', 'a_completer')->value('id');
+
+        // La partie à compléter est obligatoire pour un complément
+        $this->actingAs($this->validateur)
+            ->post(route('validateur.demandes.update-statut', $demande), ['statut_id' => $aCompleter, 'commentaire' => 'Pièce floue.'])
+            ->assertSessionHasErrors('partie');
+
+        $this->actingAs($this->validateur)
+            ->post(route('validateur.demandes.update-statut', $demande), [
+                'statut_id' => $aCompleter,
+                'commentaire' => 'La copie du passeport est floue.',
+                'partie' => 'piece_a_remplacer',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('piece_a_remplacer', HistoriqueStatut::where('demande_id', $demande->id)->latest('id')->value('partie'));
+        $notification = Notification::where('user_id', $this->demandeur->id)->where('contenu', 'like', '%Pièce jointe à remplacer%')->sole();
+        $this->assertSame('pieces', $notification->etape);
+
+        // La notification amène le demandeur à l'étape des pièces du formulaire
+        $this->actingAs($this->demandeur)
+            ->post(route('notifications.read', $notification))
+            ->assertRedirect(route('demandes.edit', ['demande' => $demande->id, 'etape' => 'pieces']));
+
+        $this->actingAs($this->demandeur)
+            ->get(route('demandes.edit', ['demande' => $demande->id, 'etape' => 'pieces']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('etapeInitiale', 'pieces')
+                ->where('complementPartie', 'Pièce jointe à remplacer'));
+
+        // Sans lien, la page s'ouvre aussi sur la partie à compléter
+        $this->actingAs($this->demandeur)
+            ->get(route('demandes.show', $demande))
+            ->assertInertia(fn (Assert $page) => $page->where('complementEtape', 'pieces'));
+    }
+
+    public function test_a_point_to_clarify_adds_a_required_answer_in_the_project_step(): void
+    {
+        $demande = $this->makeDemande('en_analyse');
+
+        $this->actingAs($this->validateur)
+            ->post(route('validateur.demandes.update-statut', $demande), [
+                'statut_id' => Statut::where('code', 'a_completer')->value('id'),
+                'commentaire' => 'Combien de jours de tournage en forêt ?',
+                'partie' => 'clarification',
+            ])
+            ->assertSessionHasNoErrors();
+
+        // La notification ouvre « Informations sur la demande », où le champ de réponse apparaît
+        $this->assertSame('projet', Notification::where('user_id', $this->demandeur->id)->latest('id')->value('etape'));
+        $this->actingAs($this->demandeur)
+            ->get(route('demandes.edit', $demande))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('clarificationDemandee', true)
+                ->where('etapeInitiale', 'projet')
+                ->where('complement', 'Combien de jours de tournage en forêt ?'));
+
+        // Réponse obligatoire pour renvoyer le dossier
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.update', $demande), $this->payload(['_method' => 'put']))
+            ->assertSessionHasErrors('clarification');
+        $this->assertSame('a_completer', $demande->fresh()->statut->code);
+
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.update', $demande), $this->payload(['_method' => 'put', 'clarification' => 'Trois jours, du lever au coucher du soleil.']))
+            ->assertSessionHasNoErrors();
+
+        $demande->refresh();
+        $this->assertSame('en_analyse', $demande->statut->code);
+        $this->assertSame('Trois jours, du lever au coucher du soleil.', $demande->clarification);
+    }
+
+    // ── Durée maximale ──
+
+    public function test_a_demande_cannot_last_more_than_six_months_from_arrival(): void
+    {
+        $arrivee = now()->addDays(3);
+        $payload = fn ($fin) => $this->payload([
+            'date_arrivee' => $arrivee->toDateString(),
+            'date_fin' => $fin->toDateString(),
+        ]);
+
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $payload($arrivee->copy()->addMonthsNoOverflow(6)->addDay()))
+            ->assertSessionHasErrors('date_fin');
+        $this->assertSame(0, Demande::count());
+
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $payload($arrivee->copy()->addMonthsNoOverflow(6)))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(1, Demande::count());
+    }
+
     // ── Arrivée sur le terrain ──
 
     public function test_arrival_is_required_and_cannot_follow_the_start_of_activities(): void
@@ -310,7 +407,7 @@ class DemandeParcoursTest extends TestCase
 
     // ── Analyse des périodes sensibles ──
 
-    public function test_submission_records_warning_overlap_and_refuses_blocking_one(): void
+    public function test_submission_records_warning_overlap_and_turns_blocking_one_into_a_derogation(): void
     {
         PeriodeSensible::create([
             'site_id' => $this->site->id,
@@ -331,13 +428,59 @@ class DemandeParcoursTest extends TestCase
             'niveau_restriction' => 'bloquant',
         ]);
 
+        $dates = [
+            'date_debut' => now()->addDays(35)->toDateString(),
+            'date_fin' => now()->addDays(45)->toDateString(),
+        ];
+
+        // Sans justification, la demande de dérogation n'est pas envoyée
         $this->actingAs($this->demandeur)
-            ->post(route('demandes.store'), $this->payload([
-                'date_debut' => now()->addDays(35)->toDateString(),
-                'date_fin' => now()->addDays(45)->toDateString(),
-            ]))
-            ->assertSessionHasErrors('date_debut');
+            ->post(route('demandes.store'), $this->payload($dates))
+            ->assertSessionHasErrors('derogation_motif');
         $this->assertSame(1, Demande::count());
+
+        // Avec justification, elle est transmise à Fanamby comme demande de dérogation
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $this->payload($dates + ['derogation_motif' => 'Seule période de floraison.']))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('message', 'Votre demande de dérogation a été transmise à Fanamby.');
+
+        $derogation = Demande::latest('id')->firstOrFail();
+        $this->assertSame('soumise', $derogation->statut->code);
+        $this->assertTrue($derogation->derogation);
+        $this->assertSame('Seule période de floraison.', $derogation->derogation_motif);
+        $this->assertFalse(Demande::oldest('id')->firstOrFail()->derogation);
+
+        $this->assertTrue(Notification::where('user_id', $this->demandeur->id)->where('contenu', 'like', '%demande de dérogation%')->exists());
+        $this->assertTrue(Notification::where('user_id', $this->validateur->id)->where('contenu', 'like', 'Demande de dérogation%')->exists());
+
+        // Un validateur du site peut l'accepter : la condition de dérogation figure dans l'autorisation
+        $this->actingAs($this->validateur)->post(route('validateur.demandes.update-statut', $derogation), [
+            'statut_id' => Statut::where('code', 'en_analyse')->value('id'),
+            'commentaire' => 'Pris en charge.',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($this->validateur)->post(route('validateur.demandes.documents.generer', $derogation))->assertSessionHasNoErrors();
+        $this->actingAs($this->validateur)->post(route('validateur.demandes.update-statut', $derogation), [
+            'statut_id' => Statut::where('code', 'validee')->value('id'),
+            'commentaire' => 'Dérogation accordée.',
+            'signature' => $this->validateur->name,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('validee', $derogation->fresh()->statut->code);
+        $conditions = $derogation->documentsOfficiels()->where('type', 'autorisation')->value('contenu');
+        $this->assertStringContainsString('Accès accordé par dérogation', json_encode($conditions, JSON_UNESCAPED_UNICODE));
+    }
+
+    public function test_a_derogation_justification_is_dropped_when_the_dates_no_longer_block(): void
+    {
+        $this->actingAs($this->demandeur)
+            ->post(route('demandes.store'), $this->payload(['derogation_motif' => 'Texte resté d\'un essai.']))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('message', 'Votre demande a été soumise avec succès.');
+
+        $demande = Demande::firstOrFail();
+        $this->assertFalse($demande->derogation);
+        $this->assertNull($demande->derogation_motif);
     }
 
     public function test_form_receives_upcoming_sensitive_periods(): void

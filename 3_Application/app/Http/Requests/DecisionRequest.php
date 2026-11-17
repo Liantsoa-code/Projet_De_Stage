@@ -4,9 +4,11 @@ namespace App\Http\Requests;
 
 use App\Models\Statut;
 use App\Support\DocumentsOfficiels;
+use App\Support\PartieDossier;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
@@ -28,8 +30,26 @@ class DecisionRequest extends FormRequest
         return [
             'statut_id' => 'required|exists:t_statuts,id',
             'commentaire' => 'required|string|max:1000',
+            // Demande de complément : partie à compléter, où la notification amène le demandeur
+            'partie' => [
+                Rule::requiredIf(fn () => $this->estComplement()),
+                'nullable',
+                Rule::in(array_keys(PartieDossier::COMPLEMENT)),
+            ],
             'signature' => 'nullable|string|max:255',
         ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'partie.required' => 'Indiquez la partie du dossier à compléter.',
+        ];
+    }
+
+    public function estComplement(): bool
+    {
+        return Statut::whereKey($this->input('statut_id'))->value('code') === 'a_completer';
     }
 
     /**

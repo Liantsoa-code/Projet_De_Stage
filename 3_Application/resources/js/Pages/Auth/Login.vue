@@ -75,7 +75,7 @@ const submit = () => {
 
             <button class="btn-accent auth-submit" :disabled="form.processing">
                 <Icon :name="form.processing ? 'circle-notch' : 'sign-in'" :class="{ spin: form.processing }" />
-                {{ form.processing ? 'Connexion…' : 'Se connecter' }}
+                Se connecter
             </button>
         </form>
     </GuestLayout>

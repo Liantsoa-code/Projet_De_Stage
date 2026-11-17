@@ -98,7 +98,7 @@ const handleFileUpload = (event) => {
                     <div class="gf-footer">
                         <Link :href="route('admin.sites.index')" class="btn-ghost">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="btn-accent">
-                            {{ form.processing ? 'Enregistrement...' : 'Enregistrer l\'aire protégée' }}
+                            Enregistrer l'aire protégée
                         </button>
                     </div>
                 </form>

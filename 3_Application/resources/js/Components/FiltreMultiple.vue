@@ -50,7 +50,7 @@ onBeforeUnmount(() => document.removeEventListener('click', fermerDehors));
 <style scoped>
 .fm { position: relative; }
 .fm__btn { display: inline-flex; align-items: center; gap: 8px; max-width: 260px; text-align: left; cursor: pointer; }
-.fm__btn--actif { border-color: var(--forest); color: var(--forest); font-weight: 600; }
+.fm__btn--actif { border-color: var(--forest); color: var(--forest); }
 .fm__resume { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .fm__caret { width: 12px; height: 12px; flex-shrink: 0; color: var(--ink-3); }
 .fm__menu {

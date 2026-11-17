@@ -43,7 +43,7 @@ const resume = computed(() => [
 
 const consequence = computed(() => {
     if (!props.avantEnvoi) return null;
-    if (bloquant.value) return 'Envoi impossible sur ces dates : choisissez d\'autres dates.';
+    if (bloquant.value) return 'Période d\'interdiction : choisissez d\'autres dates, ou justifiez-les pour demander une dérogation à Fanamby.';
     if (verdict.value === 'conflit') return 'La demande peut être envoyée : le validateur arbitrera ce conflit.';
     if (conditions.value.length) return 'Le validateur pourra reprendre ces conditions dans votre autorisation.';
     return null;
@@ -112,15 +112,12 @@ const consequence = computed(() => {
 .an__consequence { font-size: 13px; color: var(--ink-2); }
 
 .an__liste { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.an__item { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--rule-soft); border-left-width: 3px; border-radius: var(--r-sm); background: var(--surface); }
+.an__item { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--rule-soft); border-radius: var(--r-sm); background: var(--surface); }
 .an__item svg { width: 18px; height: 18px; margin-top: 1px; color: var(--ink-3); }
 .an__item strong { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .an__item p { font-size: 13px; color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }
-.an__item--bloquant, .an__item--conflit { border-left-color: var(--signal); }
 .an__item--bloquant svg, .an__item--conflit svg { color: var(--signal); }
-.an__item--attention { border-left-color: var(--ochre); }
 .an__item--attention svg { color: var(--ochre); }
-.an__item--info { border-left-color: var(--water-line); }
 .an__item--info svg { color: var(--water); }
 .an--compact .an__item { padding: 8px 10px; }
 .an--compact .an__item p { font-size: 12.5px; }

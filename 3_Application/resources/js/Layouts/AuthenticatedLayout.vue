@@ -22,6 +22,7 @@ const navOpen = ref(false);
 watch(() => page.url, () => {
     navOpen.value = false;
     notifOpen.value = false;
+    
 });
 
 const ROLE_LABELS = { admin: 'Admin', validateur: 'Validateur', demandeur: 'Demandeur', observateur: 'Observateur' };

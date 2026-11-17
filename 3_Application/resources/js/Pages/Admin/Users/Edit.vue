@@ -105,7 +105,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
                     <div class="form-footer">
                         <Link :href="route('admin.users.index')" class="btn-cancel">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="submit-btn">
-                            {{ form.processing ? 'Mise à jour...' : 'Mettre à jour' }}
+                            Mettre à jour
                         </button>
                     </div>
                 </form>
@@ -209,7 +209,7 @@ const submit = () => form.put(route('admin.users.update', props.userEdit.id));
     transition: background 0.15s, border-color 0.15s; font-size: 13px; color: var(--c-text);
 }
 .site-checkbox:hover { background: #ffffff; border-color: var(--forest-soft); }
-.site-checkbox--checked { color: var(--forest); font-weight: 500; background: #ffffff; border-color: var(--forest-line); }
+.site-checkbox--checked { color: var(--forest); background: #ffffff; border-color: var(--forest-line); }
 
 .site-checkbox__box {
     width: 18px; height: 18px; border-radius: var(--r-xs);

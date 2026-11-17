@@ -28,7 +28,8 @@ Artisan::command('donnees:test {--force : Ne pas demander de confirmation}', fun
     $this->info(DonneesTest::analyser() . ' demandes analysées avec les règles actuelles.');
     $this->newLine();
     $this->line('Comptes (mot de passe : password) : admin@fanamby.org, validateur@fanamby.org, hery@fanamby.org,');
-    $this->line('alice@exemple.com, rado@exemple.com, sarah@exemple.com, tiana@exemple.com');
+    $this->line('observateur@fanamby.org, alice@exemple.com, rado@exemple.com, sarah@exemple.com, tiana@exemple.com');
+    $this->line('et 8 demandeurs de l\'historique d\'activité (faly@, claire@, mamy@, lova@, thomas@, nantenaina@, sophie@, hasina@exemple.com)');
 
     return 0;
 })->purpose('Remplace toutes les données par le jeu de test complet (database/donnees_test.sql)');

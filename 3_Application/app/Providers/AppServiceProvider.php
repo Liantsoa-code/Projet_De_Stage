@@ -37,12 +37,20 @@ class AppServiceProvider extends ServiceProvider
 
         // Pages de l'instruction en lecture (liste, fiche, export) : l'équipe, observateurs compris
         Gate::define('peut-suivre', function (User $user) {
-            return in_array($user->role, ['observateur', 'validateur', 'admin'], true);
+            return in_array($user->role, ['observateur','validateur', 'admin'], true);
+        });
+
+        // Rapport d'activité de toute la plateforme : admin et observateur (qui voient toutes les aires protégées)
+        Gate::define('peut-piloter', function (User $user) {
+            return in_array($user->role, ['observateur', 'admin'], true);
         });
 
         Gate::define('is-demandeur', function (User $user) {
             return $user->role === 'demandeur';
         });
+        // Gate::define('is-observateur', function (User $user){
+        //     return $user->role === 'observateur';
+        // });
 
         // Création et modification des demandes (avec envoi de fichiers) : 20 envois par minute et par utilisateur.
         RateLimiter::for('demandes', fn (Request $request) => Limit::perMinute(20)

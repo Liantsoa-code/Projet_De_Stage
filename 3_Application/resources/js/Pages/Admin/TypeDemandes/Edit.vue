@@ -72,7 +72,7 @@ const submit = () => form.put(route('admin.type-demandes.update', props.type.id)
                     <div class="form-footer">
                         <Link :href="route('admin.type-demandes.index')" class="btn-cancel">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="submit-btn">
-                            {{ form.processing ? 'Mise à jour...' : 'Mettre à jour' }}
+                            Mettre à jour
                         </button>
                     </div>
                 </form>

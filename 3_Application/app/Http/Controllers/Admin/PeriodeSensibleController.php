@@ -60,7 +60,7 @@ class PeriodeSensibleController extends Controller
     }
 
     /**
-     * La condition proposée n'a de sens que pour un avertissement : une période bloquante refuse l'envoi.
+     * La condition proposée n'a de sens que pour un avertissement : une période bloquante appelle une dérogation (sa condition est fixée par le moteur d'analyse).
      */
     private function valider(Request $request): array
     {

@@ -8,7 +8,7 @@ class HistoriqueStatut extends Model
 {
     protected $table = 't_historique_statuts';
 
-    protected $fillable = ['demande_id', 'user_id', 'ancien_statut_id', 'nouveau_statut_id', 'commentaire', 'date_changement'];
+    protected $fillable = ['demande_id', 'user_id', 'ancien_statut_id', 'nouveau_statut_id', 'commentaire', 'partie', 'date_changement'];
 
     protected $casts = [
         'date_changement' => 'datetime',

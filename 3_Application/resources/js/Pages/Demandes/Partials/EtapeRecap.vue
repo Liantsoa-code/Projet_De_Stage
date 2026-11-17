@@ -52,8 +52,9 @@ const nbConditions = computed(() => conditionsAnalyse(props.analyse?.contraintes
             <dd class="recap__sub">
                 {{ typeProjet?.libelle ?? '—' }}<template v-if="typeProjet?.precision_requise && form.type_precision"> ({{ form.type_precision }})</template>
             </dd>
-            <dd class="recap__texte"><em>Synopsis :</em> {{ form.description || '—' }}</dd>
+            <dd class="recap__texte"><em>Résumé du projet :</em> {{ form.description || '—' }}</dd>
             <dd class="recap__texte"><em>Objectifs :</em> {{ form.objectifs || '—' }}</dd>
+            <dd v-if="form.clarification" class="recap__texte"><em>Clarification :</em> {{ form.clarification }}</dd>
         </div>
         <div class="recap__bloc">
             <dt>Aire protégée et période <button type="button" class="recap__edit" @click="$emit('modifier', 'aire')">Modifier</button></dt>
@@ -64,7 +65,10 @@ const nbConditions = computed(() => conditionsAnalyse(props.analyse?.contraintes
                 <template v-if="joursSejour"> · {{ joursSejour }} jour{{ joursSejour > 1 ? 's' : '' }}</template>
                 · {{ form.equipe_nombre }} personne{{ form.equipe_nombre > 1 ? 's' : '' }}
             </dd>
-            <dd v-if="calendrier === 'bloquant'" class="recap__res recap__res--block"><Icon name="prohibit" />Période bloquante sur ces dates : envoi impossible.</dd>
+            <template v-if="calendrier === 'bloquant'">
+                <dd class="recap__res recap__res--block"><Icon name="prohibit" />Période d'interdiction sur ces dates : votre demande sera transmise à Fanamby comme demande de dérogation.</dd>
+                <dd class="recap__texte"><em>Justification :</em> {{ form.derogation_motif || '—' }}</dd>
+            </template>
             <dd v-else-if="verdict" class="recap__res" :class="`recap__res--${TONS[verdict]}`">
                 <Icon :name="VERDICTS[verdict].icone" />
                 <span>Analyse : {{ VERDICTS[verdict].label.toLowerCase() }}<template v-if="nbConditions">, {{ nbConditions }} condition{{ nbConditions > 1 ? 's' : '' }} proposée{{ nbConditions > 1 ? 's' : '' }} (détail dans la colonne de droite)</template>.</span>

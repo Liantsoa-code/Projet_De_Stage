@@ -16,10 +16,12 @@ class DemandeNotificationMessage
         Demande $demande,
         Statut $nouveauStatut,
         User $decideur,
-        string $commentaire
+        string $commentaire,
+        ?string $partie = null
     ): string {
         $site = $demande->site->nom;
         $commentaire = trim($commentaire);
+        $aCompleter = PartieDossier::libelleComplement($partie);
 
         $message = match ($nouveauStatut->code) {
             'validee' => "Votre demande d'accès à « {$site} » a été acceptée. "
@@ -33,8 +35,11 @@ class DemandeNotificationMessage
 
             'soumise' => "Votre demande pour « {$site} » a bien été enregistrée et est en attente de traitement.",
 
-            'a_completer' => "Votre dossier pour « {$site} » doit être complété avant de poursuivre son examen. "
-                . 'Ouvrez-le depuis Mes demandes pour fournir les éléments demandés.',
+            'a_completer' => "Votre dossier pour « {$site} » doit être complété avant de poursuivre son examen"
+                . ($aCompleter ? " ({$aCompleter})" : '') . '. '
+                . (PartieDossier::etape($partie)
+                    ? 'Ouvrez cette notification pour aller directement à la partie à compléter.'
+                    : 'Ouvrez-le depuis Mes demandes pour fournir les éléments demandés.'),
 
             default => "Votre demande pour « {$site} » a été mise à jour : {$nouveauStatut->libelle}.",
         };
@@ -79,8 +84,21 @@ class DemandeNotificationMessage
     {
         $site = $demande->site->nom;
 
+        if ($demande->derogation) {
+            return "Nous avons bien reçu votre demande de dérogation pour « {$site} » : vos dates tombent pendant une période d'interdiction. "
+                . 'L\'équipe Fanamby examinera votre justification ; elle pourra accepter, vous proposer d\'autres dates ou refuser.';
+        }
+
         return "Nous avons bien reçu votre demande d'accès à « {$site} ». "
             . 'Elle sera examinée prochainement ; vous recevrez une notification dès qu\'il y aura du nouveau.';
+    }
+
+    /**
+     * Début des alertes à l'équipe : une demande sur une période bloquante est annoncée comme dérogation.
+     */
+    private static function nouvelle(Demande $demande): string
+    {
+        return $demande->derogation ? 'Demande de dérogation (période d\'interdiction)' : 'Nouvelle demande';
     }
 
     /**
@@ -118,7 +136,7 @@ class DemandeNotificationMessage
     {
         $demande->loadMissing('user', 'typeDemande', 'site');
 
-        return "Nouvelle demande pour « {$demande->site->nom} » : {$demande->user->name} ({$demande->typeProjet()}). "
+        return self::nouvelle($demande) . " pour « {$demande->site->nom} » : {$demande->user->name} ({$demande->typeProjet()}). "
             . 'Ouvrez le dossier pour en suivre l\'instruction.';
     }
 
@@ -132,6 +150,25 @@ class DemandeNotificationMessage
         $partie = Signalement::PARTIES[$signalement->partie] ?? $signalement->partie;
 
         return "{$auteur} signale un problème sur le dossier {$demande->reference} pour « {$demande->site->nom} » ({$partie}) : « {$signalement->message} »";
+    }
+
+    /**
+     * Prévient le demandeur qu'un point de sa demande a été signalé par l'équipe, sans nommer son auteur.
+     */
+    public static function forSignalementToDemandeur(Signalement $signalement): string
+    {
+        $demande = $signalement->demande;
+        $partie = Signalement::PARTIES[$signalement->partie] ?? $signalement->partie;
+        $message = "L'équipe Fanamby signale un point à revoir sur votre demande {$demande->reference} pour « {$demande->site->nom} » ({$partie}) : « {$signalement->message} »";
+
+        if (! DemandeStatutWorkflow::isEditableByDemandeur($demande->statut)) {
+            // Dossier en instruction : le demandeur ne peut le corriger que si l'équipe le lui renvoie
+            return "{$message} Si une correction est nécessaire, l'équipe vous renverra le dossier pour que vous puissiez le modifier.";
+        }
+
+        return PartieDossier::etape($signalement->partie)
+            ? "{$message} Ouvrez cette notification pour aller directement à la partie concernée."
+            : $message;
     }
 
     /**
@@ -156,7 +193,7 @@ class DemandeNotificationMessage
         $demandeur = $demande->user->name;
         $projet = $demande->typeProjet();
 
-        return "Nouvelle demande à traiter pour « {$site} » : {$demandeur} ({$projet}). "
+        return self::nouvelle($demande) . " à traiter pour « {$site} » : {$demandeur} ({$projet}). "
             . 'Ouvrez le dossier pour examiner les pièces et rendre une décision.';
     }
 }

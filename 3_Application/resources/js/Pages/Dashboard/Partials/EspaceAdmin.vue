@@ -19,13 +19,24 @@ const chargeValidateurs = computed(() => page.props.charge_validateurs || []);
 const frequentation = computed(() => page.props.frequentation || []);
 const parType = computed(() => page.props.par_type || []);
 const parMois = computed(() => page.props.par_mois || { courante: [], precedente: [] });
+const parSite = computed(() => page.props.par_site || []);
+const periodeActive = computed(() => Boolean(page.props.periode?.libelle));
+// Ligne Total : la somme des aires redonne les statistiques principales
+const totalSites = computed(() => {
+    const somme = (cle) => parSite.value.reduce((n, s) => n + s[cle], 0);
+    return { recues: somme('recues'), en_attente: somme('en_attente'), validees: somme('validees'), rejetees: somme('rejetees'), retirees: somme('retirees') };
+});
+const partRecues = (n) => (totalSites.value.recues ? `${Math.round((n / totalSites.value.recues) * 100)} %` : '—');
+const jours = (v) => (v == null ? '—' : `${String(v).replace('.', ',')} j`);
 
 const maxFrequentation = computed(() => Math.max(1, ...frequentation.value.map((s) => s.personnes_jours)));
 const maxParType = computed(() => Math.max(1, ...parType.value.map((t) => Number(t.total))));
 const maxValidateur = computed(() => Math.max(1, ...chargeValidateurs.value.map((v) => v.en_attente)));
 
-const annee = new Date().getFullYear();
-const moisCourant = new Date().getMonth();
+// Année du graphique : celle de la fin de la période choisie (à défaut l'année en cours), comparée à la précédente
+const annee = parMois.value.annee ?? new Date().getFullYear();
+// Mois en cours, distingué (pas encore terminé) seulement si le graphique montre l'année en cours
+const moisCourant = annee === new Date().getFullYear() ? new Date().getMonth() : -1;
 const chartCanvas = ref(null);
 let chart = null;
 
@@ -156,7 +167,7 @@ onUnmounted(() => chart?.destroy());
                 <section class="panel">
                     <header class="panel__head">
                         <h2>Fréquentation autorisée</h2>
-                        <small>12 prochains mois, en personnes × jours</small>
+                        <small>{{ periodeActive ? 'sur la période' : '12 prochains mois' }}, en personnes × jours</small>
                     </header>
                     <ul v-if="frequentation.length" class="bars">
                         <li v-for="s in frequentation" :key="s.nom">
@@ -165,7 +176,7 @@ onUnmounted(() => chart?.destroy());
                             <CompteurAnime class="bars__n mono" :valeur="s.personnes_jours" />
                         </li>
                     </ul>
-                    <p v-else class="empty empty--small">Aucun séjour autorisé sur les 12 prochains mois.</p>
+                    <p v-else class="empty empty--small">Aucun séjour autorisé {{ periodeActive ? 'sur la période' : 'sur les 12 prochains mois' }}.</p>
                 </section>
 
                 <section class="panel">
@@ -219,10 +230,60 @@ onUnmounted(() => chart?.destroy());
                 <p v-else class="empty empty--small">Aucune demande pour le moment.</p>
             </section>
         </div>
+
+        <section class="panel">
+            <header class="panel__head">
+                <h2>Synthèse par aire protégée</h2>
+                <small>demandes reçues{{ periodeActive ? ' sur la période' : '' }}, taux de validation et délai médian de décision</small>
+            </header>
+            <div class="synthese">
+                <table class="synthese__table">
+                    <thead>
+                        <tr>
+                            <th>Aire protégée</th><th class="n">Reçues</th><th class="n">Part</th><th class="n">En attente</th>
+                            <th class="n">Validées</th><th class="n">Rejetées</th><th class="n">Retirées</th>
+                            <th class="n">Taux de validation</th><th class="n">Délai médian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="s in parSite" :key="s.id">
+                            <td class="site-label">{{ s.nom }}</td>
+                            <td class="n mono">{{ s.recues }}</td>
+                            <td class="n mono">{{ partRecues(s.recues) }}</td>
+                            <td class="n mono">{{ s.en_attente }}</td>
+                            <td class="n mono">{{ s.validees }}</td>
+                            <td class="n mono">{{ s.rejetees }}</td>
+                            <td class="n mono">{{ s.retirees }}</td>
+                            <td class="n mono">{{ s.taux_validation == null ? '—' : `${s.taux_validation} %` }}</td>
+                            <td class="n mono">{{ jours(s.delai_median) }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>Total</td>
+                            <td class="n mono">{{ totalSites.recues }}</td>
+                            <td class="n mono">{{ totalSites.recues ? '100 %' : '—' }}</td>
+                            <td class="n mono">{{ totalSites.en_attente }}</td>
+                            <td class="n mono">{{ totalSites.validees }}</td>
+                            <td class="n mono">{{ totalSites.rejetees }}</td>
+                            <td class="n mono">{{ totalSites.retirees }}</td>
+                            <td class="n mono">{{ q.taux_validation == null ? '—' : `${q.taux_validation} %` }}</td>
+                            <td class="n mono">{{ jours(q.delai_median) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
     </div>
 </template>
 
 <style scoped>
+.synthese { overflow-x: auto; padding: 4px 24px 16px; }
+.synthese__table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.synthese__table th { padding: 8px 10px; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--ink-3); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.synthese__table td { padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); }
+.synthese__table tfoot td { font-weight: 700; border-top: 1.5px solid var(--ink); border-bottom: 0; }
+.synthese__table .n { text-align: right; white-space: nowrap; }
 .chart-box { position: relative; height: 300px; padding: 16px 24px; }
 .legende-annees { display: inline-flex; gap: 12px; }
 .legende-annees span { display: inline-flex; align-items: center; gap: 5px; }

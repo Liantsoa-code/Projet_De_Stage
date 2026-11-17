@@ -162,8 +162,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
 }
 .glass-table tbody tr:last-child td { border-bottom: none; }
 .glass-table tbody tr:hover td { background: var(--paper); }
-.glass-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--forest); }
-.glass-table tbody tr:has(.table-empty):hover td { background: transparent; box-shadow: none; }
+.glass-table tbody tr:has(.table-empty):hover td { background: transparent; }
 .row-link { cursor: pointer; }
 .table-empty { text-align: center; padding: 48px 20px; color: var(--ink-3); font-size: 14.5px; }
 
@@ -256,41 +255,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 9px 3px 8px;
+    padding: 3px 9px;
     border-radius: var(--r-pill);
     border: 1px solid transparent;
     font: 600 12px/1 var(--f-body);
     white-space: nowrap;
 }
-.badge-glass::before {
-    content: '';
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-    flex-shrink: 0;
-}
 .badge-draft { color: var(--ink-2); border: 1px dashed var(--ink-3); }
-.badge-draft::before { background: transparent; border: 1px solid currentColor; }
 .badge-info { color: var(--water); border-color: var(--water); }
 .badge-analyse { color: var(--water); background: var(--water-soft); }
 .badge-todo { color: var(--ochre); background: var(--ochre-soft); }
 .badge-ok { color: var(--on-forest); background: var(--forest); }
-.badge-ok::before {
-    content: '';
-    width: 9px;
-    height: 5px;
-    border-radius: 0;
-    background: none;
-    border-left: 2px solid currentColor;
-    border-bottom: 2px solid currentColor;
-    transform: rotate(-45deg) translate(1px, -1px);
-}
 .badge-err { color: var(--signal); background: var(--signal-soft); }
-.badge-err::before { border-radius: 0; width: 8px; height: 2px; }
-/* Retirée par le demandeur : gris, carré vide */
+/* Retirée par le demandeur : gris */
 .badge-retire { color: var(--ink-2); background: var(--sunk); }
-.badge-retire::before { background: transparent; border: 1.5px solid currentColor; border-radius: 1px; width: 6px; height: 6px; }
 
 /* Hachures des périodes sensibles */
 .hatch {

@@ -39,17 +39,28 @@ class DemandeNotifications
     }
 
     /**
-     * Nouveau signalement : les validateurs du site et les admins sont prévenus.
+     * Nouveau signalement : les validateurs du site et les admins sont prévenus, ainsi que le demandeur
+     * (sauf s'il en est l'auteur), amené par sa notification à la partie signalée.
      */
     public static function signalement(Signalement $signalement): void
     {
-        $signalement->loadMissing('demande.site', 'auteur');
+        $signalement->loadMissing('demande.site', 'demande.statut', 'auteur');
+        $demande = $signalement->demande;
 
         self::envoyer(
-            DemandeDecisionRules::notifiablesForSignalement($signalement->demande, $signalement->auteur)->pluck('id'),
-            $signalement->demande,
+            DemandeDecisionRules::notifiablesForSignalement($demande, $signalement->auteur)->pluck('id'),
+            $demande,
             DemandeNotificationMessage::forSignalement($signalement),
         );
+
+        if ((int) $demande->user_id !== (int) $signalement->user_id) {
+            self::envoyer(
+                [$demande->user_id],
+                $demande,
+                DemandeNotificationMessage::forSignalementToDemandeur($signalement),
+                PartieDossier::etape($signalement->partie),
+            );
+        }
     }
 
     /**
@@ -97,13 +108,15 @@ class DemandeNotifications
     /**
      * Décision d'un validateur ou d'un admin : le demandeur est prévenu,
      * ainsi que les autres validateurs du site et les admins.
+     * Pour un complément, la notification du demandeur l'amène à la partie à compléter.
      */
-    public static function decision(Demande $demande, Statut $nouveauStatut, User $decideur, string $commentaire): void
+    public static function decision(Demande $demande, Statut $nouveauStatut, User $decideur, string $commentaire, ?string $partie = null): void
     {
         self::envoyer(
             [$demande->user_id],
             $demande,
-            DemandeNotificationMessage::forStatutChange($demande, $nouveauStatut, $decideur, $commentaire),
+            DemandeNotificationMessage::forStatutChange($demande, $nouveauStatut, $decideur, $commentaire, $partie),
+            $nouveauStatut->code === 'a_completer' ? PartieDossier::etape($partie) : null,
         );
 
         self::envoyer(
@@ -114,11 +127,12 @@ class DemandeNotifications
     }
 
     /**
-     * Notification dans la cloche, doublée d'un email.
+     * Notification dans la cloche, doublée d'un email. $etape : étape du formulaire de demande
+     * où la notification amène le demandeur (voir NotificationController).
      *
      * @param  iterable<int>  $userIds
      */
-    private static function envoyer(iterable $userIds, Demande $demande, string $message): void
+    private static function envoyer(iterable $userIds, Demande $demande, string $message, ?string $etape = null): void
     {
         $envoi = now();
 
@@ -127,6 +141,7 @@ class DemandeNotifications
                 'user_id' => $user->id,
                 'demande_id' => $demande->id,
                 'contenu' => $message,
+                'etape' => $etape,
                 'lu' => false,
                 'date_envoi' => $envoi,
             ]);

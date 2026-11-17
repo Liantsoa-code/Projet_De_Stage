@@ -28,6 +28,12 @@ const props = defineProps({
     // Présent en modification (brouillon ou dossier à compléter)
     demande: { type: Object, default: null },
     complement: { type: String, default: null },
+    // Partie à compléter choisie par le validateur (libellé)
+    complementPartie: { type: String, default: null },
+    // Point à clarifier : un champ de réponse apparaît dans « Informations sur la demande »
+    clarificationDemandee: { type: Boolean, default: false },
+    // Étape ouverte d'emblée (lien d'une notification de complément ou de signalement)
+    etapeInitiale: { type: String, default: null },
 });
 
 const enEdition = computed(() => props.demande !== null);
@@ -44,12 +50,16 @@ const form = useForm({
     fonction: props.demandeur.fonction ?? '',
     adresse: props.demandeur.adresse ?? '',
     telephone: props.demandeur.telephone ?? '',
-    // II. Informations sur le projet
+    // II. Informations sur la demande
     titre: props.demande?.titre ?? '',
     type_demande_id: props.demande?.type_demande_id ?? '',
     type_precision: props.demande?.type_precision ?? '',
     description: props.demande?.description ?? '',
     objectifs: props.demande?.objectifs ?? '',
+    // Réponse à un point à clarifier demandé par le validateur (complément « clarification »)
+    clarification: props.demande?.clarification ?? '',
+    // Demande de dérogation (dates sur une période bloquante) : pourquoi ces dates sont indispensables
+    derogation_motif: props.demande?.derogation_motif ?? '',
     site_id: props.demande?.site_id ?? '',
     date_arrivee: props.demande?.date_arrivee?.slice(0, 10) ?? '',
     date_debut: props.demande?.date_debut?.slice(0, 10) ?? '',
@@ -75,6 +85,20 @@ const today = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 })();
 
+// Une demande ne dépasse pas 6 mois : fin des activités au plus tard 6 mois après l'arrivée sur le terrain
+// (à défaut le début), sans déborder sur le mois suivant (31 août → 28 février), comme DemandeRequest
+const DUREE_MAX_MOIS = 6;
+const finMax = computed(() => {
+    const depart = form.date_arrivee || form.date_debut;
+    if (!depart) return '';
+    const [annee, mois, jour] = depart.split('-').map(Number);
+    const total = mois - 1 + DUREE_MAX_MOIS;
+    const a = annee + Math.floor(total / 12);
+    const m = total % 12;
+    const j = Math.min(jour, new Date(a, m + 1, 0).getDate());
+    return `${a}-${String(m + 1).padStart(2, '0')}-${String(j).padStart(2, '0')}`;
+});
+
 // ── Périodes sensibles : alerte en direct avant l'envoi ──
 const periodesSite = computed(() => props.periodes.filter(p => p.site_id === form.site_id));
 // Comparaison de chaînes AAAA-MM-JJ : deux intervalles se chevauchent si chacun commence avant la fin de l'autre
@@ -89,7 +113,10 @@ const etatsSites = computed(() => {
     });
     return etats;
 });
-const bloquant = computed(() => chevauchements.value.some(p => p.niveau_restriction === 'bloquant'));
+// Période bloquante sur les dates : la demande n'est pas refusée, elle devient une demande de dérogation
+// (justification obligatoire, bouton « Contacter Fanamby : demander une dérogation »)
+const periodesBloquantes = computed(() => chevauchements.value.filter(p => p.niveau_restriction === 'bloquant'));
+const bloquant = computed(() => periodesBloquantes.value.length > 0);
 // État du calendrier du site choisi, affiché dans le récapitulatif et dans la colonne de vérification
 const calendrier = computed(() => {
     if (!form.date_debut) return 'aucun';
@@ -224,8 +251,8 @@ const pieces = computed(() => piecesRequises.value.map((doc) => {
 // titre : libellé court de la barre d'étapes ; entete : titre affiché au-dessus de l'étape
 const ETAPES = [
     { id: 'demandeur', titre: 'Demandeur', entete: 'I. Informations sur le demandeur', champs: ['organisation', 'fonction', 'adresse', 'telephone'] },
-    { id: 'projet', titre: 'Projet', entete: 'II. Informations sur le projet', champs: ['titre', 'type_demande_id', 'type_precision', 'description', 'objectifs'] },
-    { id: 'aire', titre: 'Aire et période', entete: 'Aire protégée et période prévue', champs: ['site_id', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre'] },
+    { id: 'projet', titre: 'Projet', entete: 'II. Informations sur la demande', champs: ['titre', 'type_demande_id', 'type_precision', 'description', 'objectifs', 'clarification'] },
+    { id: 'aire', titre: 'Aire et période', entete: 'Aire protégée et période prévue', champs: ['site_id', 'date_arrivee', 'date_debut', 'date_fin', 'equipe_nombre', 'derogation_motif'] },
     { id: 'pieces', titre: 'Pièces', entete: 'Pièces à joindre', champs: [] },
     { id: 'engagement', titre: 'Engagement', entete: 'Récapitulatif et engagement', champs: ['piece_identite', 'engagement', 'signature', 'message_complement'] },
 ];
@@ -250,8 +277,9 @@ function erreursEtape(id) {
         if (vide(form.titre)) err.titre = 'Donnez un titre au projet.';
         if (!form.type_demande_id) err.type_demande_id = 'Choisissez un type de projet.';
         else if (typeSelectionne.value?.precision_requise && vide(form.type_precision)) err.type_precision = 'Précisez le type de projet.';
-        if (vide(form.description)) err.description = 'Résumez le synopsis du projet.';
+        if (vide(form.description)) err.description = 'Résumez le projet.';
         if (vide(form.objectifs)) err.objectifs = 'Indiquez le ou les objectifs principaux du projet.';
+        if (props.clarificationDemandee && vide(form.clarification)) err.clarification = 'Répondez au point à clarifier demandé par le validateur.';
     } else if (id === 'aire') {
         if (!form.site_id) err.site_id = 'Choisissez une aire protégée.';
         if (!form.date_arrivee) err.date_arrivee = 'Indiquez la date d\'arrivée sur le terrain.';
@@ -259,9 +287,14 @@ function erreursEtape(id) {
         else if (form.date_debut && form.date_arrivee > form.date_debut) err.date_arrivee = 'L\'arrivée sur le terrain doit avoir lieu au plus tard le jour du début des activités.';
         if (!form.date_debut) err.date_debut = 'Indiquez la date de début des activités.';
         else if (form.date_debut < today) err.date_debut = 'La date de début ne peut pas être antérieure à aujourd\'hui.';
-        else if (bloquant.value) err.date_debut = 'Ces dates chevauchent une période bloquante sur cette aire protégée : choisissez d\'autres dates.';
+        if (bloquant.value && vide(form.derogation_motif)) {
+            err.derogation_motif = 'Vos dates tombent pendant une période d\'interdiction : expliquez pourquoi elles sont indispensables pour demander une dérogation à Fanamby.';
+        }
         if (!form.date_fin) err.date_fin = 'Indiquez la date de fin.';
         else if (form.date_debut && form.date_fin < form.date_debut) err.date_fin = 'La date de fin doit être postérieure ou égale à la date de début.';
+        else if (finMax.value && form.date_fin > finMax.value) {
+            err.date_fin = `Une demande ne peut pas dépasser ${DUREE_MAX_MOIS} mois, de l'arrivée sur le terrain à la fin des activités : fin au plus tard le ${finMax.value.split('-').reverse().join('/')}.`;
+        }
         const equipe = Number(form.equipe_nombre);
         if (!Number.isInteger(equipe) || equipe < 1) err.equipe_nombre = 'L\'équipe compte au moins une personne.';
     } else if (id === 'pieces') {
@@ -280,9 +313,13 @@ const etapeComplete = (id) => Object.keys(erreursEtape(id)).length === 0;
 const accessible = (i) => etapes.value.slice(0, i).every(e => etapeComplete(e.id));
 const etapeEnErreur = (id) => Object.keys(form.errors).some(k => etapeDuChamp(k) === id);
 
-// Création : première étape. Reprise d'un dossier : première étape incomplète (au plus tard
-// l'engagement, qui n'est jamais pré-coché).
-const etape = ref(enEdition.value ? (etapes.value.find(e => !etapeComplete(e.id))?.id ?? 'engagement') : 'demandeur');
+// Création : première étape. Arrivée depuis une notification (complément, signalement) : l'étape
+// visée, si les précédentes sont complètes. Reprise d'un dossier : première étape incomplète
+// (au plus tard l'engagement, qui n'est jamais pré-coché).
+const indexDemande = etapes.value.findIndex(e => e.id === props.etapeInitiale);
+const etape = ref(indexDemande >= 0 && accessible(indexDemande)
+    ? props.etapeInitiale
+    : (enEdition.value ? (etapes.value.find(e => !etapeComplete(e.id))?.id ?? 'engagement') : 'demandeur'));
 const indexEtape = computed(() => Math.max(0, etapes.value.findIndex(e => e.id === etape.value)));
 const titreEtape = computed(() => ETAPES.find(e => e.id === etape.value).entete);
 const derniere = computed(() => indexEtape.value === etapes.value.length - 1);
@@ -362,10 +399,16 @@ function allerAuxErreurs(errors) {
             <Icon name="pencil-simple-line" class="complement-box__icon" />
             <div>
                 <p class="complement-box__tag">Complément demandé par le validateur</p>
+                <p v-if="complementPartie" class="complement-box__partie">À compléter : <strong>{{ complementPartie }}</strong></p>
                 <q v-if="complement" class="complement-box__quote">{{ complement }}</q>
                 <p class="complement-box__text">Corrigez les informations ou remplacez les pièces concernées, puis renvoyez le dossier.</p>
             </div>
         </section>
+        <!-- Nouvelle demande : inviter à remplir le formulaire avec soin, sans se presser -->
+        <p v-else-if="!enEdition" class="conseil">
+            <Icon name="hourglass-medium" />
+            <span>Prenez le temps de remplir chaque partie avec soin : c'est sur ces informations que Fanamby examine votre demande. Vous pouvez enregistrer un brouillon et y revenir plus tard.</span>
+        </p>
 
         <form ref="formEl" class="create-layout" novalidate @submit.prevent="valider">
             <div class="create-main">
@@ -397,8 +440,8 @@ function allerAuxErreurs(errors) {
                 <section class="fs">
                     <header class="fs__head"><span class="fs__n">{{ indexEtape + 1 }}</span><h2 tabindex="-1">{{ titreEtape }}</h2></header>
                     <EtapeDemandeur v-if="etape === 'demandeur'" :form="form" :demandeur="demandeur" />
-                    <EtapeProjet v-else-if="etape === 'projet'" :form="form" :types="types" :type-projet="typeSelectionne" @type-change="onTypeChange" />
-                    <EtapeAirePeriode v-else-if="etape === 'aire'" :form="form" :sites="sites" :today="today" />
+                    <EtapeProjet v-else-if="etape === 'projet'" :form="form" :types="types" :type-projet="typeSelectionne" :clarification-demandee="clarificationDemandee" :question="complement" @type-change="onTypeChange" />
+                    <EtapeAirePeriode v-else-if="etape === 'aire'" :form="form" :sites="sites" :today="today" :fin-max="finMax" :duree-max-mois="DUREE_MAX_MOIS" :periodes-bloquantes="periodesBloquantes" />
                     <EtapePieces v-else-if="etape === 'pieces'" :form="form" :type-projet="typeSelectionne" :pieces="pieces" @fichier="choisirFichier" @ecarter="ecarterReprise" />
                     <EtapeRecap
                         v-else
@@ -448,7 +491,7 @@ function allerAuxErreurs(errors) {
             <div class="create-actions">
                 <span class="create-actions__info">
                     <span class="create-actions__step">Étape {{ indexEtape + 1 }} sur {{ etapes.length }}</span>
-                    <span v-if="bloquant" class="create-actions__msg">Ces dates tombent pendant une période bloquante.</span>
+                    <span v-if="bloquant" class="create-actions__msg">Dates sur une période d'interdiction : demande de dérogation à Fanamby.</span>
                 </span>
                 <button v-if="indexEtape > 0" type="button" class="btn-ghost" @click="precedent"><Icon name="arrow-left" />Précédent</button>
                 <button v-if="!aCompleter" type="button" class="btn-ghost" :disabled="form.processing" @click="envoyer('brouillon')">Enregistrer le brouillon</button>
@@ -456,10 +499,11 @@ function allerAuxErreurs(errors) {
                     Suivant
                     <Icon name="arrow-right" />
                 </button>
-                <button v-else type="submit" :disabled="form.processing || bloquant" class="btn-accent">
+                <!-- Sur une période bloquante, l'envoi devient « Contacter Fanamby » : une demande de dérogation -->
+                <button v-else type="submit" :disabled="form.processing" class="btn-accent">
                     <Icon v-if="form.processing" name="circle-notch" class="spin" />
-                    <Icon v-else name="arrow-right" />
-                    {{ form.processing ? 'Envoi…' : aCompleter ? 'Renvoyer le dossier complété' : 'Envoyer la demande' }}
+                    <Icon v-else :name="bloquant && !aCompleter ? 'envelope-simple' : 'arrow-right'" />
+                    {{ aCompleter ? 'Renvoyer le dossier complété' : bloquant ? 'Contacter Fanamby : demander une dérogation' : 'Envoyer la demande' }}
                 </button>
             </div>
         </form>
@@ -489,7 +533,7 @@ function allerAuxErreurs(errors) {
 .stepper__label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .stepper__btn.is-done { color: var(--forest); }
 .stepper__btn.is-done .stepper__n { background: var(--forest-soft); }
-.stepper__btn.is-current { border-color: var(--forest); color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--forest); }
+.stepper__btn.is-current { border-color: var(--forest); color: var(--ink); box-shadow: inset 0 -2px 0 var(--forest); }
 .stepper__btn.is-current .stepper__n { background: var(--forest); border-color: var(--forest); color: #fff; }
 .stepper__btn.is-error { border-color: var(--signal-line); color: var(--signal); }
 /* Sur petit écran, seul le libellé de l'étape en cours reste affiché */
@@ -524,9 +568,13 @@ function allerAuxErreurs(errors) {
 .create-actions__step { font-size: 12.5px; color: var(--ink-3); }
 .create-actions__msg { font-size: 13px; font-weight: 600; color: var(--signal); }
 
+.conseil { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; padding: 12px 16px; background: var(--forest-soft); border: 1px solid var(--rule); border-radius: var(--r-sm); font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.conseil svg { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 2px; color: var(--forest); }
 .complement-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; margin-bottom: 24px; padding: 16px 24px; background: var(--ochre-soft); border: 1px solid var(--ochre-line); border-radius: var(--r); }
 .complement-box__icon { width: 24px; height: 24px; color: var(--ochre); }
 .complement-box__tag { font: 700 11px/1.3 var(--f-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ochre); }
+.complement-box__partie { margin-top: 6px; font-size: 14px; color: var(--ink); }
+.complement-box__partie strong { font-weight: 700; }
 .complement-box__quote { display: block; margin-top: 6px; font-style: italic; quotes: "« " " »"; }
 .complement-box__text { margin-top: 4px; font-size: 13.5px; color: var(--ink-2); }
 </style>

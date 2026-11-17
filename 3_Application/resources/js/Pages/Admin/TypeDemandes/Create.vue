@@ -71,7 +71,7 @@ const submit = () => form.post(route('admin.type-demandes.store'));
                     <div class="form-footer">
                         <Link :href="route('admin.type-demandes.index')" class="btn-cancel">Annuler</Link>
                         <button type="submit" :disabled="form.processing" class="submit-btn">
-                            {{ form.processing ? 'Enregistrement...' : 'Enregistrer' }}
+                            Enregistrer
                         </button>
                     </div>
                 </form>

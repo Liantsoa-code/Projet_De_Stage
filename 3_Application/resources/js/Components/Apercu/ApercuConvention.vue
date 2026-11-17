@@ -92,10 +92,12 @@ const pluriel = (n) => (n > 1 ? 's' : '');
         <p class="fait">Fait à {{ contenu.lieu }}, le ___ / ___ / ______, en deux exemplaires originaux.</p>
 
         <table class="signatures">
+        <tbody>
             <tr>
                 <td><strong>Pour Fanamby</strong><br>{{ contenu.signataire }}<br>Signature et cachet :</td>
                 <td><strong>Le Bénéficiaire</strong><br>{{ beneficiaire.name }}<br>Signature :</td>
             </tr>
+        </tbody>
         </table>
 
         <template #pied>
