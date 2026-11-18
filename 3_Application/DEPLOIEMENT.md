@@ -29,6 +29,7 @@ Comptez environ une heure la première fois.
 13. [Mettre à jour la plateforme plus tard](#13-mettre-à-jour-la-plateforme-plus-tard)
 14. [Sauvegardes](#14-sauvegardes)
 15. [En cas de problème](#15-en-cas-de-problème)
+16. [Les emails sur un ordinateur de test](#16-les-emails-sur-un-ordinateur-de-test)
 
 ---
 
@@ -502,6 +503,7 @@ tail -n 50 storage/logs/laravel-$(date +%F).log
 | Page blanche, l'interface ne se charge pas | `public/hot` présent, ou `public/build` absent | supprimer `public/hot` ; relancer `npm run build` |
 | « 500 · Erreur du serveur » | droits d'écriture, `.env` incomplet, `APP_KEY` vide | lire le journal ; `chmod -R 775 storage bootstrap/cache` ; `php artisan key:generate` |
 | « 403 Invalid signature » en cliquant le lien de confirmation | HTTPS géré par un proxy, ou `APP_URL` différente de l'adresse du site | `TRUSTED_PROXIES=*` ; corriger `APP_URL` ; puis `optimize:clear` et `optimize` |
+| « Un lien de confirmation vient de vous être envoyé », mais aucun email n'arrive | `MAIL_MAILER=log` : les emails sont écrits dans le journal au lieu d'être envoyés (réglage de `.env.example`) | mettre les réglages SMTP de l'étape 2 ; puis `optimize:clear` et `optimize` (voir aussi la partie 16) |
 | Aucun email ne part | réglages SMTP faux, ou `.env` modifié sans vider le cache | test `tinker` de l'étape 11 ; `php artisan optimize:clear && php artisan optimize` ; lire le journal |
 | Erreur « Username and Password not accepted » (Gmail) | mot de passe normal au lieu du mot de passe d'application | recréer un mot de passe d'application (étape 2) |
 | Confirmation et mot de passe OK, mais pas les notifications des dossiers | le programme d'envoi ne tourne pas | étape 9 ; `php artisan queue:failed` liste les échecs, `php artisan queue:retry all` les relance |
@@ -510,3 +512,40 @@ tail -n 50 storage/logs/laravel-$(date +%F).log
 | « Trop de tentatives depuis votre connexion » | limite de 5 inscriptions ou demandes de mot de passe par minute (20 par heure) depuis une même adresse IP | patienter ; c'est la protection contre les robots |
 | Un utilisateur ne reçoit pas son email de confirmation | adresse mal saisie, ou email en spam | il peut corriger son adresse dans Profil, puis cliquer « Renvoyer l'e-mail » |
 | L'administrateur a perdu son mot de passe | | `php artisan plateforme:admin son-adresse`, puis « yes » au nouveau mot de passe |
+
+---
+
+## 16. Les emails sur un ordinateur de test
+
+Cette partie concerne la plateforme lancée sur un ordinateur pour l'essayer (`php artisan serve` ou `composer dev`),
+pas le serveur en ligne.
+
+Le `.env` de test, copié de `.env.example`, contient `MAIL_MAILER=log`. **Aucun email ne part** : la plateforme
+affiche « Un lien de confirmation vient de vous être envoyé », mais l'email est écrit à la fin du journal `storage/logs/laravel.log`.
+C'est voulu : pendant les essais et les démonstrations, aucun email ne part par erreur.
+
+### Confirmer un compte d'essai sans recevoir l'email
+
+1. Ouvrir `storage/logs/laravel.log` et chercher, en partant de la fin, le dernier « Confirmez votre adresse e-mail »
+   (ou « Réinitialisez votre mot de passe »).
+2. Juste en dessous, copier le lien qui contient `verify-email/` (ou `reset-password/`).
+3. Dans ce lien, remplacer chaque `&amp;` par `&`, puis l'ouvrir dans le navigateur.
+
+Le lien de confirmation reste valable **60 minutes**. Passé ce délai, cliquer « Renvoyer l'e-mail » sur la page
+« Vérifiez votre adresse e-mail » : un nouveau lien s'ajoute à la fin du journal.
+
+### Recevoir les emails pour de vrai sur l'ordinateur de test
+
+1. Préparer un compte d'envoi comme à l'étape 2 (Gmail et son mot de passe d'application, par exemple).
+2. Dans le `.env`, remplacer les lignes `MAIL_` par celles de l'étape 2.
+3. Vider le cache de la configuration, puis relancer le serveur (`php artisan serve` ou `composer dev`) :
+
+```bash
+php artisan config:clear
+```
+
+Les emails de confirmation et de mot de passe oublié partent alors tout de suite. Les notifications des dossiers
+(soumission, complément, décision…) attendent dans la file : `composer dev` la fait tourner ; avec
+`php artisan serve` seul, lancer aussi `php artisan queue:work` dans un autre terminal.
+
+Pour revenir au mode d'essai sans envoi : remettre `MAIL_MAILER=log`, puis `php artisan config:clear`.
