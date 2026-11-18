@@ -108,7 +108,7 @@ Table t_documents_requis {
   id bigint [pk, increment]
   type_demande_id bigint [not null]
   libelle varchar(150) [not null]
-  reutilisable boolean [not null, default: false, note: 'reprise d'un dossier précédent du même demandeur']
+  reutilisable boolean [not null, default: false, note: 'reprise d\'un dossier précédent du même demandeur']
   created_at timestamp
   updated_at timestamp
 
@@ -140,7 +140,7 @@ Table t_demandes {
   objectifs text [note: 'Objectif(s) principal(aux) du projet']
   clarification text [note: 'Réponse du demandeur à un point à clarifier (complément), saisie dans « Informations sur la demande »']
   derogation_motif text [note: 'Demande de dérogation (dates sur une période bloquante) : justification du demandeur ; vide hors dérogation']
-  date_arrivee date [note: "Arrivée sur le terrain, au plus tard au début des activités ; facultative tant que la demande est un brouillon"]
+  date_arrivee date [note: 'Arrivée sur le terrain, au plus tard au début des activités ; facultative tant que la demande est un brouillon']
   date_debut date [note: 'Début des activités ; facultative tant que la demande est un brouillon']
   date_fin date [note: 'Facultative tant que la demande est un brouillon']
   equipe_nombre int [not null, default: 1, note: 'CHECK (equipe_nombre >= 1)']
@@ -233,7 +233,7 @@ Table t_modeles_reference {
   usage text
   icone varchar(40) [not null]
   automatique boolean [not null, default: false, note: 'Document produit par la plateforme à la validation (indication affichée)']
-  contenu text [not null, note: 'Texte mis en forme à l'impression ; les champs à compléter sont entre crochets (non stockés à part)']
+  contenu text [not null, note: 'Texte mis en forme à l\'impression ; les champs à compléter sont entre crochets (non stockés à part)']
   created_at timestamp
   updated_at timestamp
 
@@ -253,7 +253,7 @@ Table t_documents_officiels {
     (demande_id, type) [unique, name: 't_documents_officiels_demande_id_type_unique']
   }
 
-  Note: 'Autorisation et cahier des charges préparés avant la validation signée'
+  Note: 'Autorisation, cahier des charges et convention préparés avant la validation signée'
 }
 
 Table t_documents_reference {

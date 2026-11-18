@@ -463,6 +463,8 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
 .choice strong { display: block; font-weight: 600; font-size: 14px; color: var(--ink); }
 .choice small { font-size: 12.5px; color: var(--ink-3); }
 .decision__submit { width: 100%; }
+/* L'icône de chargement apparaît au clic : sans taille, le SVG prend sa largeur par défaut et le bouton grandit */
+.decision__submit svg { width: 16px; height: 16px; flex-shrink: 0; }
 .steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .steps li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px dashed var(--rule); border-radius: var(--r-sm); color: var(--ink-3); }
 .steps li svg { width: 18px; height: 18px; margin-top: 1px; }
@@ -477,7 +479,9 @@ const boutonClasse = computed(() => ({ a_completer: 'btn-warn', rejetee: 'btn-da
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     padding: 10px 16px; border-radius: var(--r-sm); font: 600 14px/1 var(--f-body); color: #fff; cursor: pointer;
 }
-.btn-warn { background: var(--ochre); border: 1px solid var(--ochre); }
+.btn-warn { background: var(--ochre); border: 1px solid var(--ochre); transition: filter 0.15s, transform 0.15s var(--ease-out); }
+.btn-warn:not(:disabled):hover { filter: brightness(1.08); }
+.btn-warn:not(:disabled):active { transform: scale(0.97); }
 .btn-danger { background: var(--signal); border: 1px solid var(--signal); }
 .btn-warn:disabled, .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

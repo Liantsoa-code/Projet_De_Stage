@@ -6,7 +6,8 @@ import InputError from '@/Components/InputError.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
-const LONGUEUR_MIN = 8;
+// Même règle que Password::defaults() (AppServiceProvider) : 10 caractères, une lettre et un chiffre
+const LONGUEUR_MIN = 10;
 
 const form = useForm({
     name: '',
@@ -16,6 +17,7 @@ const form = useForm({
 });
 
 const assezLong = computed(() => form.password.length >= LONGUEUR_MIN);
+const lettresEtChiffres = computed(() => /\p{L}/u.test(form.password) && /\p{N}/u.test(form.password));
 const confirme = computed(() => form.password_confirmation.length > 0 && form.password === form.password_confirmation);
 const confirmationFausse = computed(() => form.password_confirmation.length > 0 && !confirme.value);
 
@@ -59,7 +61,7 @@ const submit = () => {
                         required
                         autofocus
                         autocomplete="name"
-                        placeholder="Ex. Université d'Antananarivo"
+                        placeholder="Rakotoarimanana Olivier"
                     />
                 </div>
                 <InputError class="gf-error" :message="form.errors.name" />
@@ -90,6 +92,10 @@ const submit = () => {
                 <p class="auth-rule" :class="{ 'auth-rule--ok': assezLong }">
                     <Icon :name="assezLong ? 'check-circle' : 'warning-circle'" />
                     {{ LONGUEUR_MIN }} caractères minimum
+                </p>
+                <p class="auth-rule" :class="{ 'auth-rule--ok': lettresEtChiffres }">
+                    <Icon :name="lettresEtChiffres ? 'check-circle' : 'warning-circle'" />
+                    Au moins une lettre et un chiffre
                 </p>
                 <InputError class="gf-error" :message="form.errors.password" />
             </div>

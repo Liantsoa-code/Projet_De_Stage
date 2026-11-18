@@ -5,9 +5,11 @@ namespace App\Providers;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rules\Password;
 use App\Models\User;
 
 class AppServiceProvider extends ServiceProvider
@@ -26,6 +28,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // En production, tous les liens envoyés par email (vérification de l'adresse, réinitialisation du
+        // mot de passe, notifications) partent de APP_URL et jamais de l'en-tête Host de la requête :
+        // un en-tête falsifié ne peut pas détourner un lien de réinitialisation vers un autre site.
+        if ($this->app->isProduction()) {
+            URL::forceRootUrl(config('app.url'));
+            if (str_starts_with((string) config('app.url'), 'https://')) {
+                URL::forceScheme('https');
+            }
+        }
+
+        // Mot de passe choisi à l'inscription, à la réinitialisation ou dans le profil :
+        // 10 caractères minimum, avec au moins une lettre et un chiffre (rappelé sous le champ de Register.vue).
+        Password::defaults(fn () => Password::min(10)->letters()->numbers());
 
         Gate::define('is-admin', function (User $user) {
             return $user->role === 'admin';
@@ -56,5 +72,15 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('demandes', fn (Request $request) => Limit::perMinute(20)
             ->by($request->user()?->id ?: $request->ip())
             ->response(fn () => back()->with('error', "Trop d'envois en peu de temps : patientez une minute avant de réessayer.")));
+
+        // Inscription et mot de passe oublié : chaque envoi déclenche un email. Limité par adresse IP
+        // (5 par minute, 20 par heure) pour qu'un robot ne puisse pas inonder des adresses inconnues
+        // et faire classer l'adresse d'envoi de la plateforme comme spam.
+        RateLimiter::for('comptes', fn (Request $request) => collect([
+            Limit::perMinute(5)->by('minute|'.$request->ip()),
+            Limit::perHour(20)->by('heure|'.$request->ip()),
+        ])->map(fn (Limit $limit) => $limit->response(fn () => back()->withErrors([
+            'email' => 'Trop de tentatives depuis votre connexion : patientez quelques minutes avant de réessayer.',
+        ])))->all());
     }
 }

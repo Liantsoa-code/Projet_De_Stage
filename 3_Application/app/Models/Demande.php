@@ -36,9 +36,10 @@ class Demande extends Model
     public const COORDONNEES = ['organisation', 'fonction', 'adresse', 'telephone', 'piece_identite'];
 
     protected $casts = [
-        'date_arrivee' => 'date',
-        'date_debut' => 'date',
-        'date_fin' => 'date',
+        // Envoyées à l'interface en AAAA-MM-JJ : sans heure, la date ne change pas avec le fuseau horaire
+        'date_arrivee' => 'date:Y-m-d',
+        'date_debut' => 'date:Y-m-d',
+        'date_fin' => 'date:Y-m-d',
         'date_soumission' => 'datetime',
         'resultats_analyse' => 'array',
     ];

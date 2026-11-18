@@ -34,10 +34,15 @@ Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verif
 // Rapport d'activité PDF de la période choisie sur le tableau de bord (admin et observateur)
 Route::get('/dashboard/rapport', RapportActiviteController::class)->middleware(['auth', 'verified', 'can:peut-piloter'])->name('dashboard.rapport');
 
+// Profil accessible avant la vérification de l'adresse : une adresse mal saisie à l'inscription peut être corrigée.
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+// Tout le reste exige une adresse email vérifiée (User implémente MustVerifyEmail).
+Route::middleware(['auth', 'verified'])->group(function () {
     // Le demandeur consulte ses dossiers, modifie ses brouillons / compléments et supprime ses brouillons.
     // Création et modification (avec envoi de fichiers) limitées par le limiteur « demandes » (AppServiceProvider).
     Route::post('/demandes/analyse', [DemandeController::class, 'analyser'])->name('demandes.analyse');
@@ -55,7 +60,7 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 
-Route::middleware(['auth', 'can:is-admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'verified', 'can:is-admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::resource('sites', SiteController::class)->except(['show']);
     // Galerie d'une aire protégée : dépôt (une photo par envoi), ordre, légende et crédit, suppression
     Route::post('sites/{site}/photos', [AdminPhotoSiteController::class, 'store'])->middleware('throttle:demandes')->name('sites.photos.store');
@@ -69,7 +74,7 @@ Route::middleware(['auth', 'can:is-admin'])->prefix('admin')->name('admin.')->gr
 
 // Instruction : lecture ouverte aux observateurs (can:peut-suivre), décisions réservées aux validateurs et admins
 // (can:is-validateur). Chaque dossier est encore vérifié par DemandePolicy (suivre, instruire, decider).
-Route::middleware(['auth', 'can:peut-suivre'])->prefix('validateur')->name('validateur.')->group(function () {
+Route::middleware(['auth', 'verified', 'can:peut-suivre'])->prefix('validateur')->name('validateur.')->group(function () {
     Route::get('demandes', [ValidateurDemandeController::class, 'index'])->name('demandes.index');
     Route::get('demandes/export', [ValidateurDemandeController::class, 'export'])->name('demandes.export');
     Route::get('demandes/{demande}', [ValidateurDemandeController::class, 'show'])->name('demandes.show');
@@ -90,7 +95,7 @@ Route::middleware(['auth', 'can:peut-suivre'])->prefix('validateur')->name('vali
 
 // Références : modèles des documents officiels (avis favorable, autorisation, refus…)
 // et documents déposés par l'équipe (dépôt limité par le limiteur « demandes »).
-Route::middleware(['auth', 'can:is-validateur'])->prefix('references')->name('references.')->group(function () {
+Route::middleware(['auth', 'verified', 'can:is-validateur'])->prefix('references')->name('references.')->group(function () {
     Route::get('/', [ReferenceController::class, 'index'])->name('index');
     Route::get('modeles/{modele}', [ModeleReferenceController::class, 'show'])->whereNumber('modele')->name('modeles.show');
     Route::post('documents', [DocumentReferenceController::class, 'store'])->middleware('throttle:demandes')->name('documents.store');
@@ -99,7 +104,7 @@ Route::middleware(['auth', 'can:is-validateur'])->prefix('references')->name('re
 });
 
 // Gestion des modèles de la page Références : admins uniquement
-Route::middleware(['auth', 'can:is-admin'])->prefix('references/modeles')->name('references.modeles.')->group(function () {
+Route::middleware(['auth', 'verified', 'can:is-admin'])->prefix('references/modeles')->name('references.modeles.')->group(function () {
     Route::get('create', [ModeleReferenceController::class, 'create'])->name('create');
     Route::post('/', [ModeleReferenceController::class, 'store'])->name('store');
     Route::post('apercu', [ModeleReferenceController::class, 'apercu'])->name('apercu');

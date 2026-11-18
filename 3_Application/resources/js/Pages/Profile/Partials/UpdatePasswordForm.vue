@@ -54,7 +54,7 @@ const updatePassword = () => {
                 </h2>
 
                 <p class="section-text">
-                    Choisissez un mot de passe long et différent de ceux que vous utilisez ailleurs.
+                    Choisissez un mot de passe d'au moins 10 caractères, avec au moins une lettre et un chiffre, différent de ceux que vous utilisez ailleurs.
                 </p>
             </div>
 

@@ -2,17 +2,21 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+/**
+ * MustVerifyEmail : un lien de confirmation est envoyé à l'inscription (et après un changement d'adresse) ;
+ * tant qu'il n'est pas ouvert, le middleware « verified » renvoie vers la page « Vérifiez votre adresse ».
+ */
 #[Fillable(['name', 'email', 'password', 'role', 'organisation', 'fonction', 'adresse', 'telephone', 'piece_identite'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
